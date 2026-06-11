@@ -138,14 +138,16 @@
     display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
   .vbtn .vs{color:var(--dim);font-size:11px;font-weight:500;display:block;margin-top:1px}
   .vbtn .ext{margin-left:auto;color:var(--dim);font-size:15px}
-  /* Player de vídeo local (modal) */
+  /* Player de vídeo (modal — toca dentro do app) */
   .vmodal{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:100;display:none;
     flex-direction:column;align-items:center;justify-content:center;padding:16px}
   .vmodal.on{display:flex}
   .vmodal video{width:100%;max-width:680px;max-height:74vh;border-radius:14px;background:#000}
-  .vmodal .vct{margin-top:10px;color:var(--text);font-size:14px;font-weight:800}
-  .vmodal .vclose{margin-top:14px;padding:12px 28px;border-radius:12px;background:var(--card);
-    border:1px solid var(--border);color:var(--text);font-weight:800;font-size:14px}
+  .vmodal iframe{width:100%;max-width:680px;aspect-ratio:16/9;border:0;border-radius:14px;background:#000}
+  .vmodal .vct{margin-top:10px;color:var(--text);font-size:14px;font-weight:800;text-align:center}
+  .vrow{display:flex;gap:10px;margin-top:14px}
+  .vmodal .vclose{padding:12px 24px;border-radius:12px;background:var(--card);
+    border:1px solid var(--border);color:var(--text);font-weight:800;font-size:14px;text-decoration:none}
 
   .notes{margin:2px 0 0;padding:0;list-style:none}
   .notes li{color:var(--muted);font-size:12px;line-height:1.55}
@@ -281,13 +283,18 @@
 
   <div id="panels"></div>
 
-  <div class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span style="opacity:.55">versão GitHub · 1.0 (Stiff + Flexora em Pé · vídeos YouTube revisados)</span></div>
+  <div class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span style="opacity:.55">versão GitHub · 1.1 (vídeo toca dentro do app · flexora em pé na máquina)</span></div>
 </div>
 
 <div class="vmodal" id="vmodal" onclick="if(event.target.id==='vmodal')closeVid()">
-  <video id="vmvideo" controls playsinline loop muted></video>
+  <video id="vmvideo" controls playsinline loop muted style="display:none"></video>
+  <iframe id="vmframe" style="display:none" title="Demonstração"
+    allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>
   <div class="vct" id="vmtitle"></div>
-  <button class="vclose" onclick="closeVid()">✕ Fechar</button>
+  <div class="vrow">
+    <a class="vclose" id="vmext" href="#" target="_blank" rel="noopener" style="display:none">↗ YouTube</a>
+    <button class="vclose" onclick="closeVid()">✕ Fechar</button>
+  </div>
 </div>
 
 <div class="timerbar" id="timerbar">
@@ -323,7 +330,7 @@ const YT = {
   c_terra_barra:'https://www.youtube.com/watch?v=3otpFrCvjLw',
   c_leg_press:'https://www.youtube.com/watch?v=waAxlYvtCcI',
   c_extensor:'https://www.youtube.com/watch?v=Svq2T3L9oKo',
-  c_flexor_sentado:'https://www.youtube.com/watch?v=sPwhh5BTTg4',  // Flexora em pé unilateral (posterior)
+  c_flexor_sentado:'https://www.youtube.com/watch?v=T--10UN1jKs',  // Flexora em Pé Unilateral na Máquina
   c_flexor_deitado:'https://www.youtube.com/watch?v=vXPbKrYIEaQ',  // O passo a passo do STIFF
   c_panturrilha_pe:'https://www.youtube.com/watch?v=F7_8z_7Kwks',     // Flexão plantar no Leg Press 45º
   c_panturrilha_sentado:'https://www.youtube.com/watch?v=zHJE3HPEP84', // Flexão plantar no banco sóleo (sentado)
@@ -377,7 +384,7 @@ const WORKOUTS = [
     ex('c_terra_barra','Levantamento Terra','Barra','per',3),
     ex('c_leg_press','Leg Press','45°','per',3),
     ex('c_extensor','Extensor de Joelhos',null,'per',3),
-    ex('c_flexor_sentado','Flexora em Pé','Na polia · 1 perna','per',3),
+    ex('c_flexor_sentado','Flexora em Pé','Máquina · 1 perna','per',3),
     ex('c_flexor_deitado','Stiff','Barra ou halteres','per',3),
     ex('c_panturrilha_pe','Flexão Plantar','Leg Press','per',3,null,{warm:2}),
     ex('c_panturrilha_sentado','Flexão Plantar','Banco Sóleo','per',3,null,{warm:2}),
@@ -528,11 +535,9 @@ function exerciseCard(exObj){
   }
 
   if(vid){
-    const loc=isLocalVid(vid);
-    const handler = loc ? `openLocalVid('${vid}','${exObj.name.replace(/'/g,'')}')` : `openVid('${vid}')`;
-    body+=`<button class="vbtn" onclick="${handler}">`+
-      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">${loc?'Vídeo no app · offline':'Abre no YouTube'}</span></span>`+
-      `<span class="ext">${loc?'▸':'↗'}</span></button>`;
+    body+=`<button class="vbtn" onclick="openVid('${vid}','${exObj.name.replace(/'/g,'')}')">`+
+      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Toca aqui no app</span></span>`+
+      `<span class="ext">▸</span></button>`;
   }
   if(exObj.notes.length){
     body+='<ul class="notes">'+exObj.notes.map(n=>`<li>• ${n}</li>`).join('')+'</ul>';
@@ -632,7 +637,7 @@ function renderPanels(){
     h+=`<div class="stcard">`+
       `<div class="stname">${s.name}<span class="sttag ${tagClass}">${s.tipo}</span></div>`+
       `<div class="stmeta">${s.freq}</div>`+
-      (s.vid?`<button class="vbtn" style="margin-top:10px" onclick="openVid('${s.vid}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Abre no YouTube</span></span><span class="ext">↗</span></button>`:'')+
+      (s.vid?`<button class="vbtn" style="margin-top:10px" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Toca aqui no app</span></span><span class="ext">▸</span></button>`:'')+
       `<div class="stopts">`+
         [20,25,30].map(sec=>`<button class="stopt ${sel===sec?'on':''}" data-st="${i}" data-sec="${sec}" onclick="pickSt(${i},${sec})">${sec}s</button>`).join('')+
       `</div>`+
@@ -690,16 +695,44 @@ function logSetReps(exId,i,val,restS,name){
   if(String(val).trim()!=='') startTimer(restS,'Descanso · '+name);
 }
 function markDone(exId){ toggleDone(state.week,exId); render(); }
-function openVid(u){ primeAudio(); window.open(u,'_blank'); }
 function isLocalVid(s){ return /\.mp4(\?|$)/i.test(s); }
-function openLocalVid(src,title){
-  const m=document.getElementById('vmodal'), v=document.getElementById('vmvideo');
+// Extrai o ID do vídeo de URLs do YouTube (watch, shorts, youtu.be)
+function ytId(u){
+  u=String(u||'');
+  let m=u.match(/[?&]v=([A-Za-z0-9_-]{6,})/);            if(m) return m[1];
+  m=u.match(/youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/); if(m) return m[1];
+  m=u.match(/youtu\.be\/([A-Za-z0-9_-]{6,})/);            if(m) return m[1];
+  return null;
+}
+// Abre o vídeo DENTRO do app: mp4 local no <video>, YouTube no player embutido.
+// Só cai pro navegador se a URL não for reconhecida.
+function openVid(u,title){
+  primeAudio();
+  const m=document.getElementById('vmodal'), v=document.getElementById('vmvideo'),
+        f=document.getElementById('vmframe'), ext=document.getElementById('vmext');
   document.getElementById('vmtitle').textContent=title||'';
-  v.src=src; m.classList.add('on'); try{ v.play(); }catch(e){}
+  const id=ytId(u);
+  if(isLocalVid(u)){
+    f.style.display='none'; f.src='about:blank';
+    ext.style.display='none';
+    v.style.display='block'; v.src=u;
+    m.classList.add('on'); try{ v.play(); }catch(e){}
+  } else if(id){
+    v.style.display='none'; try{ v.pause(); }catch(e){} v.removeAttribute('src');
+    f.style.display='block';
+    f.src='https://www.youtube-nocookie.com/embed/'+id+'?playsinline=1&rel=0';
+    ext.href=u; ext.style.display='inline-block'; // reserva: se o dono do vídeo bloquear embed
+    m.classList.add('on');
+  } else {
+    window.open(u,'_blank');
+  }
 }
 function closeVid(){
-  const m=document.getElementById('vmodal'), v=document.getElementById('vmvideo');
-  try{ v.pause(); }catch(e){} v.removeAttribute('src'); v.load(); m.classList.remove('on');
+  const m=document.getElementById('vmodal'), v=document.getElementById('vmvideo'),
+        f=document.getElementById('vmframe');
+  try{ v.pause(); }catch(e){} v.removeAttribute('src'); v.load();
+  f.src='about:blank'; // para o vídeo/áudio do YouTube
+  m.classList.remove('on');
 }
 function pickSt(i,sec){
   stSel[i]=sec;
