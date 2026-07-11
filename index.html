@@ -58,6 +58,11 @@
     border-color:transparent;color:#fff;box-shadow:0 3px 12px rgba(217,109,143,.4)}
   .week.dl.on{background:linear-gradient(135deg,var(--orange),#9c6a2e);
     box-shadow:0 3px 12px rgba(217,160,102,.4)}
+  .sessionbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .session{padding:10px;border-radius:11px;background:var(--card);border:1px solid var(--border);
+    color:var(--muted);font-weight:800;font-size:13px;transition:.15s}
+  .session:active{transform:scale(.97)}
+  .session.on{background:var(--purpdim);border-color:var(--purple);color:#fff}
 
   /* Week summary */
   .wsum{margin:12px 16px 4px;background:var(--elev);border:1px solid var(--border);
@@ -275,6 +280,8 @@
   <div class="weekwrap">
     <div class="wlbl">Semana do ciclo</div>
     <div class="weekbar" id="weekbar"></div>
+    <div class="wlbl" style="margin-top:12px">Ocorrência do treino</div>
+    <div class="sessionbar" id="sessionbar"></div>
   </div>
   <div class="wsum" id="wsum"></div>
   <div id="deloadnote"></div>
@@ -283,7 +290,7 @@
 
   <div id="panels"></div>
 
-  <div class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span style="opacity:.55">versão GitHub · 1.1 (vídeo toca dentro do app · flexora em pé na máquina)</span></div>
+  <div class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span style="opacity:.55">versão GitHub · 1.2 (dois treinos por semana)</span></div>
 </div>
 
 <div class="vmodal" id="vmodal" onclick="if(event.target.id==='vmodal')closeVid()">
@@ -425,20 +432,26 @@ function targetFor(exObj,week){
 // Treino do dia: Dom=descanso, Seg=A, Ter=B, Qua=C, Qui=A, Sex=B, Sáb=C
 const DAY_TID = ['', 'a', 'b', 'c', 'a', 'b', 'c'];
 const todayTid = DAY_TID[new Date().getDay()];
+const todaySession = new Date().getDay() >= 4 ? 2 : 1;
 
 // Acha a semana anterior mais recente com dados registrados deste exercício
 function prevReference(exId, week){
+  if(state.session===2){
+    const first=readEntry(week,exId,1);
+    if(first.sets && first.sets.some(hasSetData)) return {week:week, session:1, sets:first.sets};
+  }
   for(let w=week-1; w>=1; w--){
-    const wk = state.data[w], en = wk && wk[exId];
-    if(en && en.sets && en.sets.some(s=>s && ((s.kg!==''&&s.kg!=null) || (s.reps!==''&&s.reps!=null)))){
-      return {week:w, sets:en.sets};
+    const en=readEntry(w,exId,state.session);
+    if(en.sets && en.sets.some(hasSetData)){
+      return {week:w, session:state.session, sets:en.sets};
     }
   }
   return null;
 }
+function hasSetData(s){ return s && ((s.kg!==''&&s.kg!=null) || (s.reps!==''&&s.reps!=null)); }
 
 /* ====================== ESTADO ====================== */
-const LS = {week:'jovilite_week', tab:'jovilite_tab', data:'jovilite_data'};
+const LS = {week:'jovilite_week', session:'jovilite_session', tab:'jovilite_tab', data:'jovilite_data'};
 function clampWeek(v){ v=parseInt(v,10); return (v>=1&&v<=8)?v:0; }
 function loadData(){ try{ return JSON.parse(localStorage.getItem(LS.data))||{}; }catch(e){ return {}; } }
 function saveData(){ localStorage.setItem(LS.data, JSON.stringify(state.data)); }
@@ -446,6 +459,7 @@ function saveData(){ localStorage.setItem(LS.data, JSON.stringify(state.data)); 
 const VALID_TABS = ['a','b','c','alg','ciclo'];
 let state = {
   week: clampWeek(localStorage.getItem(LS.week)) || 1,
+  session: parseInt(localStorage.getItem(LS.session),10)===2 ? 2 : todaySession,
   tab: localStorage.getItem(LS.tab) || 'a',
   data: loadData(),
 };
@@ -455,14 +469,23 @@ const stSel = {}; // índice do alongamento -> segundos escolhidos
 
 const EMPTY_ENTRY = {sets:[],done:false};
 // Leitura: nunca cria nada (evita inchar o backup só de abrir a tela)
-function readEntry(week,exId){
+function sessionBucket(week,session,create){
   const wk=state.data[week];
-  return (wk && wk[exId]) ? wk[exId] : EMPTY_ENTRY;
+  if(!wk) return create ? (state.data[week]={1:{},2:{}})[session] : null;
+  if(wk[1] || wk[2]) return wk[session] || (create ? (wk[session]={}) : null);
+  // Formato v1: semana -> exercício. Preserva tudo como 1º treino.
+  state.data[week]={1:wk,2:{}};
+  saveData();
+  return state.data[week][session];
+}
+function readEntry(week,exId,session=state.session){
+  const bucket=sessionBucket(week,session,false);
+  return (bucket && bucket[exId]) ? bucket[exId] : EMPTY_ENTRY;
 }
 // Escrita: garante que a entrada exista antes de gravar
 function ensureEntry(week,exId){
-  const wk = state.data[week] || (state.data[week]={});
-  return wk[exId] || (wk[exId]={sets:[],done:false});
+  const bucket=sessionBucket(week,state.session,true);
+  return bucket[exId] || (bucket[exId]={sets:[],done:false});
 }
 function setVal(week,exId,i,field,val){
   const e=ensureEntry(week,exId);
@@ -481,6 +504,11 @@ function renderWeekbar(){
     h+=`<button class="week ${w===8?'dl':''} ${state.week===w?'on':''}" onclick="setWeek(${w})">${WEEK_LABEL[w]}</button>`;
   }
   $('#weekbar').innerHTML=h;
+}
+function renderSessionbar(){
+  $('#sessionbar').innerHTML=[1,2].map(n=>
+    `<button class="session ${state.session===n?'on':''}" onclick="setSession(${n})">${n}º treino</button>`
+  ).join('');
 }
 function renderWsum(){
   const w=state.week, dl=w===8;
@@ -560,9 +588,9 @@ function exerciseCard(exObj){
         const sv=e.sets[i]||{kg:'',reps:''};
         body+=`<div class="srow">`+
           `<div class="stag warm">A${i+1}</div>`+
-          `<div class="field"><input class="sin" inputmode="decimal" placeholder="kg" value="${esc(sv.kg||'')}" onchange="upd('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
+          `<div class="field"><input class="sin" inputmode="decimal" placeholder="kg" value="${esc(sv.kg||'')}" oninput="upd('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
           `<span class="sx">×</span>`+
-          `<div class="field"><input class="sin" inputmode="numeric" placeholder="reps" value="${esc(sv.reps||'')}" onchange="upd('${exObj.id}',${i},'reps',this.value)"><span class="funit">reps</span></div>`+
+          `<div class="field"><input class="sin" inputmode="numeric" placeholder="reps" value="${esc(sv.reps||'')}" oninput="upd('${exObj.id}',${i},'reps',this.value)"><span class="funit">reps</span></div>`+
           `</div>`;
       }
       body+='</div>';
@@ -575,21 +603,22 @@ function exerciseCard(exObj){
       const ref = prev.sets.slice(warmN).map(s=>
         (s&&s.kg!==''&&s.kg!=null?s.kg:'–')+'×'+(s&&s.reps!==''&&s.reps!=null?s.reps:'–')
       ).join(' · ');
-      if(ref) body+=`<div class="prevref">↩ <b>${WEEK_LABEL[prev.week]}</b> semana passada: ${ref}</div>`;
+      if(ref){
+        const refLabel=prev.week===week ? '1º treino desta semana' : `${WEEK_LABEL[prev.week]} · ${prev.session}º treino`;
+        body+=`<div class="prevref">↩ <b>${refLabel}</b>: ${ref}</div>`;
+      }
     }
     body+='<div class="sets">';
     for(let j=0;j<t.sets;j++){
       const i=warmN+j;
       const sv=e.sets[i]||{kg:'',reps:''};
       const pkg = (prev && prev.sets[i] && prev.sets[i].kg!==''&&prev.sets[i].kg!=null) ? prev.sets[i].kg : 'kg';
-      const repsHandler = autoRest
-        ? `logSetReps('${exObj.id}',${i},this.value,${rs},'${nm}')`
-        : `upd('${exObj.id}',${i},'reps',this.value)`;
+      const repsChange = autoRest ? ` onchange="finishSetReps(this.value,${rs},'${nm}')"` : '';
       body+=`<div class="srow">`+
         `<div class="stag">${j+1}</div>`+
-        `<div class="field"><input class="sin" inputmode="decimal" placeholder="${pkg}" value="${esc(sv.kg||'')}" onchange="upd('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
+        `<div class="field"><input class="sin" inputmode="decimal" placeholder="${pkg}" value="${esc(sv.kg||'')}" oninput="upd('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
         `<span class="sx">×</span>`+
-        `<div class="field"><input class="sin" inputmode="numeric" placeholder="${t.reps}" value="${esc(sv.reps||'')}" onchange="${repsHandler}"><span class="funit">reps</span></div>`+
+        `<div class="field"><input class="sin" inputmode="numeric" placeholder="${t.reps}" value="${esc(sv.reps||'')}" oninput="upd('${exObj.id}',${i},'reps',this.value)"${repsChange}><span class="funit">reps</span></div>`+
         `</div>`;
     }
     body+='</div>';
@@ -617,9 +646,9 @@ function renderPanels(){
     const pct=Math.round(done/total*100);
     h+=`<div class="panel ${state.tab===w.tid?'on':''}">`;
     h+=`<div class="ptitle">Treino ${w.label} · ${w.name}</div>`;
-    h+=`<div class="psub">Semana ${WEEK_LABEL[state.week]}</div>`;
+    h+=`<div class="psub">Semana ${WEEK_LABEL[state.week]} · ${state.session}º treino</div>`;
     h+=`<div class="prog"><i style="width:${pct}%"></i></div>`;
-    h+=`<div class="progtxt">${done}/${total} concluídos nesta semana</div>`;
+    h+=`<div class="progtxt">${done}/${total} concluídos neste treino</div>`;
     h+=w.exercises.map(exerciseCard).join('');
     h+=`<div style="height:24px"></div></div>`;
   });
@@ -675,7 +704,7 @@ function renderPanels(){
   h+=`<div class="section"><h3>💾 Dados</h3>`+
      `<button class="toolbtn" onclick="exportData()">⬇ Exportar backup (JSON)</button>`+
      `<button class="toolbtn" onclick="openImport()">⬆ Importar backup</button>`+
-     `<button class="toolbtn danger" onclick="resetWeek()">Limpar dados da semana ${WEEK_LABEL[state.week]}</button>`+
+     `<button class="toolbtn danger" onclick="resetWorkout()">Limpar ${state.session}º treino da semana ${WEEK_LABEL[state.week]}</button>`+
      `<input type="file" id="importfile" accept="application/json" style="display:none" onchange="importData(event)">`+
      `</div>`;
   h+=`<div style="height:24px"></div></div>`;
@@ -683,15 +712,15 @@ function renderPanels(){
   $('#panels').innerHTML=h;
 }
 
-function render(){ renderWeekbar(); renderWsum(); renderTabs(); renderPanels(); }
+function render(){ renderWeekbar(); renderSessionbar(); renderWsum(); renderTabs(); renderPanels(); }
 
 /* ====================== AÇÕES (todas globais p/ onclick inline) ====================== */
 function setWeek(w){ state.week=w; localStorage.setItem(LS.week,w); render(); window.scrollTo(0,0); }
+function setSession(n){ state.session=n; localStorage.setItem(LS.session,n); render(); window.scrollTo(0,0); }
 function setTab(t){ state.tab=t; localStorage.setItem(LS.tab,t); render(); window.scrollTo(0,0); }
 function upd(exId,i,f,v){ setVal(state.week,exId,i,f,v); }
-// Registra reps E inicia o descanso automático (só séries de trabalho)
-function logSetReps(exId,i,val,restS,name){
-  setVal(state.week,exId,i,'reps',val);
+// Inicia o descanso ao concluir a edição de reps (o valor já foi salvo via input)
+function finishSetReps(val,restS,name){
   if(String(val).trim()!=='') startTimer(restS,'Descanso · '+name);
 }
 function markDone(exId){ toggleDone(state.week,exId); render(); }
@@ -814,9 +843,11 @@ function importData(ev){
   r.readAsText(f);
   ev.target.value='';
 }
-function resetWeek(){
-  if(confirm('Apagar todos os dados da semana '+WEEK_LABEL[state.week]+'?')){
-    delete state.data[state.week]; saveData(); render();
+function resetWorkout(){
+  if(confirm('Apagar o '+state.session+'º treino da semana '+WEEK_LABEL[state.week]+'?')){
+    const bucket=sessionBucket(state.week,state.session,false);
+    if(bucket) state.data[state.week][state.session]={};
+    saveData(); render();
   }
 }
 
@@ -832,7 +863,9 @@ function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,
   const lastOpen = localStorage.getItem('jovilite_lastopen');
   if(todayTid && lastOpen !== todayKey){
     state.tab = todayTid;
+    state.session = todaySession;
     localStorage.setItem(LS.tab, todayTid);
+    localStorage.setItem(LS.session, todaySession);
   }
   localStorage.setItem('jovilite_lastopen', todayKey);
 })();
