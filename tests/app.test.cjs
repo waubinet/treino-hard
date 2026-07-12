@@ -60,7 +60,7 @@ test('recalcula treino e ocorrência ao retomar em um novo dia',()=>{
   app.store.set('jovilite_lastopen','2000-01-01');
   app.run('syncTodayWorkout()');
   const day=new Date().getDay();
-  const expectedTab=['','a','b','c','a','b','c'][day];
+  const expectedTab=['','b','a','c','b','a','c'][day];
   if(expectedTab) assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.tab,state.session]'))),[expectedTab,day>=4?2:1]);
 });
 
@@ -69,7 +69,7 @@ test('migra integralmente dados legados mantendo a convenção da v1.2',()=>{
   const app=boot({jovilite_data:JSON.stringify(legacy),jovilite_lastopen:todayKey()});
   assert.equal(app.run("readEntry(1,'c_agach_smith',1).sets[0].kg"),'50');
   assert.equal(app.run("readEntry(1,'c_agach_smith',2).sets.length"),0);
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,2);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,3);
 });
 
 test('rejeita campos maliciosos e escapa referências em HTML',()=>{
@@ -146,11 +146,36 @@ test('reinicia toda a periodização e permite desfazer',()=>{
   app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};state.week=4;state.session=2;state.tab='ciclo';saveData()`);
   app.run('resetPeriodization()');
   assert.equal(app.run('Object.keys(state.data).length'),0);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.week,state.session,state.tab]'))),[1,1,'a']);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.week,state.session,state.tab]'))),[1,1,'b']);
+  assert.equal(app.run('state.archives.length'),1);
+  assert.equal(app.run("state.archives[0].data[1][1].c_terra_barra.sets[0].kg"),'60');
   assert.ok(app.store.has('jovilite_snapshot'));
   app.run('undoLastChange()');
   assert.equal(app.run("readEntry(1,'c_terra_barra',1).sets[0].kg"),'60');
   assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.week,state.session,state.tab]'))),[4,2,'ciclo']);
+  assert.equal(app.run('state.archives.length'),0);
+});
+
+test('inverte a rotina semanal e a ordem visual para B, A, C',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  assert.equal(app.run('state.tab'),'b');
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('DAY_TID'))),['','b','a','c','b','a','c']);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.tid)'))),['b','a','c']);
+  app.run('renderTabs()');
+  const tabs=app.run("document.getElementById('tabs').innerHTML");
+  assert.ok(tabs.indexOf('Treino B')<tabs.indexOf('Treino A'));
+});
+
+test('registra data real e distingue conclusão completa, parcial e sem registro',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("state.week=1;state.session=1;setVal(1,'c_terra_barra',0,'kg','60')");
+  assert.ok(app.run("workoutMeta(1,1,'c',false).startedAt"));
+  app.run("toggleDone(1,'c_terra_barra')");
+  assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'unlogged');
+  app.run("toggleDone(1,'c_terra_barra');setVal(1,'c_terra_barra',0,'reps','8');toggleDone(1,'c_terra_barra')");
+  assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'partial');
+  app.run("toggleDone(1,'c_terra_barra');setVal(1,'c_terra_barra',1,'kg','60');setVal(1,'c_terra_barra',1,'reps','8');setVal(1,'c_terra_barra',2,'kg','60');setVal(1,'c_terra_barra',2,'reps','8');toggleDone(1,'c_terra_barra')");
+  assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'full');
 });
 
 test('importação inválida não altera os dados atuais',()=>{

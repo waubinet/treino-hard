@@ -112,6 +112,7 @@
   .prog > i{display:block;height:100%;border-radius:99px;
     background:linear-gradient(90deg,var(--green),#16a34a);transition:width .35s ease}
   .progtxt{color:var(--dim);font-size:11px;font-weight:700;margin:-9px 0 14px}
+  .progtxt .warn{color:#fde68a}
 
   /* CARD */
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;
@@ -133,6 +134,7 @@
   .b-mob{background:var(--purpdim);color:#f5cfdd}
   .b-warm{background:var(--bluedim);color:#e3c4cf}
   .b-per{background:var(--reddim);color:#f0b6cc}
+  .b-logwarn{background:#4a3a08;color:#fde68a}
   .donebtn{flex:0 0 auto;padding:9px 13px;border-radius:999px;background:var(--card2);
     border:1px solid var(--control-border);color:var(--muted);font-weight:800;font-size:12.5px;min-height:44px;
     align-self:flex-start;transition:.15s}
@@ -287,6 +289,10 @@
     background:var(--card);color:var(--text);font-weight:800;margin-top:8px;font-size:14px;transition:.15s}
   .toolbtn:active{transform:scale(.99)}
   .toolbtn.danger{color:#fca5a5;border-color:#5a2020;background:rgba(239,68,68,.06)}
+  .archive{padding:10px 0;border-bottom:1px solid var(--border)}
+  .archive:last-child{border-bottom:0;padding-bottom:0}
+  .archive strong{display:block;font-size:13px}.archive span{display:block;color:var(--dim);font-size:11px;margin-top:2px}
+  .backupwarn{color:#fde68a!important;margin-top:8px!important}
 
   /* Timer bar */
   .timerbar{position:fixed;left:0;right:0;bottom:0;background:rgba(21,21,26,.96);
@@ -363,7 +369,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.5 (curadoria de vídeos)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.6 (histórico de ciclos)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -523,6 +529,8 @@ const WORKOUTS = [
     ex('c_panturrilha_sentado','Flexão Plantar','Banco Sóleo','per',3,null,{warm:2}),
   ]},
 ];
+const WORKOUT_DISPLAY=['b','a','c'];
+function orderedWorkouts(){ return WORKOUT_DISPLAY.map(tid=>WORKOUTS.find(w=>w.tid===tid)); }
 
 const STRETCHES = [
   {name:'Dorsais',tipo:'Alongamento',freq:'Pré-treino A e B',vid:'https://www.youtube.com/watch?v=g9S8XsYALzI'},
@@ -555,8 +563,8 @@ function targetFor(exObj,week){
   return {sets:exObj.sets, reps:exObj.reps, deload:false};
 }
 
-// Treino do dia: Dom=descanso, Seg=A, Ter=B, Qua=C, Qui=A, Sex=B, Sáb=C
-const DAY_TID = ['', 'a', 'b', 'c', 'a', 'b', 'c'];
+// Treino do dia: Dom=descanso, Seg=B, Ter=A, Qua=C, Qui=B, Sex=A, Sáb=C
+const DAY_TID = ['', 'b', 'a', 'c', 'b', 'a', 'c'];
 function dayContext(dt=new Date()){
   const day=dt.getDay();
   return {
@@ -589,11 +597,13 @@ function hasSetData(s){
 }
 
 /* ====================== ESTADO ====================== */
-const DATA_SCHEMA=2;
+const DATA_SCHEMA=3;
 const LS = {
   week:'jovilite_week',session:'jovilite_session',tab:'jovilite_tab',data:'jovilite_data',
   lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery',
-  evolutionExercise:'jovilite_evolution_exercise',evolutionMetric:'jovilite_evolution_metric'
+  evolutionExercise:'jovilite_evolution_exercise',evolutionMetric:'jovilite_evolution_metric',
+  meta:'jovilite_session_meta',archives:'jovilite_cycle_archives',cycleStarted:'jovilite_cycle_started',
+  lastBackup:'jovilite_last_backup'
 };
 let storageHealthy=true;
 function showStatus(message,type='error',withExport=false){
@@ -697,22 +707,71 @@ function syncLatestData(){
   const latest=decodeData(raw,false);
   if(latest.valid) state.data=latest.data;
 }
+function validIso(value){
+  return typeof value==='string' && !Number.isNaN(Date.parse(value)) ? new Date(value).toISOString() : null;
+}
+function normalizeSessionMeta(raw){
+  const out={}; if(!isRecord(raw)) return out;
+  for(let week=1;week<=8;week++){
+    const wk=raw[week]; if(!isRecord(wk)) continue;
+    for(let session=1;session<=2;session++){
+      const bucket=wk[session]; if(!isRecord(bucket)) continue;
+      WORKOUTS.forEach(w=>{
+        const item=bucket[w.tid]; if(!isRecord(item)) return;
+        const startedAt=validIso(item.startedAt),completedAt=validIso(item.completedAt);
+        if(startedAt||completedAt){
+          if(!out[week]) out[week]={1:{},2:{}};
+          out[week][session][w.tid]={...(startedAt?{startedAt}:{}),...(completedAt?{completedAt}:{})};
+        }
+      });
+    }
+  }
+  return out;
+}
+function parseStoredJson(key,fallback){
+  try{ const raw=storageGet(key); return raw?JSON.parse(raw):fallback; }catch(e){ return fallback; }
+}
+function normalizeArchives(raw){
+  if(!Array.isArray(raw)) return [];
+  return raw.map((item,index)=>{
+    if(!isRecord(item)) return null;
+    const normalized=normalizeData(item.data);
+    if(!normalized.valid||normalized.entries===0) return null;
+    return {
+      id:String(item.id||('ciclo-'+index)).replace(/[^A-Za-z0-9_-]/g,'').slice(0,80)||('ciclo-'+index),
+      startedAt:validIso(item.startedAt),endedAt:validIso(item.endedAt)||new Date().toISOString(),
+      data:normalized.data,meta:normalizeSessionMeta(item.meta)
+    };
+  }).filter(Boolean);
+}
+function saveAux(){
+  const okMeta=storageSet(LS.meta,JSON.stringify(state.meta));
+  const okArchives=storageSet(LS.archives,JSON.stringify(state.archives));
+  const okStart=storageSet(LS.cycleStarted,state.cycleStartedAt);
+  return okMeta&&okArchives&&okStart;
+}
 
 const VALID_TABS = ['a','b','c','alg','evol','ciclo'];
 const initialLoad=loadData();
 const savedSession=parseInt(storageGet(LS.session),10);
+const initialCycleStarted=validIso(storageGet(LS.cycleStarted))||new Date().toISOString();
 let state = {
   week:clampWeek(storageGet(LS.week))||1,
   session:[1,2].includes(savedSession)?savedSession:todaySession,
-  tab:storageGet(LS.tab)||'a',
+  tab:storageGet(LS.tab)||'b',
   data:initialLoad.data,
+  meta:normalizeSessionMeta(parseStoredJson(LS.meta,{})),
+  archives:normalizeArchives(parseStoredJson(LS.archives,[])),
+  cycleStartedAt:initialCycleStarted,
 };
-// Aba salvada inválida (ex: 'musica' removida) → volta pra A
-if(!VALID_TABS.includes(state.tab)) state.tab='a';
+// Aba salva inválida (ex.: uma ficha removida) → volta para a primeira ficha, B.
+if(!VALID_TABS.includes(state.tab)) state.tab='b';
 if(initialLoad.needsSave) saveData();
+saveAux();
 const stSel = {}; // índice do alongamento -> segundos escolhidos
 const STRENGTH_EXERCISES=WORKOUTS.flatMap(w=>w.exercises.map(e=>({...e,workout:w.label}))).filter(e=>e.kind!=='mob');
 const STRENGTH_IDS=new Set(STRENGTH_EXERCISES.map(e=>e.id));
+const EXERCISE_WORKOUT=new Map(WORKOUTS.flatMap(w=>w.exercises.map(e=>[e.id,w])));
 let evolutionExerciseId=storageGet(LS.evolutionExercise);
 if(!STRENGTH_IDS.has(evolutionExerciseId)) evolutionExerciseId=STRENGTH_EXERCISES[0].id;
 let evolutionMetric=storageGet(LS.evolutionMetric);
@@ -734,16 +793,64 @@ function ensureEntry(week,exId){
   const bucket=sessionBucket(week,state.session,true);
   return bucket[exId] || (bucket[exId]={sets:[],done:false});
 }
+function workoutMeta(week,session,tid,create=false){
+  let wk=state.meta[week];
+  if(!wk&&create) wk=state.meta[week]={1:{},2:{}};
+  if(!wk) return null;
+  let bucket=wk[session];
+  if(!bucket&&create) bucket=wk[session]={};
+  if(!bucket) return null;
+  return bucket[tid] || (create ? (bucket[tid]={}) : null);
+}
+function touchWorkout(exId){
+  const workout=EXERCISE_WORKOUT.get(exId); if(!workout) return;
+  const meta=workoutMeta(state.week,state.session,workout.tid,true);
+  if(!meta.startedAt) meta.startedAt=new Date().toISOString();
+  saveAux();
+}
+function workLogStatus(exObj,entry,week=state.week){
+  if(!entry.done) return 'pending';
+  if(exObj.kind==='mob') return 'full';
+  const target=targetFor(exObj,week),warmN=exObj.warm||0;
+  const sets=entry.sets.slice(warmN,warmN+target.sets);
+  const complete=sets.filter(s=>numericValue(s&&s.kg)!=null&&numericValue(s&&s.reps)!=null).length;
+  if(complete===target.sets) return 'full';
+  return complete===0?'unlogged':'partial';
+}
+function updateWorkoutCompleted(exId){
+  const workout=EXERCISE_WORKOUT.get(exId); if(!workout) return;
+  const meta=workoutMeta(state.week,state.session,workout.tid,true);
+  if(!meta.startedAt) meta.startedAt=new Date().toISOString();
+  const allDone=workout.exercises.every(ex=>readEntry(state.week,ex.id).done);
+  if(allDone && !meta.completedAt) meta.completedAt=new Date().toISOString();
+  if(!allDone && meta.completedAt) delete meta.completedAt;
+  saveAux();
+}
 function setVal(week,exId,i,field,val){
   syncLatestData();
   const e=ensureEntry(week,exId);
   if(!e.sets[i]) e.sets[i]={kg:'',reps:''};
   e.sets[i][field]=val;
+  touchWorkout(exId);
   if(saveData()) storageRemove(LS.snapshot);
 }
 function toggleDone(week,exId){
-  syncLatestData(); const e=ensureEntry(week,exId); e.done=!e.done;
+  syncLatestData(); const e=ensureEntry(week,exId),workout=EXERCISE_WORKOUT.get(exId);
+  const exObj=workout&&workout.exercises.find(ex=>ex.id===exId);
+  if(!e.done&&exObj&&exObj.kind!=='mob'){
+    const target=targetFor(exObj,week),warmN=exObj.warm||0;
+    const complete=e.sets.slice(warmN,warmN+target.sets)
+      .filter(s=>numericValue(s&&s.kg)!=null&&numericValue(s&&s.reps)!=null).length;
+    if(complete<target.sets){
+      const message=complete===0
+        ?'Marcar como feito sem registrar carga e repetições? O progresso indicará “sem registro”.'
+        :`Há apenas ${complete} de ${target.sets} séries completas. Marcar como feito com registro parcial?`;
+      if(!confirm(message)) return false;
+    }
+  }
+  e.done=!e.done; touchWorkout(exId);
   if(saveData()) storageRemove(LS.snapshot);
+  updateWorkoutCompleted(exId); return true;
 }
 
 /* ====================== RENDER ====================== */
@@ -775,7 +882,7 @@ function renderWsum(){
 }
 function renderTabs(){
   let h='';
-  WORKOUTS.forEach(w=>{
+  orderedWorkouts().forEach(w=>{
     const on=state.tab===w.tid;
     const today = w.tid===todayTid ? '<span class="todaybadge" aria-hidden="true">HOJE</span>' : '';
     const ariaToday=w.tid===todayTid?', hoje':'';
@@ -799,6 +906,7 @@ function exerciseCard(exObj){
   const t=targetFor(exObj,week);
   const vid=YT[exObj.id];
   const done=e.done;
+  const logStatus=workLogStatus(exObj,e,week);
   const rl=restLabel(restSec(exObj,week));
 
   let badges='';
@@ -806,6 +914,8 @@ function exerciseCard(exObj){
   if(exObj.kind==='mob') badges+='<span class="badge b-mob">Aquecimento</span>';
   if(exObj.kind==='warm') badges+='<span class="badge b-warm">Prep · alta rep</span>';
   if(exObj.kind==='per') badges+='<span class="badge b-per">Periodizado</span>';
+  if(logStatus==='partial') badges+='<span class="badge b-logwarn">Registro parcial</span>';
+  if(logStatus==='unlogged') badges+='<span class="badge b-logwarn">Sem registro</span>';
 
   let body='';
   if(exObj.kind==='mob'){
@@ -894,7 +1004,7 @@ function exerciseCard(exObj){
       (exObj.detail?`<div class="cdetail">${exObj.detail}</div>`:'')+
       (badges?`<div class="badges">${badges}</div>`:'')+
     `</div>`+
-    (exObj.kind!=='mob'?`<button type="button" data-focus="done-${exObj.id}" aria-pressed="${done}" aria-label="${done?'Desmarcar':'Marcar'} ${esc(exObj.name)} como concluído" class="donebtn ${done?'on':''}" onclick="markDone('${exObj.id}')">${done?'✓':'Marcar'}</button>`:'')+
+    (exObj.kind!=='mob'?`<button type="button" data-focus="done-${exObj.id}" aria-pressed="${done}" aria-label="${done?'Desmarcar':'Marcar'} ${esc(exObj.name)} como concluído" class="donebtn ${done?'on':''}" onclick="markDone('${exObj.id}')">${done?(logStatus==='full'?'✓':'Feito'):'Marcar'}</button>`:'')+
     `</div>`+
     body+
     (exObj.kind!=='mob'?`<button type="button" class="restbtn" onclick="startTimer(${restSec(exObj,week)},'Descanso · ${exObj.name.replace(/'/g,'')}')">⏱ Descanso ${rl}</button>`:'')+
@@ -914,6 +1024,28 @@ function formatNumber(value,decimals=1){
   if(value==null||!Number.isFinite(value)) return '—';
   const rounded=Math.round(value*10**decimals)/10**decimals;
   return (Number.isInteger(rounded)?String(rounded):rounded.toFixed(decimals)).replace('.',',');
+}
+function formatDateTime(value){
+  const iso=validIso(value); if(!iso) return '';
+  return new Intl.DateTimeFormat('pt-BR',{dateStyle:'short',timeStyle:'short'}).format(new Date(iso));
+}
+function entryCount(data){ return normalizeData(data).entries; }
+function renderCycleArchives(){
+  if(!state.archives.length) return `<div class="section"><h3>🗂 Ciclos anteriores</h3><p>Nenhum ciclo arquivado. Ao reiniciar, o ciclo atual será preservado aqui antes de começar do zero.</p></div>`;
+  const items=state.archives.slice().reverse().map((archive,index)=>{
+    const number=state.archives.length-index;
+    return `<div class="archive"><strong>Ciclo ${number} · ${entryCount(archive.data)} registros</strong>`+
+      `<span>${formatDateTime(archive.startedAt)||'Início não registrado'} → ${formatDateTime(archive.endedAt)}</span>`+
+      `<button type="button" class="toolbtn" onclick="exportArchive('${archive.id}')">⬇ Exportar este ciclo</button></div>`;
+  }).join('');
+  return `<div class="section"><h3>🗂 Ciclos anteriores</h3>${items}</div>`;
+}
+function backupMessage(){
+  if(entryCount(state.data)===0) return '';
+  const last=validIso(storageGet(LS.lastBackup));
+  if(!last) return 'Nenhum backup exportado neste aparelho.';
+  const days=Math.floor((Date.now()-Date.parse(last))/86400000);
+  return days>=7?`Último backup há ${days} dias. Recomendamos exportar uma nova cópia.`:`Último backup: ${formatDateTime(last)}.`;
 }
 function evolutionPoints(exObj,metric=evolutionMetric){
   const points=[],warmN=exObj.warm||0;
@@ -959,7 +1091,7 @@ function evolutionChart(points,meta,exerciseName){
     `<title>${esc(aria)}</title>${grid}${labels}<polyline class="chartline" points="${polyline}"></polyline>${circles}</svg>`;
 }
 function evolutionSelectOptions(){
-  return WORKOUTS.map(w=>{
+  return orderedWorkouts().map(w=>{
     const options=w.exercises.filter(e=>e.kind!=='mob').map(e=>
       `<option value="${e.id}" ${e.id===evolutionExerciseId?'selected':''}>${esc(e.name)}${e.detail?' · '+esc(e.detail):''}</option>`
     ).join('');
@@ -996,16 +1128,19 @@ function renderEvolutionPanel(){
 
 function renderPanels(){
   let h='';
-  WORKOUTS.forEach(w=>{
+  orderedWorkouts().forEach(w=>{
     const total=w.exercises.length;
     const done=w.exercises.filter(x=>readEntry(state.week,x.id).done).length;
+    const incomplete=w.exercises.filter(x=>['partial','unlogged'].includes(workLogStatus(x,readEntry(state.week,x.id)))).length;
     const pct=Math.round(done/total*100);
     const on=state.tab===w.tid;
+    const meta=workoutMeta(state.week,state.session,w.tid,false);
     h+=`<section role="tabpanel" id="panel-${w.tid}" aria-labelledby="tab-${w.tid}" aria-hidden="${!on}" class="panel ${on?'on':''}">`;
     h+=`<h2 class="ptitle">Treino ${w.label} · ${w.name}</h2>`;
-    h+=`<div class="psub">Semana ${WEEK_LABEL[state.week]} · ${state.session}º treino</div>`;
+    h+=`<div class="psub">Semana ${WEEK_LABEL[state.week]} · ${state.session}º treino`+
+      (meta&&meta.completedAt?` · concluído ${formatDateTime(meta.completedAt)}`:meta&&meta.startedAt?` · iniciado ${formatDateTime(meta.startedAt)}`:'')+`</div>`;
     h+=`<div class="prog" role="progressbar" aria-label="Progresso do treino ${w.label}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${done}"><i style="width:${pct}%"></i></div>`;
-    h+=`<div class="progtxt">${done}/${total} concluídos neste treino</div>`;
+    h+=`<div class="progtxt">${done}/${total} concluídos neste treino${incomplete?` · <span class="warn">${incomplete} sem registro completo</span>`:''}</div>`;
     h+=w.exercises.map(exerciseCard).join('');
     h+=`<div class="spacer24"></div></section>`;
   });
@@ -1051,12 +1186,13 @@ function renderPanels(){
       (dl?`<span class="pn">45-50%</span>`:'')+`</div>`;
   });
   h+=`</div>`;
+  h+=renderCycleArchives();
   h+=`<div class="section"><h3>📅 Divisão semanal</h3>`+
-     `<div class="split"><span class="d">Segunda</span><span class="w">Treino A</span></div>`+
-     `<div class="split"><span class="d">Terça</span><span class="w">Treino B</span></div>`+
+     `<div class="split"><span class="d">Segunda</span><span class="w">Treino B</span></div>`+
+     `<div class="split"><span class="d">Terça</span><span class="w">Treino A</span></div>`+
      `<div class="split"><span class="d">Quarta</span><span class="w">Treino C</span></div>`+
-     `<div class="split"><span class="d">Quinta</span><span class="w">Treino A</span></div>`+
-     `<div class="split"><span class="d">Sexta</span><span class="w">Treino B</span></div>`+
+     `<div class="split"><span class="d">Quinta</span><span class="w">Treino B</span></div>`+
+     `<div class="split"><span class="d">Sexta</span><span class="w">Treino A</span></div>`+
      `<div class="split"><span class="d">Sábado</span><span class="w">Treino C</span></div></div>`;
   h+=`<div class="section"><h3>🏃 Cardio</h3><p>Qualquer modalidade: bike, esteira, escada, etc. Faça a que você preferir. Sem prescrição rígida de tempo/intensidade.</p></div>`;
   h+=`<div class="section"><h3>📝 Observações da ficha</h3><p>• Exercícios de alongamento e mobilidade NÃO mudam ao longo do ciclo.<br>• Os "Novo no ciclo" foram adicionados nesta fase.<br>• A carga você controla: suba quando bater o topo da faixa de reps com técnica boa.</p></div>`;
@@ -1070,6 +1206,7 @@ function renderPanels(){
      `<button type="button" class="toolbtn danger" onclick="resetWorkout()">Limpar todos os A/B/C do ${state.session}º treino da semana ${WEEK_LABEL[state.week]}</button>`+
      `<button type="button" class="toolbtn danger" onclick="resetPeriodization()">Reiniciar periodização do zero</button>`+
      `<input type="file" id="importfile" accept=".json,application/json" hidden onchange="importData(event)">`+
+     (backupMessage()?`<p class="backupwarn">${esc(backupMessage())}</p>`:'')+
      `</div>`;
   h+=`<div class="spacer24"></div></section>`;
 
@@ -1261,13 +1398,24 @@ function downloadText(text,name,type='application/json'){
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 function exportData(){
+  syncLatestData();
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,exportedAt:new Date().toISOString(),
-    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},data:state.data};
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},
+    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives};
   downloadText(JSON.stringify(payload,null,2),'treino-hard-backup-'+localDateStamp()+'.json');
+  storageSet(LS.lastBackup,new Date().toISOString());
+  showStatus('Backup exportado. Guarde o arquivo em um local seguro.','ok');
+}
+function exportArchive(id){
+  const archive=state.archives.find(item=>item.id===id); if(!archive) return;
+  const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,exportedAt:new Date().toISOString(),
+    archivedCycle:true,cycleStartedAt:archive.startedAt,data:archive.data,meta:archive.meta,archives:[]};
+  downloadText(JSON.stringify(payload,null,2),'treino-hard-ciclo-'+localDateStamp(new Date(archive.endedAt))+'.json');
 }
 function createSnapshot(reason){
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,savedAt:new Date().toISOString(),reason,
-    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},data:state.data};
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},
+    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives};
   return storageSet(LS.snapshot,JSON.stringify(payload));
 }
 function importData(ev){
@@ -1285,8 +1433,15 @@ function importData(ev){
       if(!confirm(`Importar ${details}? Os dados atuais serão substituídos, mas poderão ser desfeitos.`)) return;
       syncLatestData();
       if(!createSnapshot('Antes da importação')) throw new Error('Não foi possível criar a cópia de segurança. Importação cancelada.');
-      const previous=state.data; state.data=normalized.data;
-      if(!saveData()){ state.data=previous; throw new Error('Não foi possível salvar o backup importado.'); }
+      const previous={data:state.data,meta:state.meta,archives:state.archives,cycleStartedAt:state.cycleStartedAt};
+      state.data=normalized.data;
+      state.meta=normalizeSessionMeta(j.meta);
+      if(Array.isArray(j.archives)) state.archives=normalizeArchives(j.archives);
+      state.cycleStartedAt=validIso(j.cycleStartedAt)||new Date().toISOString();
+      if(!saveData()||!saveAux()){
+        state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.cycleStartedAt=previous.cycleStartedAt;
+        saveData();saveAux();throw new Error('Não foi possível salvar o backup importado.');
+      }
       if(isRecord(j.view)){
         state.week=clampWeek(j.view.week)||state.week;
         state.session=[1,2].includes(Number(j.view.session))?Number(j.view.session):state.session;
@@ -1315,12 +1470,18 @@ function undoLastChange(){
     const snap=JSON.parse(storageGet(LS.snapshot)||'null');
     if(!snap || snap.app!=='treino-hard-fofo') throw new Error('Cópia de desfazer inválida.');
     const normalized=normalizeData(snap.data); if(!normalized.valid) throw new Error('Cópia de desfazer corrompida.');
-    const previous=state.data; state.data=normalized.data;
-    if(!saveData()){ state.data=previous; throw new Error('Não foi possível restaurar os dados.'); }
+    const previous={data:state.data,meta:state.meta,archives:state.archives,cycleStartedAt:state.cycleStartedAt};
+    state.data=normalized.data;state.meta=normalizeSessionMeta(snap.meta);
+    state.archives=normalizeArchives(snap.archives);
+    state.cycleStartedAt=validIso(snap.cycleStartedAt)||new Date().toISOString();
+    if(!saveData()||!saveAux()){
+      state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.cycleStartedAt=previous.cycleStartedAt;
+      saveData();saveAux();throw new Error('Não foi possível restaurar os dados.');
+    }
     if(isRecord(snap.view)){
       state.week=clampWeek(snap.view.week)||1;
       state.session=[1,2].includes(Number(snap.view.session))?Number(snap.view.session):1;
-      state.tab=VALID_TABS.includes(snap.view.tab)?snap.view.tab:'a';
+      state.tab=VALID_TABS.includes(snap.view.tab)?snap.view.tab:'b';
       if(STRENGTH_IDS.has(snap.view.evolutionExercise)) evolutionExerciseId=snap.view.evolutionExercise;
       if(Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,snap.view.evolutionMetric)) evolutionMetric=snap.view.evolutionMetric;
     }
@@ -1333,20 +1494,35 @@ function resetWorkout(){
   if(confirm('Apagar TODOS os registros A, B e C do '+state.session+'º treino da semana '+WEEK_LABEL[state.week]+'? Você poderá desfazer depois.')){
     syncLatestData(); if(!createSnapshot('Antes de limpar uma ocorrência')){ alert('Não foi possível criar a cópia de segurança. Limpeza cancelada.'); return; }
     const previous=JSON.parse(JSON.stringify(state.data));
+    const previousMeta=JSON.parse(JSON.stringify(state.meta));
     const bucket=sessionBucket(state.week,state.session,false);
     if(bucket) state.data[state.week][state.session]={};
-    if(!saveData()){ state.data=previous; alert('Não foi possível salvar a limpeza. Os dados foram mantidos.'); return; }
+    if(state.meta[state.week]) state.meta[state.week][state.session]={};
+    if(!saveData()||!saveAux()){
+      state.data=previous;state.meta=previousMeta;saveData();saveAux();
+      alert('Não foi possível salvar a limpeza. Os dados foram mantidos.'); return;
+    }
     render();
   }
 }
 function resetPeriodization(){
-  if(!confirm('REINICIAR A PERIODIZAÇÃO DO ZERO? Isso apagará todos os registros das 8 semanas e voltará para S1, 1º treino, ficha A. Você poderá desfazer depois.')) return;
+  if(!confirm('REINICIAR A PERIODIZAÇÃO DO ZERO? O ciclo atual será arquivado e o app voltará para S1, 1º treino, ficha B. Você poderá desfazer depois.')) return;
   syncLatestData(); if(!createSnapshot('Antes de reiniciar a periodização')){ alert('Não foi possível criar a cópia de segurança. Reinício cancelado.'); return; }
-  const previous=state.data; state.data={};
-  if(!saveData()){ state.data=previous; alert('Não foi possível salvar o reinício. Os dados foram mantidos.'); return; }
-  state.week=1; state.session=1; state.tab='a';
-  storageSet(LS.week,1); storageSet(LS.session,1); storageSet(LS.tab,'a');
-  timerStop(); render(); window.scrollTo(0,0); alert('Periodização reiniciada. Você pode começar novamente pela S1.');
+  const previous={data:state.data,meta:state.meta,archives:state.archives,cycleStartedAt:state.cycleStartedAt};
+  const hadData=entryCount(state.data)>0;
+  if(hadData){
+    state.archives=[...state.archives,{id:'ciclo-'+Date.now(),startedAt:state.cycleStartedAt,
+      endedAt:new Date().toISOString(),data:state.data,meta:state.meta}];
+  }
+  state.data={};state.meta={};state.cycleStartedAt=new Date().toISOString();
+  if(!saveData()||!saveAux()){
+    state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.cycleStartedAt=previous.cycleStartedAt;
+    saveData();saveAux();alert('Não foi possível salvar o reinício. Os dados foram mantidos.');return;
+  }
+  state.week=1; state.session=1; state.tab='b';
+  storageSet(LS.week,1); storageSet(LS.session,1); storageSet(LS.tab,'b');
+  timerStop(); render(); window.scrollTo(0,0);
+  alert(hadData?'Ciclo anterior arquivado. Você pode começar novamente pela S1, treino B.':'Periodização reiniciada. Você pode começar pela S1, treino B.');
 }
 
 /* ====================== UTIL ====================== */
