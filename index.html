@@ -154,6 +154,9 @@
   .vplay{width:30px;height:30px;border-radius:9px;background:#ff0000;flex:0 0 auto;
     display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px}
   .vbtn .vs{color:var(--dim);font-size:11px;font-weight:500;display:block;margin-top:1px}
+  .vbtn .vquality{display:inline-block;margin-top:4px;padding:2px 6px;border-radius:999px;
+    background:rgba(94,200,120,.12);color:#9be6ad;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.35px}
+  .vbtn .vreason{color:var(--dim);font-size:10px;font-weight:500;margin-left:5px}
   .vbtn .ext{margin-left:auto;color:var(--dim);font-size:15px}
   /* Player de vídeo (modal — toca dentro do app) */
   .vmodal{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:100;display:none;
@@ -360,7 +363,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.4 (painel de evolução)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.5 (curadoria de vídeos)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -389,18 +392,18 @@
 /* ====================== DADOS ====================== */
 const YT = {
   a_puxada_supinada:'https://www.youtube.com/watch?v=IFDUGxHRIKA',  // Puxada alta supinada — execução e dica
-  a_remada_smith:'https://www.youtube.com/watch?v=6HBmL4csjpE',
+  a_remada_smith:'https://www.youtube.com/watch?v=5DKEAuY65jM',
   a_remada_unilateral:'https://www.youtube.com/watch?v=K25eTWoEOWU',
   a_puxada_neutra:'https://www.youtube.com/watch?v=V-Z_RntYhZg',
   a_remada_sentada:'https://www.youtube.com/watch?v=HZPqEGzrLRg',  // Remada baixa triângulo — execução + cinesiologia
   a_crucifixo_inv:'https://www.youtube.com/watch?v=eo4O-BvfjRk',
   a_biceps_martelo:'https://www.youtube.com/watch?v=YrZ0qzBi-kk',
-  a_rosca_barra_w:'https://www.youtube.com/watch?v=0R7V2FXfFyQ',  // Rosca direta barra W — execução correta
+  a_rosca_barra_w:'https://www.youtube.com/watch?v=V6UEDzY51gY',  // Rosca direta barra W — execução correta
   b_supino_barra:'https://www.youtube.com/watch?v=9Cy3ngopGRk',
   b_supino_inclinado:'https://www.youtube.com/watch?v=3dnLfE3mB1I',
-  b_crossover:'https://www.youtube.com/watch?v=gjdQq3Kn-_o',
+  b_crossover:'https://www.youtube.com/watch?v=jqTlJt3JXzQ',
   b_crucifixo_aparelho:'https://www.youtube.com/watch?v=zEcIgGm7fxU',
-  b_desenv_maquina:'https://www.youtube.com/watch?v=dClklxc-hzU',
+  b_desenv_maquina:'https://www.youtube.com/watch?v=Xd5bgkvYdfk',
   b_elev_lateral:'https://www.youtube.com/watch?v=jannLx4RxKo',
   b_triceps_testa:'https://www.youtube.com/watch?v=VakpIeaaeXA',
   b_triceps_pulley:'https://www.youtube.com/watch?v=7le1JRUUagM',  // Tríceps polia alta com corda — execução e postura
@@ -424,28 +427,57 @@ const YT = {
   c_mob_tornozelo:'https://www.youtube.com/watch?v=3pprN9t_P1o',
 };
 
-// Canal declarado pelo próprio YouTube (oEmbed), revisado em 11/07/2026.
+// Canal declarado pelo próprio YouTube, revisado em 12/07/2026.
 const VIDEO_CHANNEL = {
-  '0R7V2FXfFyQ':'Via Brasil Club','1KR5m7IfdIc':'Treino Correto',
-  '3dnLfE3mB1I':'MyTrainingPRO','3otpFrCvjLw':'Comer, Treinar e Amar',
-  '3pprN9t_P1o':'Descomplicando a Musculação - NS Personal','6Be-s3RwVp4':'Grupo Longevitá - Brasília',
-  '6HBmL4csjpE':'INFINITY ACADEMIA','7le1JRUUagM':'Treino Mestre',
+  '1KR5m7IfdIc':'Treino Correto','3dnLfE3mB1I':'MyTrainingPRO',
+  '3otpFrCvjLw':'Comer, Treinar e Amar','3pprN9t_P1o':'Descomplicando a Musculação - NS Personal',
+  '5DKEAuY65jM':'koach Team','6Be-s3RwVp4':'Grupo Longevitá - Brasília',
+  '7le1JRUUagM':'Treino Mestre',
   '9Cy3ngopGRk':'Musculação em 1 minuto','bLgb6XZz2N4':'Treino em FOCO',
-  'dClklxc-hzU':'Team Victor Vasconcelos','eo4O-BvfjRk':'Jr Vieira - Treinamento e Nutrição',
+  'eo4O-BvfjRk':'Jr Vieira - Treinamento e Nutrição',
   'F7_8z_7Kwks':'FISIculturismo.com.br','g9S8XsYALzI':'Roberto Virgili Personal',
-  'gjdQq3Kn-_o':'Hipertrofia','HZPqEGzrLRg':'ClaraPRO',
+  'HZPqEGzrLRg':'ClaraPRO',
   'i9Ub99a97go':'Guilherme Stellbrink I FisioPrev','IFDUGxHRIKA':'Treino Mestre',
   'jannLx4RxKo':'Training for Health','K25eTWoEOWU':'Dicas de Treino',
   'nf4OOzWrcXw':'Treinador Diego Fernandes','NxbDKOYe1Hk':'Bruno Teles Personal Online',
-  'oElBNT5bjhA':'AYO MOOVE- MOVE DIFFERENT','Svq2T3L9oKo':'Gymflix',
+  'jqTlJt3JXzQ':'Leandro Twin','oElBNT5bjhA':'AYO MOOVE- MOVE DIFFERENT','Svq2T3L9oKo':'Gymflix',
   'T--10UN1jKs':'FISIculturismo.com.br','uDBQtlCLQ0Y':'Tay Training',
-  'V-Z_RntYhZg':'Miqueias Alves Personal','V5u7-lKrtvs':'Cloud Gym',
+  'V-Z_RntYhZg':'Miqueias Alves Personal','V5u7-lKrtvs':'Cloud Gym','V6UEDzY51gY':'Guilherme Stellbrink I FisioPrev',
   'VakpIeaaeXA':'Laércio Refundini - Cortes','vXPbKrYIEaQ':'Tay Training',
   'waAxlYvtCcI':'Treino Mestre','x861NmGgbpQ':'Renato Murayama',
-  'YrZ0qzBi-kk':'Jonathan Augusto Fit','zEcIgGm7fxU':'Pedro Rubini',
+  'Xd5bgkvYdfk':'Guilherme Stellbrink I FisioPrev','YrZ0qzBi-kk':'Jonathan Augusto Fit','zEcIgGm7fxU':'Pedro Rubini',
   'zHJE3HPEP84':'Mariana Sardelli'
 };
 function videoSource(url){ return VIDEO_CHANNEL[ytId(url)]||'YouTube'; }
+
+// Duração conferida via metadados do YouTube em 12/07/2026. O nível descreve
+// a profundidade editorial do material; não é certificação profissional do autor.
+const VIDEO_REVIEW = {
+  '1KR5m7IfdIc':{s:17,l:'visual'},'3dnLfE3mB1I':{s:58,l:'objetivo'},
+  '3otpFrCvjLw':{s:229,l:'guiado'},'3pprN9t_P1o':{s:96,l:'guiado'},
+  '5DKEAuY65jM':{s:30,l:'objetivo'},'6Be-s3RwVp4':{s:31,l:'objetivo'},
+  '7le1JRUUagM':{s:43,l:'objetivo'},'9Cy3ngopGRk':{s:63,l:'guiado'},
+  'bLgb6XZz2N4':{s:670,l:'guiado'},'eo4O-BvfjRk':{s:38,l:'objetivo'},
+  'F7_8z_7Kwks':{s:135,l:'guiado'},'g9S8XsYALzI':{s:24,l:'visual'},
+  'HZPqEGzrLRg':{s:251,l:'guiado'},'i9Ub99a97go':{s:63,l:'guiado'},
+  'IFDUGxHRIKA':{s:52,l:'objetivo'},'jannLx4RxKo':{s:118,l:'guiado'},
+  'jqTlJt3JXzQ':{s:146,l:'guiado'},'K25eTWoEOWU':{s:35,l:'objetivo'},
+  'nf4OOzWrcXw':{s:31,l:'objetivo'},'NxbDKOYe1Hk':{s:31,l:'objetivo'},
+  'oElBNT5bjhA':{s:85,l:'guiado'},'Svq2T3L9oKo':{s:170,l:'guiado'},
+  'T--10UN1jKs':{s:90,l:'guiado'},'uDBQtlCLQ0Y':{s:484,l:'guiado'},
+  'V-Z_RntYhZg':{s:88,l:'guiado'},'V5u7-lKrtvs':{s:24,l:'visual'},
+  'V6UEDzY51gY':{s:65,l:'guiado'},'VakpIeaaeXA':{s:100,l:'guiado'},
+  'vXPbKrYIEaQ':{s:676,l:'guiado'},'waAxlYvtCcI':{s:56,l:'objetivo'},
+  'x861NmGgbpQ':{s:52,l:'objetivo'},'Xd5bgkvYdfk':{s:68,l:'guiado'},
+  'YrZ0qzBi-kk':{s:34,l:'objetivo'},'zEcIgGm7fxU':{s:95,l:'guiado'},
+  'zHJE3HPEP84':{s:36,l:'objetivo'}
+};
+function videoReview(url){
+  const r=VIDEO_REVIEW[ytId(url)]||{s:0,l:'visual'};
+  const duration=r.s>=60 ? Math.floor(r.s/60)+':'+String(r.s%60).padStart(2,'0') : r.s+' s';
+  const reason=r.l==='guiado'?'explica execução':r.l==='objetivo'?'demonstra o movimento':'referência rápida';
+  return {label:r.l==='guiado'?'Guia':r.l==='objetivo'?'Objetivo':'Visual',reason:reason+' · '+duration};
+}
 
 const ex = (id,name,detail,kind,sets,reps,opt={}) =>
   ({id,name,detail,kind,sets,reps,isNew:!!opt.isNew,notes:opt.notes||[],warm:opt.warm||0});
@@ -792,8 +824,10 @@ function exerciseCard(exObj){
   }
 
   if(vid){
+    const review=videoReview(vid);
     body+=`<button type="button" class="vbtn" onclick="openVid('${vid}','${exObj.name.replace(/'/g,'')}')">`+
-      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(vid))} · link revisado 07/2026</span></span>`+
+      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(vid))} · revisado 12/07/2026</span>`+
+      `<span class="vquality">${review.label}</span><span class="vreason">${review.reason}</span></span>`+
       `<span class="ext">▸</span></button>`;
   }
   if(exObj.notes.length){
@@ -989,7 +1023,7 @@ function renderPanels(){
     h+=`<article class="stcard">`+
       `<h3 class="stname">${s.name}<span class="sttag ${tagClass}">${s.tipo}</span></h3>`+
       `<div class="stmeta">${s.freq}</div>`+
-      (s.vid?`<button type="button" class="vbtn stretch-video" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(s.vid))} · link revisado 07/2026</span></span><span class="ext">▸</span></button>`:'')+
+      (s.vid?(()=>{const review=videoReview(s.vid);return `<button type="button" class="vbtn stretch-video" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(s.vid))} · revisado 12/07/2026</span><span class="vquality">${review.label}</span><span class="vreason">${review.reason}</span></span><span class="ext">▸</span></button>`;})():'')+
       `<div class="stopts">`+
         [20,25,30].map(sec=>`<button type="button" aria-pressed="${sel===sec}" class="stopt ${sel===sec?'on':''}" data-st="${i}" data-sec="${sec}" onclick="pickSt(${i},${sec})">${sec}s</button>`).join('')+
       `</div>`+
@@ -1027,7 +1061,7 @@ function renderPanels(){
   h+=`<div class="section"><h3>🏃 Cardio</h3><p>Qualquer modalidade: bike, esteira, escada, etc. Faça a que você preferir. Sem prescrição rígida de tempo/intensidade.</p></div>`;
   h+=`<div class="section"><h3>📝 Observações da ficha</h3><p>• Exercícios de alongamento e mobilidade NÃO mudam ao longo do ciclo.<br>• Os "Novo no ciclo" foram adicionados nesta fase.<br>• A carga você controla: suba quando bater o topo da faixa de reps com técnica boa.</p></div>`;
   h+=`<div class="section"><h3>🛡 Uso seguro</h3><p>Este app é um diário educativo: ele não observa sua técnica nem substitui avaliação profissional. Interrompa o exercício diante de dor intensa ou nova, tontura, desmaio, dor no peito ou falta de ar incomum e procure orientação adequada. Fontes: <a href="https://www.gov.br/saude/pt-br/assuntos/saude-brasil/eu-quero-me-exercitar/noticias/2022/a-atividade-fisica-pode-auxiliar-na-reducao-das-dores-osseas-articulares-e-musculares" target="_blank" rel="noopener noreferrer">Ministério da Saúde</a> e <a href="https://www.newcastle-hospitals.nhs.uk/services/newcastle-occupational-health-service/information-for-staff/physiotherapy/self-help-leaflets/exercise-and-your-health-a-guide-to-getting-started/" target="_blank" rel="noopener noreferrer">NHS</a>.</p></div>`;
-  h+=`<div class="section"><h3>🎥 Curadoria dos vídeos</h3><p>Os 35 links foram conferidos em 11/07/2026 quanto à disponibilidade, reprodução incorporada e correspondência com o exercício. Cada botão identifica o canal de origem. A seleção é material de apoio e continuará passando por revisão editorial de técnica e clareza.</p></div>`;
+  h+=`<div class="section"><h3>🎥 Curadoria dos vídeos</h3><p>Os 35 vídeos foram reavaliados em 12/07/2026 quanto à disponibilidade, correspondência com o exercício, canal e profundidade da demonstração. Quatro fontes fracas ou indisponíveis foram substituídas.</p><p><b>Guia</b>: explicação de execução com pelo menos 1 minuto. <b>Objetivo</b>: demonstração específica de 30 a 59 segundos. <b>Visual</b>: referência rápida com menos de 30 segundos — use apenas para reconhecer o movimento.</p><p>Os selos medem a profundidade do vídeo, não certificam o autor nem substituem avaliação profissional. Interrompa se houver dor aguda, tontura ou mal-estar.</p></div>`;
   h+=`<div class="section"><h3>💾 Dados</h3>`+
      `<button type="button" class="toolbtn" onclick="exportData()">⬇ Exportar backup (JSON)</button>`+
      `<button type="button" class="toolbtn" onclick="openImport()">⬆ Importar backup validado</button>`+

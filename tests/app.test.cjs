@@ -89,6 +89,15 @@ test('todos os vídeos identificam o canal de origem',()=>{
   assert.equal(app.run("[...Object.values(YT),...STRETCHES.map(s=>s.vid)].every(url=>videoSource(url)!=='YouTube')"),true);
 });
 
+test('todos os vídeos têm curadoria e justificativa visível',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  assert.equal(app.run("[...Object.values(YT),...STRETCHES.map(s=>s.vid)].every(url=>VIDEO_REVIEW[ytId(url)])"),true);
+  assert.equal(app.run("Object.values(VIDEO_REVIEW).every(r=>['guiado','objetivo','visual'].includes(r.l)&&r.s>0)"),true);
+  const card=app.run('exerciseCard(WORKOUTS[2].exercises[4])');
+  assert.equal(card.includes('explica execução'),true);
+  assert.equal(card.includes('revisado 12/07/2026'),true);
+});
+
 test('usa a ocorrência imediatamente anterior como referência',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
   app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'40',reps:'10'}],done:false}},2:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:false}}},2:{1:{c_terra_barra:{sets:[{kg:'70',reps:'8'}],done:false}},2:{}}}`);
