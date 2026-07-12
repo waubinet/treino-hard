@@ -98,6 +98,40 @@ test('usa a ocorrência imediatamente anterior como referência',()=>{
   assert.deepEqual(JSON.parse(JSON.stringify(app.run("prevReference('c_terra_barra',2,0)"))),{week:2,session:1,sets:[{kg:'70',reps:'8'}]});
 });
 
+test('calcula evolução somente com séries de trabalho',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run(`state.data={1:{1:{c_agach_smith:{sets:[
+    {kg:'100',reps:'5'},{kg:'110',reps:'3'},
+    {kg:'50',reps:'10'},{kg:'60',reps:'8'},{kg:'55',reps:'9'}
+  ],done:true}},2:{}}}`);
+  const point=JSON.parse(JSON.stringify(app.run("evolutionPoints(WORKOUTS[2].exercises[4],'maxKg')[0]")));
+  assert.equal(point.maxKg,60);
+  assert.equal(point.volume,1475);
+  assert.equal(point.totalReps,27);
+  assert.equal(point.value,60);
+});
+
+test('mantém lacunas e duas ocorrências por semana no histórico',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run(`state.data={2:{1:{c_terra_barra:{sets:[{kg:'70',reps:'8'}],done:false}},2:{c_terra_barra:{sets:[{kg:'75',reps:'8'}],done:false}}}}`);
+  const points=JSON.parse(JSON.stringify(app.run("evolutionPoints(WORKOUTS[2].exercises[5],'volume')")));
+  assert.equal(points.length,16);
+  assert.equal(points[0].value,null);
+  assert.equal(points[2].label,'S2 · 1º');
+  assert.equal(points[2].value,560);
+  assert.equal(points[3].value,600);
+  app.run("state.tab='evol';evolutionExerciseId='c_terra_barra';evolutionMetric='volume'");
+  assert.equal(app.run("renderEvolutionPanel().includes('+40 kg·rep')"),true);
+});
+
+test('painel de evolução trata histórico vazio sem erro',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("state.tab='evol'");
+  const panel=app.run('renderEvolutionPanel()');
+  assert.equal(panel.includes('Ainda não há dados suficientes'),true);
+  assert.equal(panel.includes('role="tabpanel"'),true);
+});
+
 test('reinicia toda a periodização e permite desfazer',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
   app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};state.week=4;state.session=2;state.tab='ciclo';saveData()`);

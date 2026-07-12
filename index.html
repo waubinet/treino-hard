@@ -98,6 +98,7 @@
   .tab:active{transform:scale(.95)}
   .tab.on{background:var(--red);border-color:var(--red);color:#1a0d12}
   .tab.alg.on{background:var(--purple);border-color:var(--purple);color:#1a0d12}
+  .tab.evol.on{background:var(--green);border-color:var(--green);color:#06250f}
   .tab.ciclo.on{background:var(--orange);border-color:var(--orange);color:#1a0d12}
 
   .panel{display:none;padding:16px 16px 0}
@@ -240,6 +241,36 @@
   .pr{flex:1;font-weight:800;font-size:14.5px}
   .pd{color:var(--muted);font-weight:700;font-size:13px}
   .pn{color:var(--orange);font-size:10.5px;font-weight:800;margin-left:8px}
+  /* Evolução */
+  .evocontrol{background:var(--elev);border:1px solid var(--border);border-radius:16px;
+    padding:14px;margin:14px 0 11px;box-shadow:var(--shadow)}
+  .evocontrol label{display:block;color:var(--dim);font-size:10px;font-weight:800;
+    text-transform:uppercase;letter-spacing:.45px;margin-bottom:7px}
+  .evoselect{width:100%;min-height:46px;border-radius:11px;border:1.5px solid var(--control-border);
+    background:var(--bg);color:var(--text);padding:0 12px;font-weight:750;font-size:14px}
+  .evoselect:focus{outline:3px solid #f6b2c8;outline-offset:2px}
+  .metricbar{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .metricbtn{min-height:44px;border-radius:11px;border:1px solid var(--control-border);
+    background:var(--card);color:var(--muted);font-weight:800;font-size:13px}
+  .metricbtn.on{background:var(--greendim);border-color:var(--green);color:#bbf7d0}
+  .evostats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 11px}
+  .evostat{background:var(--elev);border:1px solid var(--border);border-radius:13px;padding:11px 8px;text-align:center}
+  .evostat .k{color:var(--dim);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.4px}
+  .evostat .v{font-size:16px;font-weight:900;margin-top:4px;color:#bbf7d0;line-height:1.15}
+  .chartcard{background:var(--elev);border:1px solid var(--border);border-radius:16px;
+    padding:10px 8px 8px;margin-bottom:11px;box-shadow:var(--shadow);overflow:hidden}
+  .charttitle{font-size:13px;font-weight:850;margin:2px 7px 7px;color:var(--muted)}
+  .evochart{display:block;width:100%;height:auto;min-height:210px}
+  .chartgrid{stroke:#5b4554;stroke-width:1}.chartaxis{fill:var(--dim);font-size:9px;font-weight:700}
+  .chartline{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+  .chartpoint{fill:#bbf7d0;stroke:#0f3d22;stroke-width:2}
+  .evoempty{padding:28px 16px;text-align:center;color:var(--muted);font-size:13px;line-height:1.55}
+  .evotable{width:100%;border-collapse:collapse;font-size:12px}
+  .evotable th,.evotable td{padding:9px 8px;border-bottom:1px solid var(--border);text-align:left}
+  .evotable th{color:var(--dim);font-size:9px;text-transform:uppercase;letter-spacing:.4px}
+  .evotable td:last-child,.evotable th:last-child{text-align:right;font-weight:850}
+  .tablewrap{overflow-x:auto}
+  .evonote{color:var(--dim);font-size:11px;line-height:1.5;margin:8px 3px 0}
   .section{background:var(--elev);border:1px solid var(--border);border-radius:16px;
     padding:14px;margin-bottom:11px;box-shadow:var(--shadow)}
   .section h3{margin:0 0 10px;font-size:15.5px}
@@ -285,6 +316,9 @@
     .wcell .val{font-size:15px}
     .timerbar .trow{flex-wrap:wrap;gap:8px 10px}
     .timerbar .tlbl{order:4;flex-basis:100%;white-space:normal}
+    .evostats{grid-template-columns:1fr}
+    .evostat{display:flex;align-items:center;justify-content:space-between;text-align:left}
+    .evostat .v{margin-top:0}
   }
   @media(max-width:420px){
     .weekbar{grid-template-columns:repeat(4,1fr)}
@@ -326,7 +360,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.3 (auditoria de estabilidade e segurança)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.4 (painel de evolução)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -526,7 +560,8 @@ function hasSetData(s){
 const DATA_SCHEMA=2;
 const LS = {
   week:'jovilite_week',session:'jovilite_session',tab:'jovilite_tab',data:'jovilite_data',
-  lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery'
+  lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery',
+  evolutionExercise:'jovilite_evolution_exercise',evolutionMetric:'jovilite_evolution_metric'
 };
 let storageHealthy=true;
 function showStatus(message,type='error',withExport=false){
@@ -631,7 +666,7 @@ function syncLatestData(){
   if(latest.valid) state.data=latest.data;
 }
 
-const VALID_TABS = ['a','b','c','alg','ciclo'];
+const VALID_TABS = ['a','b','c','alg','evol','ciclo'];
 const initialLoad=loadData();
 const savedSession=parseInt(storageGet(LS.session),10);
 let state = {
@@ -644,6 +679,12 @@ let state = {
 if(!VALID_TABS.includes(state.tab)) state.tab='a';
 if(initialLoad.needsSave) saveData();
 const stSel = {}; // índice do alongamento -> segundos escolhidos
+const STRENGTH_EXERCISES=WORKOUTS.flatMap(w=>w.exercises.map(e=>({...e,workout:w.label}))).filter(e=>e.kind!=='mob');
+const STRENGTH_IDS=new Set(STRENGTH_EXERCISES.map(e=>e.id));
+let evolutionExerciseId=storageGet(LS.evolutionExercise);
+if(!STRENGTH_IDS.has(evolutionExerciseId)) evolutionExerciseId=STRENGTH_EXERCISES[0].id;
+let evolutionMetric=storageGet(LS.evolutionMetric);
+if(!['maxKg','volume'].includes(evolutionMetric)) evolutionMetric='maxKg';
 
 const EMPTY_ENTRY = {sets:[],done:false};
 // Leitura: nunca cria nada (evita inchar o backup só de abrir a tela)
@@ -709,6 +750,7 @@ function renderTabs(){
     h+=`<button type="button" data-focus="tab-${w.tid}" role="tab" id="tab-${w.tid}" aria-controls="panel-${w.tid}" aria-selected="${on}" aria-label="Treino ${w.label}${ariaToday}" class="tab ${on?'on':''}" onclick="setTab('${w.tid}')">Treino ${w.label}${today}</button>`;
   });
   h+=`<button type="button" data-focus="tab-alg" role="tab" id="tab-alg" aria-controls="panel-alg" aria-selected="${state.tab==='alg'}" class="tab alg ${state.tab==='alg'?'on':''}" onclick="setTab('alg')">Alongam.</button>`;
+  h+=`<button type="button" data-focus="tab-evol" role="tab" id="tab-evol" aria-controls="panel-evol" aria-selected="${state.tab==='evol'}" class="tab evol ${state.tab==='evol'?'on':''}" onclick="setTab('evol')">Evolução</button>`;
   h+=`<button type="button" data-focus="tab-ciclo" role="tab" id="tab-ciclo" aria-controls="panel-ciclo" aria-selected="${state.tab==='ciclo'}" class="tab ciclo ${state.tab==='ciclo'?'on':''}" onclick="setTab('ciclo')">Ciclo</button>`;
   $('#tabs').innerHTML=h;
   requestAnimationFrame(()=>{
@@ -825,6 +867,99 @@ function exerciseCard(exObj){
     `</article>`;
 }
 
+/* ====================== EVOLUÇÃO ====================== */
+const EVOLUTION_METRICS={
+  maxKg:{label:'Carga máxima',short:'Carga máx.',unit:'kg'},
+  volume:{label:'Volume registrado',short:'Volume',unit:'kg·rep'}
+};
+function numericValue(value){
+  const n=Number(String(value??'').trim().replace(',','.'));
+  return Number.isFinite(n)&&n>0?n:null;
+}
+function formatNumber(value,decimals=1){
+  if(value==null||!Number.isFinite(value)) return '—';
+  const rounded=Math.round(value*10**decimals)/10**decimals;
+  return (Number.isInteger(rounded)?String(rounded):rounded.toFixed(decimals)).replace('.',',');
+}
+function evolutionPoints(exObj,metric=evolutionMetric){
+  const points=[],warmN=exObj.warm||0;
+  for(let week=1;week<=8;week++){
+    for(let session=1;session<=2;session++){
+      const entry=readEntry(week,exObj.id,session),sets=entry.sets.slice(warmN);
+      const loads=sets.map(s=>numericValue(s&&s.kg)).filter(v=>v!=null);
+      const reps=sets.map(s=>numericValue(s&&s.reps)).filter(v=>v!=null);
+      const pairs=sets.map(s=>({kg:numericValue(s&&s.kg),reps:numericValue(s&&s.reps)}))
+        .filter(s=>s.kg!=null&&s.reps!=null);
+      const maxKg=loads.length?Math.max(...loads):null;
+      const volume=pairs.length?pairs.reduce((sum,s)=>sum+s.kg*s.reps,0):null;
+      const totalReps=reps.length?reps.reduce((sum,v)=>sum+v,0):null;
+      points.push({index:(week-1)*2+(session-1),week,session,label:`${WEEK_LABEL[week]} · ${session}º`,
+        maxKg,volume,totalReps,value:metric==='volume'?volume:maxKg});
+    }
+  }
+  return points;
+}
+function evolutionChart(points,meta,exerciseName){
+  const valid=points.filter(p=>p.value!=null);
+  if(!valid.length) return `<div class="evoempty">Ainda não há dados suficientes para este gráfico.<br>Registre carga e repetições nas séries de trabalho.</div>`;
+  const W=640,H=250,L=54,R=18,T=18,B=38,plotW=W-L-R,plotH=H-T-B;
+  const highest=Math.max(...valid.map(p=>p.value)),ceiling=highest>0?highest*1.1:1;
+  const x=i=>L+(i/15)*plotW,y=v=>T+plotH-(v/ceiling)*plotH;
+  let grid='';
+  for(let i=0;i<=4;i++){
+    const gy=T+(i/4)*plotH,value=ceiling*(1-i/4);
+    grid+=`<line class="chartgrid" x1="${L}" y1="${gy}" x2="${W-R}" y2="${gy}"></line>`+
+      `<text class="chartaxis" x="${L-7}" y="${gy+3}" text-anchor="end">${formatNumber(value)}</text>`;
+  }
+  let labels='';
+  for(let week=1;week<=8;week++){
+    const lx=x((week-1)*2+.5);
+    labels+=`<text class="chartaxis" x="${lx}" y="${H-10}" text-anchor="middle">${WEEK_LABEL[week]}</text>`;
+  }
+  const polyline=valid.map(p=>`${x(p.index)},${y(p.value)}`).join(' ');
+  const circles=valid.map(p=>`<circle class="chartpoint" cx="${x(p.index)}" cy="${y(p.value)}" r="5" tabindex="0">`+
+    `<title>${p.label}: ${formatNumber(p.value)} ${meta.unit}</title></circle>`).join('');
+  const lastValid=valid[valid.length-1];
+  const aria=`${meta.label} de ${exerciseName}. ${valid.length} registros. Último: ${formatNumber(lastValid.value)} ${meta.unit}.`;
+  return `<svg class="evochart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">`+
+    `<title>${esc(aria)}</title>${grid}${labels}<polyline class="chartline" points="${polyline}"></polyline>${circles}</svg>`;
+}
+function evolutionSelectOptions(){
+  return WORKOUTS.map(w=>{
+    const options=w.exercises.filter(e=>e.kind!=='mob').map(e=>
+      `<option value="${e.id}" ${e.id===evolutionExerciseId?'selected':''}>${esc(e.name)}${e.detail?' · '+esc(e.detail):''}</option>`
+    ).join('');
+    return `<optgroup label="Treino ${w.label} · ${esc(w.name)}">${options}</optgroup>`;
+  }).join('');
+}
+function renderEvolutionPanel(){
+  const exObj=STRENGTH_EXERCISES.find(e=>e.id===evolutionExerciseId)||STRENGTH_EXERCISES[0];
+  const meta=EVOLUTION_METRICS[evolutionMetric],points=evolutionPoints(exObj),valid=points.filter(p=>p.value!=null);
+  const first=valid[0],latest=valid[valid.length-1],peak=valid.length?Math.max(...valid.map(p=>p.value)):null;
+  const change=valid.length>=2?latest.value-first.value:null;
+  const changeText=change==null?'—':`${change>0?'+':''}${formatNumber(change)} ${meta.unit}`;
+  const rows=points.filter(p=>p.maxKg!=null||p.volume!=null||p.totalReps!=null).slice(-6).reverse().map(p=>
+    `<tr><td>${p.label}</td><td>${p.maxKg!=null?formatNumber(p.maxKg)+' kg':'—'}</td><td>${formatNumber(p.totalReps,0)}</td><td>${p.volume!=null?formatNumber(p.volume,0)+' kg·rep':'—'}</td></tr>`
+  ).join('');
+  const on=state.tab==='evol';
+  return `<section role="tabpanel" id="panel-evol" aria-labelledby="tab-evol" aria-hidden="${!on}" class="panel ${on?'on':''}">`+
+    `<h2 class="ptitle">Sua Evolução</h2><div class="psub">Histórico das séries de trabalho · 8 semanas</div>`+
+    `<div class="evocontrol"><label for="evoexercise">Exercício</label>`+
+    `<select class="evoselect" id="evoexercise" data-focus="evo-exercise" onchange="setEvolutionExercise(this.value)">${evolutionSelectOptions()}</select>`+
+    `<div class="metricbar" aria-label="Métrica do gráfico">`+
+      Object.entries(EVOLUTION_METRICS).map(([id,m])=>`<button type="button" data-focus="evo-metric-${id}" aria-pressed="${evolutionMetric===id}" class="metricbtn ${evolutionMetric===id?'on':''}" onclick="setEvolutionMetric('${id}')">${m.short}</button>`).join('')+
+    `</div></div>`+
+    `<div class="evostats"><div class="evostat"><div class="k">Último</div><div class="v">${latest?formatNumber(latest.value)+' '+meta.unit:'—'}</div></div>`+
+    `<div class="evostat"><div class="k">Pico</div><div class="v">${peak!=null?formatNumber(peak)+' '+meta.unit:'—'}</div></div>`+
+    `<div class="evostat"><div class="k">Mudança</div><div class="v">${changeText}</div></div></div>`+
+    `<div class="chartcard"><div class="charttitle">${esc(exObj.name)} · ${meta.label}</div>${evolutionChart(points,meta,exObj.name)}</div>`+
+    `<div class="section"><h3>Registros recentes</h3>`+
+      (rows?`<div class="tablewrap"><table class="evotable"><thead><tr><th>Ocorrência</th><th>Carga máx.</th><th>Reps</th><th>Volume</th></tr></thead><tbody>${rows}</tbody></table></div>`:
+        `<div class="evoempty">Os registros aparecerão aqui conforme você preencher os treinos.</div>`)+
+      `<p class="evonote">Carga máxima considera a maior carga das séries de trabalho. Volume registrado = soma de carga × repetições; aquecimentos não entram no cálculo.</p></div>`+
+    `<div class="spacer24"></div></section>`;
+}
+
 function renderPanels(){
   let h='';
   WORKOUTS.forEach(w=>{
@@ -862,6 +997,8 @@ function renderPanels(){
     `</article>`;
   });
   h+=`<div class="spacer24"></div></section>`;
+
+  h+=renderEvolutionPanel();
 
   // Ciclo
   h+=`<section role="tabpanel" id="panel-ciclo" aria-labelledby="tab-ciclo" aria-hidden="${state.tab!=='ciclo'}" class="panel ${state.tab==='ciclo'?'on':''}">`;
@@ -914,6 +1051,14 @@ function render(focusKey){
 function setWeek(w){ if(!WEEK_LABEL[w]) return; state.week=w; storageSet(LS.week,w); render('week-'+w); window.scrollTo(0,0); }
 function setSession(n){ if(![1,2].includes(n)) return; state.session=n; storageSet(LS.session,n); render('session-'+n); window.scrollTo(0,0); }
 function setTab(t){ if(!VALID_TABS.includes(t)) return; state.tab=t; storageSet(LS.tab,t); render('tab-'+t); window.scrollTo(0,0); }
+function setEvolutionExercise(id){
+  if(!STRENGTH_IDS.has(id)) return;
+  evolutionExerciseId=id; storageSet(LS.evolutionExercise,id); render('evo-exercise');
+}
+function setEvolutionMetric(metric){
+  if(!Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,metric)) return;
+  evolutionMetric=metric; storageSet(LS.evolutionMetric,metric); render('evo-metric-'+metric);
+}
 function upd(exId,i,f,v){ const clean=sanitizeInput(f,v); setVal(state.week,exId,i,f,clean); return clean; }
 // Inicia o descanso ao concluir a edição de reps (o valor já foi salvo via input)
 function finishSetReps(val,restS,name){
@@ -1083,12 +1228,12 @@ function downloadText(text,name,type='application/json'){
 }
 function exportData(){
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,exportedAt:new Date().toISOString(),
-    view:{week:state.week,session:state.session,tab:state.tab},data:state.data};
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},data:state.data};
   downloadText(JSON.stringify(payload,null,2),'treino-hard-backup-'+localDateStamp()+'.json');
 }
 function createSnapshot(reason){
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,savedAt:new Date().toISOString(),reason,
-    view:{week:state.week,session:state.session,tab:state.tab},data:state.data};
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},data:state.data};
   return storageSet(LS.snapshot,JSON.stringify(payload));
 }
 function importData(ev){
@@ -1112,8 +1257,11 @@ function importData(ev){
         state.week=clampWeek(j.view.week)||state.week;
         state.session=[1,2].includes(Number(j.view.session))?Number(j.view.session):state.session;
         state.tab=VALID_TABS.includes(j.view.tab)?j.view.tab:state.tab;
+        if(STRENGTH_IDS.has(j.view.evolutionExercise)) evolutionExerciseId=j.view.evolutionExercise;
+        if(Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,j.view.evolutionMetric)) evolutionMetric=j.view.evolutionMetric;
       }
       storageSet(LS.week,state.week); storageSet(LS.session,state.session); storageSet(LS.tab,state.tab);
+      storageSet(LS.evolutionExercise,evolutionExerciseId); storageSet(LS.evolutionMetric,evolutionMetric);
       render(); alert('Backup validado e importado com segurança.'+(normalized.legacy?' Os dados antigos foram convertidos para o 1º treino, mantendo a compatibilidade com a versão 1.2.':''));
     }catch(e){ alert(e.message||'Erro ao ler o arquivo. Nenhum dado foi alterado.'); }
   };
@@ -1139,8 +1287,11 @@ function undoLastChange(){
       state.week=clampWeek(snap.view.week)||1;
       state.session=[1,2].includes(Number(snap.view.session))?Number(snap.view.session):1;
       state.tab=VALID_TABS.includes(snap.view.tab)?snap.view.tab:'a';
+      if(STRENGTH_IDS.has(snap.view.evolutionExercise)) evolutionExerciseId=snap.view.evolutionExercise;
+      if(Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,snap.view.evolutionMetric)) evolutionMetric=snap.view.evolutionMetric;
     }
     storageSet(LS.week,state.week); storageSet(LS.session,state.session); storageSet(LS.tab,state.tab);
+    storageSet(LS.evolutionExercise,evolutionExerciseId); storageSet(LS.evolutionMetric,evolutionMetric);
     storageRemove(LS.snapshot); render(); alert('Última alteração desfeita.');
   }catch(e){ alert(e.message||'Não foi possível desfazer.'); }
 }
