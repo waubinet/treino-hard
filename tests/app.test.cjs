@@ -69,7 +69,7 @@ test('migra integralmente dados legados mantendo a convenção da v1.2',()=>{
   const app=boot({jovilite_data:JSON.stringify(legacy),jovilite_lastopen:todayKey()});
   assert.equal(app.run("readEntry(1,'c_agach_smith',1).sets[0].kg"),'50');
   assert.equal(app.run("readEntry(1,'c_agach_smith',2).sets.length"),0);
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,3);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,4);
 });
 
 test('rejeita campos maliciosos e escapa referências em HTML',()=>{
@@ -94,8 +94,33 @@ test('todos os vídeos têm curadoria e justificativa visível',()=>{
   assert.equal(app.run("[...Object.values(YT),...STRETCHES.map(s=>s.vid)].every(url=>VIDEO_REVIEW[ytId(url)])"),true);
   assert.equal(app.run("Object.values(VIDEO_REVIEW).every(r=>['guiado','objetivo','visual'].includes(r.l)&&r.s>0)"),true);
   const card=app.run('exerciseCard(WORKOUTS[2].exercises[4])');
-  assert.equal(card.includes('explica execução'),true);
-  assert.equal(card.includes('revisado 12/07/2026'),true);
+  assert.equal(card.includes('Cobre:'),true);
+  assert.equal(card.includes('revisado 20/07/2026'),true);
+});
+
+test('aplica a sequência pessoal de costas e usa máquinas nas remadas',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const ids=JSON.parse(JSON.stringify(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.filter(e=>e.kind==='per').map(e=>e.id)")));
+  assert.deepEqual(ids.slice(0,5),['a_puxada_supinada','a_puxada_neutra','a_remada_sentada','a_remada_smith','a_remada_unilateral']);
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').label"),'B');
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_smith').name"),'Remada Articulada');
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral').detail.includes('Máquina')"),true);
+  assert.equal(app.run("ytId(YT.a_remada_smith)"),'i3FScctBKvc');
+  assert.equal(app.run("ytId(YT.a_remada_unilateral)"),'Prevu525iYQ');
+});
+
+test('salva feedback por exercício e gera relatório seguro para revisão',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("state.week=1;state.session=1;setExerciseFeeling('a_remada_unilateral','replace')");
+  app.run("setExerciseFeedback('a_remada_unilateral','  prefiro máquina <img src=x onerror=1>  ')");
+  assert.equal(app.run("readEntry(1,'a_remada_unilateral').feeling"),'replace');
+  assert.equal(app.run("readEntry(1,'a_remada_unilateral').feedback"),'prefiro máquina <img src=x onerror=1>');
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,4);
+  const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral'))");
+  assert.equal(card.includes('<img src=x'),false);
+  assert.equal(card.includes('&lt;img src=x onerror=1&gt;'),true);
+  assert.equal(app.run("feedbackReportText().includes('Quero substituir')"),true);
+  assert.equal(app.run("renderFeedbackReview().includes('Treino B · Remada Unilateral')"),true);
 });
 
 test('usa a ocorrência imediatamente anterior como referência',()=>{
@@ -156,14 +181,16 @@ test('reinicia toda a periodização e permite desfazer',()=>{
   assert.equal(app.run('state.archives.length'),0);
 });
 
-test('inverte a rotina semanal e a ordem visual para B, A, C',()=>{
+test('nomeia e exibe a rotina na ordem A, B, C sem trocar os IDs históricos',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
   assert.equal(app.run('state.tab'),'b');
   assert.deepEqual(JSON.parse(JSON.stringify(app.run('DAY_TID'))),['','b','a','c','b','a','c']);
   assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.tid)'))),['b','a','c']);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.label)'))),['A','B','C']);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.name)'))),['Peito + Ombros + Tríceps','Costas + Bíceps','Perna']);
   app.run('renderTabs()');
   const tabs=app.run("document.getElementById('tabs').innerHTML");
-  assert.ok(tabs.indexOf('Treino B')<tabs.indexOf('Treino A'));
+  assert.ok(tabs.indexOf('Treino A')<tabs.indexOf('Treino B'));
 });
 
 test('registra data real e distingue conclusão completa, parcial e sem registro',()=>{

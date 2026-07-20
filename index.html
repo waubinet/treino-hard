@@ -174,6 +174,31 @@
   .notes{margin:2px 0 0;padding:0;list-style:none}
   .notes li{color:var(--muted);font-size:12px;line-height:1.55}
 
+  /* Feedback pessoal por exercício */
+  .feedback{margin-top:12px;border:1px solid var(--control-border);border-radius:12px;background:#100e13;overflow:hidden}
+  .feedback summary{min-height:44px;padding:11px 12px;display:flex;align-items:center;gap:8px;cursor:pointer;
+    color:var(--muted);font-size:12.5px;font-weight:800;list-style:none}
+  .feedback summary::-webkit-details-marker{display:none}
+  .feedback summary::after{content:'+';margin-left:auto;color:var(--dim);font-size:17px}
+  .feedback[open] summary::after{content:'−'}
+  .feedback.flagged{border-color:#b45309}.feedback.pain{border-color:#ef4444}
+  .feedbackbody{padding:0 12px 12px;border-top:1px solid var(--border)}
+  .feedbackhint{margin:10px 0 8px;color:var(--dim);font-size:11.5px;line-height:1.45}
+  .feelbar{display:grid;grid-template-columns:repeat(2,1fr);gap:7px}
+  .feelbtn{min-height:44px;padding:8px;border-radius:10px;border:1px solid var(--control-border);
+    background:var(--card2);color:var(--muted);font-size:12px;font-weight:800}
+  .feelbtn.on{border-color:var(--purple);background:#251735;color:#fff}
+  .feelbtn.pain.on{border-color:#ef4444;background:#351217}.feelbtn.replace.on{border-color:#f59e0b;background:#33200c}
+  .feedbacklabel{display:block;margin:10px 0 5px;color:var(--dim);font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.4px}
+  .feedbacktext{width:100%;min-height:76px;resize:vertical;padding:10px 11px;border-radius:10px;
+    border:1px solid var(--control-border);background:var(--bg);color:var(--text);font:inherit;font-size:16px;line-height:1.4}
+  .feedbacktext:focus{outline:none;border-color:var(--purple)}
+  .feedbackmsg{margin:8px 0 0;color:#fde68a;font-size:11.5px;line-height:1.45}
+  .feedbackmsg.danger{color:#fca5a5}
+  .reviewitem{padding:10px 0;border-bottom:1px solid var(--border)}
+  .reviewitem:last-child{border-bottom:0}.reviewitem strong{display:block;font-size:13px}
+  .reviewitem span{display:block;margin-top:3px;color:var(--muted);font-size:11.5px;line-height:1.45}
+
   /* Set rows */
   .sets{display:flex;flex-direction:column;gap:7px;margin-top:6px}
   .srow{display:flex;align-items:center;gap:9px}
@@ -369,7 +394,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.6 (histórico de ciclos)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.7 (feedback por exercício)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -398,8 +423,8 @@
 /* ====================== DADOS ====================== */
 const YT = {
   a_puxada_supinada:'https://www.youtube.com/watch?v=IFDUGxHRIKA',  // Puxada alta supinada — execução e dica
-  a_remada_smith:'https://www.youtube.com/watch?v=5DKEAuY65jM',
-  a_remada_unilateral:'https://www.youtube.com/watch?v=K25eTWoEOWU',
+  a_remada_smith:'https://www.youtube.com/watch?v=i3FScctBKvc',
+  a_remada_unilateral:'https://www.youtube.com/watch?v=Prevu525iYQ',
   a_puxada_neutra:'https://www.youtube.com/watch?v=V-Z_RntYhZg',
   a_remada_sentada:'https://www.youtube.com/watch?v=HZPqEGzrLRg',  // Remada baixa triângulo — execução + cinesiologia
   a_crucifixo_inv:'https://www.youtube.com/watch?v=eo4O-BvfjRk',
@@ -422,13 +447,13 @@ const YT = {
   c_panturrilha_pe:'https://www.youtube.com/watch?v=F7_8z_7Kwks',     // Flexão plantar no Leg Press 45º
   c_panturrilha_sentado:'https://www.youtube.com/watch?v=zHJE3HPEP84', // Flexão plantar no banco sóleo (sentado)
   // Aquecimento / mobilidade / alongamentos dentro dos treinos
-  a_alonga_dorsal:'https://www.youtube.com/watch?v=g9S8XsYALzI',
+  a_alonga_dorsal:'https://www.youtube.com/watch?v=eVmGZVPhjV0',
   a_alonga_peitoral:'https://www.youtube.com/watch?v=6Be-s3RwVp4',
-  a_abs_curto:'https://www.youtube.com/watch?v=1KR5m7IfdIc',  // Abdominal crunch no solo — Treino Correto
-  b_alonga_dorsal:'https://www.youtube.com/watch?v=g9S8XsYALzI',
+  a_abs_curto:'https://www.youtube.com/watch?v=KiKZsrjYuU4',
+  b_alonga_dorsal:'https://www.youtube.com/watch?v=eVmGZVPhjV0',
   b_rot_ombro:'https://www.youtube.com/watch?v=oElBNT5bjhA',
-  c_alonga_adutor:'https://www.youtube.com/watch?v=V5u7-lKrtvs',
-  c_mob_quadril:'https://www.youtube.com/watch?v=V5u7-lKrtvs',
+  c_alonga_adutor:'https://www.youtube.com/watch?v=imijpudAW7s',
+  c_mob_quadril:'https://www.youtube.com/watch?v=R6zbYBwgioc',
   c_alonga_posterior:'https://www.youtube.com/watch?v=x861NmGgbpQ',
   c_mob_tornozelo:'https://www.youtube.com/watch?v=3pprN9t_P1o',
 };
@@ -442,11 +467,15 @@ const VIDEO_CHANNEL = {
   '9Cy3ngopGRk':'Musculação em 1 minuto','bLgb6XZz2N4':'Treino em FOCO',
   'eo4O-BvfjRk':'Jr Vieira - Treinamento e Nutrição',
   'F7_8z_7Kwks':'FISIculturismo.com.br','g9S8XsYALzI':'Roberto Virgili Personal',
+  'eVmGZVPhjV0':'Miqueias Alves Personal',
   'HZPqEGzrLRg':'ClaraPRO',
   'i9Ub99a97go':'Guilherme Stellbrink I FisioPrev','IFDUGxHRIKA':'Treino Mestre',
+  'i3FScctBKvc':'Treinador Morin','imijpudAW7s':'Matheus Morgavi',
   'jannLx4RxKo':'Training for Health','K25eTWoEOWU':'Dicas de Treino',
+  'KiKZsrjYuU4':'Personal Gustavo Teixeira','Prevu525iYQ':'Danilo Heraclio',
   'nf4OOzWrcXw':'Treinador Diego Fernandes','NxbDKOYe1Hk':'Bruno Teles Personal Online',
   'jqTlJt3JXzQ':'Leandro Twin','oElBNT5bjhA':'AYO MOOVE- MOVE DIFFERENT','Svq2T3L9oKo':'Gymflix',
+  'R6zbYBwgioc':'Personal Caio Silveira',
   'T--10UN1jKs':'FISIculturismo.com.br','uDBQtlCLQ0Y':'Tay Training',
   'V-Z_RntYhZg':'Miqueias Alves Personal','V5u7-lKrtvs':'Cloud Gym','V6UEDzY51gY':'Guilherme Stellbrink I FisioPrev',
   'VakpIeaaeXA':'Laércio Refundini - Cortes','vXPbKrYIEaQ':'Tay Training',
@@ -456,20 +485,26 @@ const VIDEO_CHANNEL = {
 };
 function videoSource(url){ return VIDEO_CHANNEL[ytId(url)]||'YouTube'; }
 
-// Duração conferida via metadados do YouTube em 12/07/2026. O nível descreve
-// a profundidade editorial do material; não é certificação profissional do autor.
+// Duração, correspondência com o exercício e cobertura técnica revisadas em 20/07/2026.
+// O nível descreve o que o vídeo entrega; não é certificação profissional do autor.
 const VIDEO_REVIEW = {
   '1KR5m7IfdIc':{s:17,l:'visual'},'3dnLfE3mB1I':{s:58,l:'objetivo'},
   '3otpFrCvjLw':{s:229,l:'guiado'},'3pprN9t_P1o':{s:96,l:'guiado'},
   '5DKEAuY65jM':{s:30,l:'objetivo'},'6Be-s3RwVp4':{s:31,l:'objetivo'},
   '7le1JRUUagM':{s:43,l:'objetivo'},'9Cy3ngopGRk':{s:63,l:'guiado'},
   'bLgb6XZz2N4':{s:670,l:'guiado'},'eo4O-BvfjRk':{s:38,l:'objetivo'},
+  'eVmGZVPhjV0':{s:130,l:'guiado',c:'posição + execução + orientação'},
   'F7_8z_7Kwks':{s:135,l:'guiado'},'g9S8XsYALzI':{s:24,l:'visual'},
   'HZPqEGzrLRg':{s:251,l:'guiado'},'i9Ub99a97go':{s:63,l:'guiado'},
-  'IFDUGxHRIKA':{s:52,l:'objetivo'},'jannLx4RxKo':{s:118,l:'guiado'},
+  'i3FScctBKvc':{s:68,l:'guiado',c:'ajustes + execução + erros'},
+  'IFDUGxHRIKA':{s:52,l:'objetivo'},'imijpudAW7s':{s:68,l:'guiado',c:'posição + execução'},
+  'jannLx4RxKo':{s:118,l:'guiado'},
   'jqTlJt3JXzQ':{s:146,l:'guiado'},'K25eTWoEOWU':{s:35,l:'objetivo'},
+  'KiKZsrjYuU4':{s:61,l:'guiado',c:'posição + execução + erros comuns'},
   'nf4OOzWrcXw':{s:31,l:'objetivo'},'NxbDKOYe1Hk':{s:31,l:'objetivo'},
   'oElBNT5bjhA':{s:85,l:'guiado'},'Svq2T3L9oKo':{s:170,l:'guiado'},
+  'Prevu525iYQ':{s:32,l:'objetivo',c:'execução específica na máquina'},
+  'R6zbYBwgioc':{s:60,l:'guiado',c:'posição + execução'},
   'T--10UN1jKs':{s:90,l:'guiado'},'uDBQtlCLQ0Y':{s:484,l:'guiado'},
   'V-Z_RntYhZg':{s:88,l:'guiado'},'V5u7-lKrtvs':{s:24,l:'visual'},
   'V6UEDzY51gY':{s:65,l:'guiado'},'VakpIeaaeXA':{s:100,l:'guiado'},
@@ -480,29 +515,34 @@ const VIDEO_REVIEW = {
 };
 function videoReview(url){
   const r=VIDEO_REVIEW[ytId(url)]||{s:0,l:'visual'};
+  const levels={
+    guiado:{label:'Guia técnico',coverage:'posição + execução'},
+    objetivo:{label:'Demonstração',coverage:'execução principal'},
+    visual:{label:'Referência',coverage:'reconhecimento do movimento'}
+  };
+  const level=levels[r.l]||levels.visual;
   const duration=r.s>=60 ? Math.floor(r.s/60)+':'+String(r.s%60).padStart(2,'0') : r.s+' s';
-  const reason=r.l==='guiado'?'explica execução':r.l==='objetivo'?'demonstra o movimento':'referência rápida';
-  return {label:r.l==='guiado'?'Guia':r.l==='objetivo'?'Objetivo':'Visual',reason:reason+' · '+duration};
+  return {label:level.label,reason:duration,coverage:r.c||level.coverage};
 }
 
 const ex = (id,name,detail,kind,sets,reps,opt={}) =>
   ({id,name,detail,kind,sets,reps,isNew:!!opt.isNew,notes:opt.notes||[],warm:opt.warm||0});
 
 const WORKOUTS = [
-  {tid:'a',label:'A',name:'Costas + Bíceps',exercises:[
+  {tid:'a',label:'B',name:'Costas + Bíceps',exercises:[
     ex('a_alonga_dorsal','Alongamento Dorsais','Espaldar','mob',2,'20-30 seg'),
     ex('a_alonga_peitoral','Alongamento Peitoral',null,'mob',2,'20-30 seg'),
     ex('a_abs_curto','Abs Curto no Solo',null,'mob',2,'12',{notes:['Aquecimento de core']}),
     ex('a_puxada_supinada','Puxada Frontal','Pegada supinada','per',3,null,{warm:2}),
-    ex('a_remada_smith','Remada Curvada','Smith pegada supinada','per',3),
-    ex('a_remada_unilateral','Remada Unilateral','Halteres','per',3),
     ex('a_puxada_neutra','Puxada Frontal','Pegada neutra','per',3),
     ex('a_remada_sentada','Remada Sentada','Triângulo','per',3),
+    ex('a_remada_smith','Remada Articulada','Máquina · pegada neutra · tronco apoiado','per',3,{notes:['Substitui a remada curvada por conforto e estabilidade']}),
+    ex('a_remada_unilateral','Remada Unilateral','Máquina · 1 braço','per',3,{notes:['Preferência pessoal: máquina em vez de halter']}),
     ex('a_crucifixo_inv','Crucifixo Invertido','Aparelho pegada pronada','per',3),
     ex('a_biceps_martelo','Bíceps Martelo','Em pé bilateral','per',3),
     ex('a_rosca_barra_w','Rosca Direta','Barra W','per',3,null,{isNew:true}),
   ]},
-  {tid:'b',label:'B',name:'Peito + Ombros + Tríceps',exercises:[
+  {tid:'b',label:'A',name:'Peito + Ombros + Tríceps',exercises:[
     ex('b_alonga_dorsal','Alongamento Dorsais','Espaldar','mob',2,'20-30 seg'),
     ex('b_rot_ombro','Rotação Externa de Ombro',null,'mob',2,'12',{notes:['Baixa carga']}),
     ex('b_supino_barra','Supino Reto','Com barra','per',3,null,{warm:2}),
@@ -529,13 +569,13 @@ const WORKOUTS = [
     ex('c_panturrilha_sentado','Flexão Plantar','Banco Sóleo','per',3,null,{warm:2}),
   ]},
 ];
-const WORKOUT_DISPLAY=['b','a','c'];
+const WORKOUT_DISPLAY=['b','a','c']; // ordem visual A, B, C; IDs internos preservados para não perder dados
 function orderedWorkouts(){ return WORKOUT_DISPLAY.map(tid=>WORKOUTS.find(w=>w.tid===tid)); }
 
 const STRETCHES = [
-  {name:'Dorsais',tipo:'Alongamento',freq:'Pré-treino A e B',vid:'https://www.youtube.com/watch?v=g9S8XsYALzI'},
+  {name:'Dorsais',tipo:'Alongamento',freq:'Pré-treino A e B',vid:'https://www.youtube.com/watch?v=eVmGZVPhjV0'},
   {name:'Peitoral',tipo:'Alongamento',freq:'Pré-treino A',vid:'https://www.youtube.com/watch?v=6Be-s3RwVp4'},
-  {name:'Adutor (Borboleta)',tipo:'Alongamento',freq:'Pré-treino C',vid:'https://www.youtube.com/watch?v=V5u7-lKrtvs'},
+  {name:'Adutor (Borboleta)',tipo:'Alongamento',freq:'Pré-treino C',vid:'https://www.youtube.com/watch?v=imijpudAW7s'},
   {name:'Posterior da Coxa',tipo:'Alongamento',freq:'Pré-treino C',vid:'https://www.youtube.com/watch?v=x861NmGgbpQ'},
   {name:'Reto Femoral',tipo:'Flexionamento',freq:'2-3x/semana',vid:'https://www.youtube.com/watch?v=nf4OOzWrcXw'},
   {name:'Isquiotibiais',tipo:'Flexionamento',freq:'2-3x/semana',vid:'https://www.youtube.com/watch?v=bLgb6XZz2N4'},
@@ -563,7 +603,7 @@ function targetFor(exObj,week){
   return {sets:exObj.sets, reps:exObj.reps, deload:false};
 }
 
-// Treino do dia: Dom=descanso, Seg=B, Ter=A, Qua=C, Qui=B, Sex=A, Sáb=C
+// Treino do dia: Dom=descanso, Seg=A, Ter=B, Qua=C, Qui=A, Sex=B, Sáb=C
 const DAY_TID = ['', 'b', 'a', 'c', 'b', 'a', 'c'];
 function dayContext(dt=new Date()){
   const day=dt.getDay();
@@ -597,7 +637,7 @@ function hasSetData(s){
 }
 
 /* ====================== ESTADO ====================== */
-const DATA_SCHEMA=3;
+const DATA_SCHEMA=4;
 const LS = {
   week:'jovilite_week',session:'jovilite_session',tab:'jovilite_tab',data:'jovilite_data',
   lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery',
@@ -625,6 +665,11 @@ function storageRemove(key){ try{ localStorage.removeItem(key); return true; }ca
 function clampWeek(v){ v=parseInt(v,10); return (v>=1&&v<=8)?v:0; }
 function isRecord(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
 const VALID_EXERCISE_IDS=new Set(WORKOUTS.flatMap(w=>w.exercises.map(e=>e.id)));
+const VALID_FEELINGS=new Set(['good','awkward','pain','replace']);
+const FEELING_LABELS={good:'Bem',awkward:'Desconfortável',pain:'Senti dor',replace:'Quero substituir'};
+function sanitizeFeedback(value){
+  return String(value??'').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,240);
+}
 function normalizeStoredField(field,value){
   if(value==null || value==='') return '';
   let s=String(value).trim().replace(',','.');
@@ -648,14 +693,17 @@ function normalizeEntry(raw){
     kg:normalizeStoredField('kg',isRecord(s)?s.kg:''),
     reps:normalizeStoredField('reps',isRecord(s)?s.reps:'')
   })) : [];
-  return {sets,done:raw.done===true};
+  const feeling=VALID_FEELINGS.has(raw.feeling)?raw.feeling:'';
+  const feedback=sanitizeFeedback(raw.feedback);
+  const feedbackAt=(feeling||feedback)?validIso(raw.feedbackAt):null;
+  return {sets,done:raw.done===true,...(feeling?{feeling}:{}),...(feedback?{feedback}:{}),...(feedbackAt?{feedbackAt}:{})};
 }
 function normalizeBucket(raw,stats){
   const out={}; if(!isRecord(raw)) return out;
   Object.keys(raw).forEach(id=>{
     if(!VALID_EXERCISE_IDS.has(id)){ stats.ignored++; return; }
     const en=normalizeEntry(raw[id]);
-    if(en){ out[id]=en; if(en.done||en.sets.some(hasSetData)) stats.entries++; }
+    if(en){ out[id]=en; if(en.done||en.feeling||en.feedback||en.sets.some(hasSetData)) stats.entries++; }
     else stats.ignored++;
   });
   return out;
@@ -769,7 +817,7 @@ if(!VALID_TABS.includes(state.tab)) state.tab='b';
 if(initialLoad.needsSave) saveData();
 saveAux();
 const stSel = {}; // índice do alongamento -> segundos escolhidos
-const STRENGTH_EXERCISES=WORKOUTS.flatMap(w=>w.exercises.map(e=>({...e,workout:w.label}))).filter(e=>e.kind!=='mob');
+const STRENGTH_EXERCISES=orderedWorkouts().flatMap(w=>w.exercises.map(e=>({...e,workout:w.label}))).filter(e=>e.kind!=='mob');
 const STRENGTH_IDS=new Set(STRENGTH_EXERCISES.map(e=>e.id));
 const EXERCISE_WORKOUT=new Map(WORKOUTS.flatMap(w=>w.exercises.map(e=>[e.id,w])));
 let evolutionExerciseId=storageGet(LS.evolutionExercise);
@@ -777,7 +825,7 @@ if(!STRENGTH_IDS.has(evolutionExerciseId)) evolutionExerciseId=STRENGTH_EXERCISE
 let evolutionMetric=storageGet(LS.evolutionMetric);
 if(!['maxKg','volume'].includes(evolutionMetric)) evolutionMetric='maxKg';
 
-const EMPTY_ENTRY = {sets:[],done:false};
+const EMPTY_ENTRY = {sets:[],done:false,feeling:'',feedback:''};
 // Leitura: nunca cria nada (evita inchar o backup só de abrir a tela)
 function sessionBucket(week,session,create){
   const wk=state.data[week];
@@ -853,6 +901,21 @@ function toggleDone(week,exId){
   updateWorkoutCompleted(exId); return true;
 }
 
+function setExerciseFeeling(exId,feeling){
+  if(!VALID_FEELINGS.has(feeling)) return;
+  syncLatestData(); const entry=ensureEntry(state.week,exId);
+  entry.feeling=feeling; entry.feedbackAt=new Date().toISOString();
+  touchWorkout(exId); if(saveData()) storageRemove(LS.snapshot);
+  render('feel-'+exId+'-'+feeling);
+}
+function setExerciseFeedback(exId,value){
+  syncLatestData(); const entry=ensureEntry(state.week,exId),clean=sanitizeFeedback(value);
+  if(clean) entry.feedback=clean; else delete entry.feedback;
+  if(clean||entry.feeling) entry.feedbackAt=new Date().toISOString(); else delete entry.feedbackAt;
+  touchWorkout(exId); if(saveData()) storageRemove(LS.snapshot);
+  render('feedback-'+exId);
+}
+
 /* ====================== RENDER ====================== */
 const $ = s=>document.querySelector(s);
 
@@ -908,6 +971,7 @@ function exerciseCard(exObj){
   const done=e.done;
   const logStatus=workLogStatus(exObj,e,week);
   const rl=restLabel(restSec(exObj,week));
+  const feeling=VALID_FEELINGS.has(e.feeling)?e.feeling:'';
 
   let badges='';
   if(exObj.isNew) badges+='<span class="badge b-new">Novo no ciclo</span>';
@@ -916,6 +980,7 @@ function exerciseCard(exObj){
   if(exObj.kind==='per') badges+='<span class="badge b-per">Periodizado</span>';
   if(logStatus==='partial') badges+='<span class="badge b-logwarn">Registro parcial</span>';
   if(logStatus==='unlogged') badges+='<span class="badge b-logwarn">Sem registro</span>';
+  if(feeling&&feeling!=='good') badges+=`<span class="badge b-logwarn">${esc(FEELING_LABELS[feeling])}</span>`;
 
   let body='';
   if(exObj.kind==='mob'){
@@ -936,8 +1001,8 @@ function exerciseCard(exObj){
   if(vid){
     const review=videoReview(vid);
     body+=`<button type="button" class="vbtn" onclick="openVid('${vid}','${exObj.name.replace(/'/g,'')}')">`+
-      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(vid))} · revisado 12/07/2026</span>`+
-      `<span class="vquality">${review.label}</span><span class="vreason">${review.reason}</span></span>`+
+      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(vid))} · revisado 20/07/2026</span>`+
+      `<span class="vquality">${review.label}</span><span class="vreason">Cobre: ${esc(review.coverage)} · ${review.reason}</span></span>`+
       `<span class="ext">▸</span></button>`;
   }
   if(exObj.notes.length){
@@ -997,6 +1062,18 @@ function exerciseCard(exObj){
     body+='</div>';
   }
 
+  const feelOptions=[['good','🙂','Bem'],['awkward','😕','Desconfortável'],['pain','⚠️','Senti dor'],['replace','🔄','Quero substituir']];
+  const flagged=['awkward','pain','replace'].includes(feeling);
+  body+=`<details class="feedback ${flagged?'flagged':''} ${feeling==='pain'?'pain':''}" ${flagged?'open':''}>`+
+    `<summary>Como me senti${feeling?` · ${esc(FEELING_LABELS[feeling])}`:''}</summary>`+
+    `<div class="feedbackbody"><p class="feedbackhint">Registre sua experiência. A ficha não troca exercícios automaticamente; o feedback fica pronto para revisarmos juntos.</p>`+
+    `<div class="feelbar">${feelOptions.map(([id,icon,label])=>`<button type="button" data-focus="feel-${exObj.id}-${id}" aria-pressed="${feeling===id}" class="feelbtn ${id} ${feeling===id?'on':''}" onclick="setExerciseFeeling('${exObj.id}','${id}')">${icon} ${label}</button>`).join('')}</div>`+
+    `<label class="feedbacklabel" for="feedback-${exObj.id}">Observação opcional</label>`+
+    `<textarea id="feedback-${exObj.id}" data-focus="feedback-${exObj.id}" class="feedbacktext" maxlength="240" placeholder="Onde incomoda, por que não encaixa ou qual aparelho você prefere?" onchange="setExerciseFeedback('${exObj.id}',this.value)">${esc(e.feedback||'')}</textarea>`+
+    (feeling==='pain'?`<p class="feedbackmsg danger">Dor é um sinal para interromper o movimento e buscar avaliação profissional se persistir ou for intensa.</p>`:
+      feeling==='replace'?`<p class="feedbackmsg">Marcado para conversarmos sobre uma substituição antes de alterar a ficha.</p>`:'')+
+    `</div></details>`;
+
   const kindClass='k-'+exObj.kind;
   return `<article class="card ${kindClass} ${done?'done':''}">`+
     `<div class="chead"><div>`+
@@ -1039,6 +1116,47 @@ function renderCycleArchives(){
       `<button type="button" class="toolbtn" onclick="exportArchive('${archive.id}')">⬇ Exportar este ciclo</button></div>`;
   }).join('');
   return `<div class="section"><h3>🗂 Ciclos anteriores</h3>${items}</div>`;
+}
+function feedbackReviewItems(){
+  const latest=new Map();
+  for(let week=1;week<=8;week++) for(let session=1;session<=2;session++){
+    const bucket=state.data[week]&&state.data[week][session]; if(!bucket) continue;
+    Object.entries(bucket).forEach(([exId,entry])=>{
+      if(!entry || (!entry.feeling&&!entry.feedback)) return;
+      latest.set(exId,{exId,week,session,feeling:entry.feeling||'',feedback:entry.feedback||'',feedbackAt:entry.feedbackAt||''});
+    });
+  }
+  return orderedWorkouts().flatMap(workout=>workout.exercises.map(exObj=>{
+    const item=latest.get(exObj.id);
+    return item?{...item,workout,exObj}:null;
+  }).filter(Boolean));
+}
+function feedbackReportText(){
+  const items=feedbackReviewItems();
+  const lines=['Feedback do Treino Hard',''];
+  if(!items.length) return lines.concat('Ainda não registrei feedback por exercício.').join('\n');
+  items.forEach(item=>{
+    lines.push(`Treino ${item.workout.label} · ${item.exObj.name}${item.exObj.detail?' · '+item.exObj.detail:''}`);
+    lines.push(`Como me senti: ${FEELING_LABELS[item.feeling]||'Observação registrada'}`);
+    if(item.feedback) lines.push(`Observação: ${item.feedback}`);
+    lines.push(`Ocorrência: ${WEEK_LABEL[item.week]} · ${item.session}º treino`,'');
+  });
+  lines.push('Quero conversar antes de qualquer substituição adicional.');
+  return lines.join('\n');
+}
+function renderFeedbackReview(){
+  const items=feedbackReviewItems(),flagged=items.filter(item=>item.feeling!=='good');
+  const body=flagged.length?flagged.map(item=>`<div class="reviewitem"><strong>Treino ${item.workout.label} · ${esc(item.exObj.name)} — ${esc(FEELING_LABELS[item.feeling]||'Observação')}</strong>`+
+    `<span>${esc(item.feedback||'Sem observação adicional.')} · ${WEEK_LABEL[item.week]} / ${item.session}º treino</span></div>`).join(''):
+    `<p>Nenhum exercício sinalizado para revisão. Use “Como me senti” dentro de cada exercício.</p>`;
+  return `<div class="section"><h3>💬 Feedback para revisão</h3>${body}`+
+    `<button type="button" class="toolbtn" onclick="copyFeedbackReport()">📋 Copiar feedback para conversar comigo</button>`+
+    `<p>O app apenas registra; nenhuma substituição adicional é feita sem conversarmos antes.</p></div>`;
+}
+async function copyFeedbackReport(){
+  const report=feedbackReportText();
+  try{ await navigator.clipboard.writeText(report); showStatus('Feedback copiado. Cole na conversa para revisarmos sua ficha.','ok'); }
+  catch(e){ downloadText(report,'treino-hard-feedback-'+localDateStamp()+'.txt','text/plain'); showStatus('O navegador bloqueou a cópia; o feedback foi baixado em .txt.','ok'); }
 }
 function backupMessage(){
   if(entryCount(state.data)===0) return '';
@@ -1158,7 +1276,7 @@ function renderPanels(){
     h+=`<article class="stcard">`+
       `<h3 class="stname">${s.name}<span class="sttag ${tagClass}">${s.tipo}</span></h3>`+
       `<div class="stmeta">${s.freq}</div>`+
-      (s.vid?(()=>{const review=videoReview(s.vid);return `<button type="button" class="vbtn stretch-video" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(s.vid))} · revisado 12/07/2026</span><span class="vquality">${review.label}</span><span class="vreason">${review.reason}</span></span><span class="ext">▸</span></button>`;})():'')+
+      (s.vid?(()=>{const review=videoReview(s.vid);return `<button type="button" class="vbtn stretch-video" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(s.vid))} · revisado 20/07/2026</span><span class="vquality">${review.label}</span><span class="vreason">Cobre: ${esc(review.coverage)} · ${review.reason}</span></span><span class="ext">▸</span></button>`;})():'')+
       `<div class="stopts">`+
         [20,25,30].map(sec=>`<button type="button" aria-pressed="${sel===sec}" class="stopt ${sel===sec?'on':''}" data-st="${i}" data-sec="${sec}" onclick="pickSt(${i},${sec})">${sec}s</button>`).join('')+
       `</div>`+
@@ -1186,18 +1304,20 @@ function renderPanels(){
       (dl?`<span class="pn">45-50%</span>`:'')+`</div>`;
   });
   h+=`</div>`;
+  h+=renderFeedbackReview();
   h+=renderCycleArchives();
   h+=`<div class="section"><h3>📅 Divisão semanal</h3>`+
-     `<div class="split"><span class="d">Segunda</span><span class="w">Treino B</span></div>`+
-     `<div class="split"><span class="d">Terça</span><span class="w">Treino A</span></div>`+
+     `<div class="split"><span class="d">Segunda</span><span class="w">Treino A</span></div>`+
+     `<div class="split"><span class="d">Terça</span><span class="w">Treino B</span></div>`+
      `<div class="split"><span class="d">Quarta</span><span class="w">Treino C</span></div>`+
-     `<div class="split"><span class="d">Quinta</span><span class="w">Treino B</span></div>`+
-     `<div class="split"><span class="d">Sexta</span><span class="w">Treino A</span></div>`+
+     `<div class="split"><span class="d">Quinta</span><span class="w">Treino A</span></div>`+
+     `<div class="split"><span class="d">Sexta</span><span class="w">Treino B</span></div>`+
      `<div class="split"><span class="d">Sábado</span><span class="w">Treino C</span></div></div>`;
   h+=`<div class="section"><h3>🏃 Cardio</h3><p>Qualquer modalidade: bike, esteira, escada, etc. Faça a que você preferir. Sem prescrição rígida de tempo/intensidade.</p></div>`;
   h+=`<div class="section"><h3>📝 Observações da ficha</h3><p>• Exercícios de alongamento e mobilidade NÃO mudam ao longo do ciclo.<br>• Os "Novo no ciclo" foram adicionados nesta fase.<br>• A carga você controla: suba quando bater o topo da faixa de reps com técnica boa.</p></div>`;
+  h+=`<div class="section"><h3>📚 Base de evidência da ficha</h3><p>A divisão pode seguir sua preferência quando o volume semanal é equivalente. Exercícios prioritários devem vir cedo na sessão; por isso sua sequência habitual abre o treino B. Volume maior pode ajudar, mas com retornos decrescentes — qualquer redução ou troca adicional será discutida antes.</p><p>Fontes: <a href="https://pubmed.ncbi.nlm.nih.gov/41843416/" target="_blank" rel="noopener noreferrer">ACSM 2026</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41343037/" target="_blank" rel="noopener noreferrer">dose–resposta de volume</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38595233/" target="_blank" rel="noopener noreferrer">split vs. corpo inteiro</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32077380/" target="_blank" rel="noopener noreferrer">ordem dos exercícios</a> e <a href="https://pubmed.ncbi.nlm.nih.gov/35438660/" target="_blank" rel="noopener noreferrer">variação de exercícios</a>.</p></div>`;
   h+=`<div class="section"><h3>🛡 Uso seguro</h3><p>Este app é um diário educativo: ele não observa sua técnica nem substitui avaliação profissional. Interrompa o exercício diante de dor intensa ou nova, tontura, desmaio, dor no peito ou falta de ar incomum e procure orientação adequada. Fontes: <a href="https://www.gov.br/saude/pt-br/assuntos/saude-brasil/eu-quero-me-exercitar/noticias/2022/a-atividade-fisica-pode-auxiliar-na-reducao-das-dores-osseas-articulares-e-musculares" target="_blank" rel="noopener noreferrer">Ministério da Saúde</a> e <a href="https://www.newcastle-hospitals.nhs.uk/services/newcastle-occupational-health-service/information-for-staff/physiotherapy/self-help-leaflets/exercise-and-your-health-a-guide-to-getting-started/" target="_blank" rel="noopener noreferrer">NHS</a>.</p></div>`;
-  h+=`<div class="section"><h3>🎥 Curadoria dos vídeos</h3><p>Os 35 vídeos foram reavaliados em 12/07/2026 quanto à disponibilidade, correspondência com o exercício, canal e profundidade da demonstração. Quatro fontes fracas ou indisponíveis foram substituídas.</p><p><b>Guia</b>: explicação de execução com pelo menos 1 minuto. <b>Objetivo</b>: demonstração específica de 30 a 59 segundos. <b>Visual</b>: referência rápida com menos de 30 segundos — use apenas para reconhecer o movimento.</p><p>Os selos medem a profundidade do vídeo, não certificam o autor nem substituem avaliação profissional. Interrompa se houver dor aguda, tontura ou mal-estar.</p></div>`;
+  h+=`<div class="section"><h3>🎥 Curadoria dos vídeos</h3><p>Os vídeos foram reavaliados em 20/07/2026 quanto à correspondência exata com o exercício, aparelho, canal e conteúdo demonstrado. Seis fontes foram substituídas nesta revisão, incluindo remada articulada e remada unilateral na máquina.</p><p><b>Guia técnico</b>: inclui orientação além do movimento. <b>Demonstração</b>: mostra a execução principal. <b>Referência</b>: serve para reconhecer o movimento. Cada card informa o que o vídeo cobre e a duração.</p><p>Os selos descrevem o conteúdo; não certificam o autor nem substituem avaliação profissional.</p></div>`;
   h+=`<div class="section"><h3>💾 Dados</h3>`+
      `<button type="button" class="toolbtn" onclick="exportData()">⬇ Exportar backup (JSON)</button>`+
      `<button type="button" class="toolbtn" onclick="openImport()">⬆ Importar backup validado</button>`+
@@ -1506,7 +1626,7 @@ function resetWorkout(){
   }
 }
 function resetPeriodization(){
-  if(!confirm('REINICIAR A PERIODIZAÇÃO DO ZERO? O ciclo atual será arquivado e o app voltará para S1, 1º treino, ficha B. Você poderá desfazer depois.')) return;
+  if(!confirm('REINICIAR A PERIODIZAÇÃO DO ZERO? O ciclo atual será arquivado e o app voltará para S1, 1º treino, ficha A. Você poderá desfazer depois.')) return;
   syncLatestData(); if(!createSnapshot('Antes de reiniciar a periodização')){ alert('Não foi possível criar a cópia de segurança. Reinício cancelado.'); return; }
   const previous={data:state.data,meta:state.meta,archives:state.archives,cycleStartedAt:state.cycleStartedAt};
   const hadData=entryCount(state.data)>0;
@@ -1522,7 +1642,7 @@ function resetPeriodization(){
   state.week=1; state.session=1; state.tab='b';
   storageSet(LS.week,1); storageSet(LS.session,1); storageSet(LS.tab,'b');
   timerStop(); render(); window.scrollTo(0,0);
-  alert(hadData?'Ciclo anterior arquivado. Você pode começar novamente pela S1, treino B.':'Periodização reiniciada. Você pode começar pela S1, treino B.');
+  alert(hadData?'Ciclo anterior arquivado. Você pode começar novamente pela S1, treino A.':'Periodização reiniciada. Você pode começar pela S1, treino A.');
 }
 
 /* ====================== UTIL ====================== */
@@ -1551,7 +1671,8 @@ function resumeApp(){
 document.addEventListener('visibilitychange',resumeApp);
 window.addEventListener('pageshow',resumeApp);
 window.addEventListener('storage',ev=>{
-  if(ev.key!==LS.data || !ev.newValue || document.activeElement?.tagName==='INPUT') return;
+  const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
+  if(ev.key!==LS.data || !ev.newValue || editing) return;
   const latest=decodeData(ev.newValue,false);
   if(latest.valid){ state.data=latest.data; render(); }
 });
