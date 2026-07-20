@@ -1,4 +1,4 @@
-const CACHE_NAME='treino-hard-v1.7';
+const CACHE_NAME='treino-hard-v1.8';
 const APP_SHELL=['./','./index.html','./logo.png','./manifest.webmanifest'];
 
 self.addEventListener('install',event=>{

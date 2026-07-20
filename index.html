@@ -258,6 +258,33 @@
   .info b{display:block;margin-bottom:4px;font-size:14px}
   .info p{margin:0;color:var(--muted);font-size:12.5px;line-height:1.55}
 
+  /* Peso e medidas */
+  .tab.medidas.on{background:var(--blue);border-color:var(--blue);color:#1a0d12}
+  .measureform,.measureblock{background:var(--elev);border:1px solid var(--border);border-radius:16px;padding:14px;margin:14px 0 11px;box-shadow:var(--shadow)}
+  .measuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .measurefield{display:block;min-width:0}.measurefield.full{grid-column:1/-1}
+  .measurefield span{display:block;color:var(--dim);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+  .measureinput{width:100%;min-height:46px;border-radius:11px;border:1.5px solid var(--control-border);background:var(--bg);color:var(--text);padding:10px 11px;font:inherit;font-size:16px}
+  .measureinput:focus{outline:3px solid #f6b2c8;outline-offset:2px}
+  textarea.measureinput{min-height:72px;resize:vertical;line-height:1.4}
+  .measureactions{display:flex;align-items:center;gap:10px;margin-top:12px}.measureactions .toolbtn{margin:0;flex:1}
+  .measurehint{margin:9px 0 0;color:var(--dim);font-size:11.5px;line-height:1.5}.measurehint a{color:#f0b6cc}
+  .measurestats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:11px 0}
+  .measurestat{background:var(--elev);border:1px solid var(--border);border-radius:13px;padding:11px 8px;text-align:center}
+  .measurestat .k{color:var(--dim);font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.4px}
+  .measurestat .v{font-size:16px;font-weight:900;margin-top:4px;color:#f5cfdd;line-height:1.15}
+  .measuremetric{margin:0 0 11px}.measurehistory{display:flex;flex-direction:column;gap:8px}
+  .measurerow{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:11px}
+  .measurehead{display:flex;align-items:center;justify-content:space-between;gap:10px}.measuredate{font-weight:900;font-size:13px}
+  .measuredelete{min-width:44px;min-height:44px;border:1px solid #7f1d1d;border-radius:10px;color:#fca5a5;font-weight:850}
+  .measurevalues{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
+  .measurevalue{background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:4px 8px;color:var(--muted);font-size:11px;font-weight:750}
+  .measurenote{margin-top:7px;color:var(--muted);font-size:11.5px;line-height:1.4;overflow-wrap:anywhere}
+  @media(max-width:520px){
+    .measuregrid{grid-template-columns:1fr}.measurefield.full{grid-column:auto}.measurestats{grid-template-columns:1fr}
+    .measurestat{display:flex;align-items:center;justify-content:space-between;text-align:left}.measurestat .v{margin-top:0}
+  }
+
   /* Ciclo */
   .ptable{background:var(--elev);border:1px solid var(--border);border-radius:16px;
     padding:8px;margin-bottom:12px;box-shadow:var(--shadow)}
@@ -394,7 +421,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.7 (feedback por exercício)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.8 (peso e medidas)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -637,13 +664,13 @@ function hasSetData(s){
 }
 
 /* ====================== ESTADO ====================== */
-const DATA_SCHEMA=4;
+const DATA_SCHEMA=5;
 const LS = {
   week:'jovilite_week',session:'jovilite_session',tab:'jovilite_tab',data:'jovilite_data',
   lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery',
   evolutionExercise:'jovilite_evolution_exercise',evolutionMetric:'jovilite_evolution_metric',
   meta:'jovilite_session_meta',archives:'jovilite_cycle_archives',cycleStarted:'jovilite_cycle_started',
-  lastBackup:'jovilite_last_backup'
+  lastBackup:'jovilite_last_backup',measurements:'jovilite_body_measurements',bodyMetric:'jovilite_body_metric'
 };
 let storageHealthy=true;
 function showStatus(message,type='error',withExport=false){
@@ -792,6 +819,37 @@ function normalizeArchives(raw){
     };
   }).filter(Boolean);
 }
+const BODY_METRICS={
+  weight:{label:'Peso',short:'Peso',unit:'kg'},waist:{label:'Cintura',short:'Cintura',unit:'cm'},
+  abdomen:{label:'Abdômen no umbigo',short:'Abdômen',unit:'cm'},chest:{label:'Peitoral',short:'Peitoral',unit:'cm'},
+  hip:{label:'Quadril',short:'Quadril',unit:'cm'},arm:{label:'Braço',short:'Braço',unit:'cm'},thigh:{label:'Coxa',short:'Coxa',unit:'cm'}
+};
+function validMeasureDate(value){
+  const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||'')); if(!match) return '';
+  const y=Number(match[1]),m=Number(match[2]),d=Number(match[3]),date=new Date(y,m-1,d);
+  return date.getFullYear()===y&&date.getMonth()===m-1&&date.getDate()===d?match[0]:'';
+}
+function normalizeMeasureValue(value){
+  const raw=String(value??'').trim().replace(',','.'); if(!raw||!/^\d{1,3}(?:\.\d{1,2})?$/.test(raw)) return '';
+  const number=Number(raw); return Number.isFinite(number)&&number>0&&number<=500?String(Math.round(number*100)/100):'';
+}
+function normalizeMeasurement(raw,index=0){
+  if(!isRecord(raw)) return null; const date=validMeasureDate(raw.date); if(!date) return null;
+  const item={id:String(raw.id||('medida-'+date+'-'+index)).replace(/[^A-Za-z0-9_-]/g,'').slice(0,80)||('medida-'+date+'-'+index),date};
+  Object.keys(BODY_METRICS).forEach(key=>{ const value=normalizeMeasureValue(raw[key]); if(value) item[key]=value; });
+  if(!Object.keys(BODY_METRICS).some(key=>item[key])) return null;
+  const note=String(raw.note||'').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,160); if(note) item.note=note;
+  item.savedAt=validIso(raw.savedAt)||new Date().toISOString(); return item;
+}
+function normalizeMeasurements(raw){
+  if(!Array.isArray(raw)) return []; const byDate=new Map();
+  raw.slice(0,500).forEach((entry,index)=>{ const item=normalizeMeasurement(entry,index); if(item) byDate.set(item.date,item); });
+  return [...byDate.values()].sort((a,b)=>a.date.localeCompare(b.date)||a.savedAt.localeCompare(b.savedAt));
+}
+function syncLatestMeasurements(){
+  if(!storageHealthy) return; const latest=normalizeMeasurements(parseStoredJson(LS.measurements,[])); if(storageHealthy) state.measurements=latest;
+}
+function saveMeasurements(){ return storageSet(LS.measurements,JSON.stringify(state.measurements)); }
 function saveAux(){
   const okMeta=storageSet(LS.meta,JSON.stringify(state.meta));
   const okArchives=storageSet(LS.archives,JSON.stringify(state.archives));
@@ -799,7 +857,7 @@ function saveAux(){
   return okMeta&&okArchives&&okStart;
 }
 
-const VALID_TABS = ['a','b','c','alg','evol','ciclo'];
+const VALID_TABS = ['a','b','c','alg','evol','medidas','ciclo'];
 const initialLoad=loadData();
 const savedSession=parseInt(storageGet(LS.session),10);
 const initialCycleStarted=validIso(storageGet(LS.cycleStarted))||new Date().toISOString();
@@ -810,6 +868,7 @@ let state = {
   data:initialLoad.data,
   meta:normalizeSessionMeta(parseStoredJson(LS.meta,{})),
   archives:normalizeArchives(parseStoredJson(LS.archives,[])),
+  measurements:normalizeMeasurements(parseStoredJson(LS.measurements,[])),
   cycleStartedAt:initialCycleStarted,
 };
 // Aba salva inválida (ex.: uma ficha removida) → volta para a primeira ficha, B.
@@ -824,6 +883,8 @@ let evolutionExerciseId=storageGet(LS.evolutionExercise);
 if(!STRENGTH_IDS.has(evolutionExerciseId)) evolutionExerciseId=STRENGTH_EXERCISES[0].id;
 let evolutionMetric=storageGet(LS.evolutionMetric);
 if(!['maxKg','volume'].includes(evolutionMetric)) evolutionMetric='maxKg';
+let bodyMetric=storageGet(LS.bodyMetric);
+if(!Object.prototype.hasOwnProperty.call(BODY_METRICS,bodyMetric)) bodyMetric='weight';
 
 const EMPTY_ENTRY = {sets:[],done:false,feeling:'',feedback:''};
 // Leitura: nunca cria nada (evita inchar o backup só de abrir a tela)
@@ -953,6 +1014,7 @@ function renderTabs(){
   });
   h+=`<button type="button" data-focus="tab-alg" role="tab" id="tab-alg" aria-controls="panel-alg" aria-selected="${state.tab==='alg'}" class="tab alg ${state.tab==='alg'?'on':''}" onclick="setTab('alg')">Alongam.</button>`;
   h+=`<button type="button" data-focus="tab-evol" role="tab" id="tab-evol" aria-controls="panel-evol" aria-selected="${state.tab==='evol'}" class="tab evol ${state.tab==='evol'?'on':''}" onclick="setTab('evol')">Evolução</button>`;
+  h+=`<button type="button" data-focus="tab-medidas" role="tab" id="tab-medidas" aria-controls="panel-medidas" aria-selected="${state.tab==='medidas'}" class="tab medidas ${state.tab==='medidas'?'on':''}" onclick="setTab('medidas')">Medidas</button>`;
   h+=`<button type="button" data-focus="tab-ciclo" role="tab" id="tab-ciclo" aria-controls="panel-ciclo" aria-selected="${state.tab==='ciclo'}" class="tab ciclo ${state.tab==='ciclo'?'on':''}" onclick="setTab('ciclo')">Ciclo</button>`;
   $('#tabs').innerHTML=h;
   requestAnimationFrame(()=>{
@@ -1244,6 +1306,75 @@ function renderEvolutionPanel(){
     `<div class="spacer24"></div></section>`;
 }
 
+function formatMeasureDate(value){
+  const parts=validMeasureDate(value).split('-'); return parts.length===3?`${parts[2]}/${parts[1]}/${parts[0]}`:'';
+}
+function measurementPoints(metric=bodyMetric){
+  return state.measurements.filter(item=>item[metric]).map(item=>({date:item.date,value:Number(item[metric])}));
+}
+function measurementChart(metric=bodyMetric){
+  const meta=BODY_METRICS[metric],points=measurementPoints(metric);
+  if(points.length<2) return `<div class="evoempty">Salve pelo menos dois registros de ${meta.short.toLowerCase()} para traçar a evolução.</div>`;
+  const W=640,H=240,L=54,R=18,T=18,B=42,plotW=W-L-R,plotH=H-T-B;
+  let min=Math.min(...points.map(p=>p.value)),max=Math.max(...points.map(p=>p.value));
+  const pad=min===max?Math.max(1,min*.03):(max-min)*.14; min=Math.max(0,min-pad); max+=pad;
+  const x=i=>L+(i/(points.length-1))*plotW,y=v=>T+plotH-((v-min)/(max-min))*plotH;
+  let grid=''; for(let i=0;i<=4;i++){ const gy=T+(i/4)*plotH,value=max-(i/4)*(max-min); grid+=`<line class="chartgrid" x1="${L}" y1="${gy}" x2="${W-R}" y2="${gy}"/><text class="chartaxis" x="${L-6}" y="${gy+3}" text-anchor="end">${formatNumber(value)}</text>`; }
+  const line=points.map((p,i)=>`${x(i)},${y(p.value)}`).join(' ');
+  const dots=points.map((p,i)=>`<circle class="chartpoint" cx="${x(i)}" cy="${y(p.value)}" r="5" tabindex="0"><title>${formatMeasureDate(p.date)}: ${formatNumber(p.value)} ${meta.unit}</title></circle>`).join('');
+  const last=points[points.length-1],aria=`${meta.label}: ${points.length} registros. Último ${formatNumber(last.value)} ${meta.unit}.`;
+  return `<svg class="evochart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(aria)}">${grid}<polyline class="chartline" points="${line}"/>${dots}`+
+    `<text class="chartaxis" x="${L}" y="${H-12}" text-anchor="start">${formatMeasureDate(points[0].date)}</text><text class="chartaxis" x="${W-R}" y="${H-12}" text-anchor="end">${formatMeasureDate(last.date)}</text></svg>`;
+}
+function measurementHistory(){
+  if(!state.measurements.length) return `<div class="evoempty">Nenhuma medição salva ainda.</div>`;
+  return `<div class="measurehistory">`+state.measurements.slice().reverse().slice(0,20).map(item=>{
+    const values=Object.entries(BODY_METRICS).filter(([key])=>item[key]).map(([key,meta])=>`<span class="measurevalue">${meta.short}: ${formatNumber(Number(item[key]))} ${meta.unit}</span>`).join('');
+    return `<article class="measurerow"><div class="measurehead"><span class="measuredate">${formatMeasureDate(item.date)}</span>`+
+      `<button type="button" class="measuredelete" aria-label="Excluir medição de ${formatMeasureDate(item.date)}" onclick="deleteMeasurement('${item.id}')">Excluir</button></div>`+
+      `<div class="measurevalues">${values}</div>${item.note?`<div class="measurenote">${esc(item.note)}</div>`:''}</article>`;
+  }).join('')+`</div>`;
+}
+function renderMeasurementsPanel(){
+  const meta=BODY_METRICS[bodyMetric],points=measurementPoints(bodyMetric),first=points[0],latest=points[points.length-1];
+  const delta=points.length>=2?latest.value-first.value:null,deltaText=delta==null?'—':`${delta>0?'+':''}${formatNumber(delta)} ${meta.unit}`;
+  const fields=Object.entries(BODY_METRICS).map(([key,item])=>`<label class="measurefield"><span>${item.label} (${item.unit})</span>`+
+    `<input class="measureinput" id="measure-${key}" name="${key}" inputmode="decimal" autocomplete="off" placeholder="Ex.: ${key==='weight'?'110,5':'100'}"></label>`).join('');
+  const on=state.tab==='medidas';
+  return `<section role="tabpanel" id="panel-medidas" aria-labelledby="tab-medidas" aria-hidden="${!on}" class="panel ${on?'on':''}">`+
+    `<h2 class="ptitle">Peso e Medidas</h2><div class="psub">Histórico corporal separado da periodização</div>`+
+    `<form class="measureform" onsubmit="saveMeasurementForm(event)"><div class="measuregrid">`+
+      `<label class="measurefield full"><span>Data</span><input class="measureinput" id="measure-date" name="date" type="date" value="${localDateStamp()}" required></label>`+
+      fields+`<label class="measurefield full"><span>Observação opcional</span><textarea class="measureinput" id="measure-note" name="note" maxlength="160" placeholder="Ex.: medi pela manhã, antes do café"></textarea></label>`+
+    `</div><div class="measureactions"><button class="toolbtn" type="submit">Salvar medição</button></div>`+
+    `<p class="measurehint">Para comparar: repita horário e condições. Cintura: fita horizontal no ponto médio entre a última costela palpável e o topo do quadril, após expirar normalmente; quadril: parte mais larga dos glúteos. “Abdômen no umbigo” é uma referência pessoal separada. Fontes: <a href="https://www.who.int/publications/i/item/9789241501491" target="_blank" rel="noopener noreferrer">OMS</a> e <a href="https://www.nhlbi.nih.gov/health/heart-healthy-living/healthy-weight" target="_blank" rel="noopener noreferrer">NHLBI/NIH</a>.</p></form>`+
+    `<div class="measureblock"><label class="measurefield measuremetric"><span>Parâmetro do gráfico</span><select class="measureinput" onchange="setBodyMetric(this.value)">`+
+      Object.entries(BODY_METRICS).map(([key,item])=>`<option value="${key}" ${bodyMetric===key?'selected':''}>${item.label}</option>`).join('')+`</select></label>`+
+      `<div class="measurestats"><div class="measurestat"><div class="k">Inicial</div><div class="v">${first?formatNumber(first.value)+' '+meta.unit:'—'}</div></div>`+
+      `<div class="measurestat"><div class="k">Atual</div><div class="v">${latest?formatNumber(latest.value)+' '+meta.unit:'—'}</div></div>`+
+      `<div class="measurestat"><div class="k">Variação</div><div class="v">${deltaText}</div></div></div>`+
+      `<div class="chartcard"><div class="charttitle">${meta.label}</div>${measurementChart(bodyMetric)}</div></div>`+
+    `<div class="section"><h3>Histórico</h3>${measurementHistory()}</div><div class="spacer24"></div></section>`;
+}
+function upsertMeasurement(raw){
+  syncLatestMeasurements(); const item=normalizeMeasurement(raw,state.measurements.length); if(!item) return false;
+  const previous=state.measurements.slice(),existing=state.measurements.find(saved=>saved.date===item.date); if(existing) item.id=existing.id;
+  state.measurements=normalizeMeasurements([...state.measurements.filter(saved=>saved.date!==item.date),item]);
+  if(!saveMeasurements()){ state.measurements=previous; saveMeasurements(); return false; } return true;
+}
+function saveMeasurementForm(ev){
+  ev.preventDefault(); const raw={date:document.getElementById('measure-date').value,note:document.getElementById('measure-note').value};
+  Object.keys(BODY_METRICS).forEach(key=>raw[key]=document.getElementById('measure-'+key).value);
+  if(!Object.keys(BODY_METRICS).some(key=>normalizeMeasureValue(raw[key]))){ alert('Preencha ao menos peso ou uma medida válida.'); return; }
+  if(!upsertMeasurement(raw)){ alert('Não foi possível salvar. Confira a data e os valores.'); return; }
+  showStatus('Medição salva. Se já havia registro nessa data, ele foi atualizado.','ok'); render();
+}
+function deleteMeasurement(id){
+  if(!confirm('Excluir esta medição?')) return; syncLatestMeasurements();
+  const previous=state.measurements.slice(); state.measurements=state.measurements.filter(item=>item.id!==id);
+  if(!saveMeasurements()){ state.measurements=previous; saveMeasurements(); alert('Não foi possível excluir a medição.'); return; } render();
+}
+
 function renderPanels(){
   let h='';
   orderedWorkouts().forEach(w=>{
@@ -1286,6 +1417,7 @@ function renderPanels(){
   h+=`<div class="spacer24"></div></section>`;
 
   h+=renderEvolutionPanel();
+  h+=renderMeasurementsPanel();
 
   // Ciclo
   h+=`<section role="tabpanel" id="panel-ciclo" aria-labelledby="tab-ciclo" aria-hidden="${state.tab!=='ciclo'}" class="panel ${state.tab==='ciclo'?'on':''}">`;
@@ -1349,6 +1481,10 @@ function setEvolutionExercise(id){
 function setEvolutionMetric(metric){
   if(!Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,metric)) return;
   evolutionMetric=metric; storageSet(LS.evolutionMetric,metric); render('evo-metric-'+metric);
+}
+function setBodyMetric(metric){
+  if(!Object.prototype.hasOwnProperty.call(BODY_METRICS,metric)) return;
+  bodyMetric=metric; storageSet(LS.bodyMetric,metric); render();
 }
 function upd(exId,i,f,v){ const clean=sanitizeInput(f,v); setVal(state.week,exId,i,f,clean); return clean; }
 // Inicia o descanso ao concluir a edição de reps (o valor já foi salvo via input)
@@ -1518,10 +1654,10 @@ function downloadText(text,name,type='application/json'){
   setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 }
 function exportData(){
-  syncLatestData();
+  syncLatestData(); syncLatestMeasurements();
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,exportedAt:new Date().toISOString(),
-    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},
-    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives};
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric,bodyMetric},
+    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements};
   downloadText(JSON.stringify(payload,null,2),'treino-hard-backup-'+localDateStamp()+'.json');
   storageSet(LS.lastBackup,new Date().toISOString());
   showStatus('Backup exportado. Guarde o arquivo em um local seguro.','ok');
@@ -1534,8 +1670,8 @@ function exportArchive(id){
 }
 function createSnapshot(reason){
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,savedAt:new Date().toISOString(),reason,
-    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric},
-    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives};
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric,bodyMetric},
+    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements};
   return storageSet(LS.snapshot,JSON.stringify(payload));
 }
 function importData(ev){
@@ -1551,16 +1687,17 @@ function importData(ev){
       if(!normalized.valid) throw new Error('Estrutura de dados inválida.');
       const details=`${normalized.entries} registro(s)`+(normalized.ignored?` e ${normalized.ignored} item(ns) inválido(s) ignorado(s)`:'' );
       if(!confirm(`Importar ${details}? Os dados atuais serão substituídos, mas poderão ser desfeitos.`)) return;
-      syncLatestData();
+      syncLatestData(); syncLatestMeasurements();
       if(!createSnapshot('Antes da importação')) throw new Error('Não foi possível criar a cópia de segurança. Importação cancelada.');
-      const previous={data:state.data,meta:state.meta,archives:state.archives,cycleStartedAt:state.cycleStartedAt};
+      const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,cycleStartedAt:state.cycleStartedAt};
       state.data=normalized.data;
       state.meta=normalizeSessionMeta(j.meta);
       if(Array.isArray(j.archives)) state.archives=normalizeArchives(j.archives);
+      if(Array.isArray(j.measurements)) state.measurements=normalizeMeasurements(j.measurements);
       state.cycleStartedAt=validIso(j.cycleStartedAt)||new Date().toISOString();
-      if(!saveData()||!saveAux()){
-        state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.cycleStartedAt=previous.cycleStartedAt;
-        saveData();saveAux();throw new Error('Não foi possível salvar o backup importado.');
+      if(!saveData()||!saveAux()||!saveMeasurements()){
+        state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.measurements=previous.measurements;state.cycleStartedAt=previous.cycleStartedAt;
+        saveData();saveAux();saveMeasurements();throw new Error('Não foi possível salvar o backup importado.');
       }
       if(isRecord(j.view)){
         state.week=clampWeek(j.view.week)||state.week;
@@ -1568,9 +1705,11 @@ function importData(ev){
         state.tab=VALID_TABS.includes(j.view.tab)?j.view.tab:state.tab;
         if(STRENGTH_IDS.has(j.view.evolutionExercise)) evolutionExerciseId=j.view.evolutionExercise;
         if(Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,j.view.evolutionMetric)) evolutionMetric=j.view.evolutionMetric;
+        if(Object.prototype.hasOwnProperty.call(BODY_METRICS,j.view.bodyMetric)) bodyMetric=j.view.bodyMetric;
       }
       storageSet(LS.week,state.week); storageSet(LS.session,state.session); storageSet(LS.tab,state.tab);
       storageSet(LS.evolutionExercise,evolutionExerciseId); storageSet(LS.evolutionMetric,evolutionMetric);
+      storageSet(LS.bodyMetric,bodyMetric);
       render(); alert('Backup validado e importado com segurança.'+(normalized.legacy?' Os dados antigos foram convertidos para o 1º treino, mantendo a compatibilidade com a versão 1.2.':''));
     }catch(e){ alert(e.message||'Erro ao ler o arquivo. Nenhum dado foi alterado.'); }
   };
@@ -1590,13 +1729,14 @@ function undoLastChange(){
     const snap=JSON.parse(storageGet(LS.snapshot)||'null');
     if(!snap || snap.app!=='treino-hard-fofo') throw new Error('Cópia de desfazer inválida.');
     const normalized=normalizeData(snap.data); if(!normalized.valid) throw new Error('Cópia de desfazer corrompida.');
-    const previous={data:state.data,meta:state.meta,archives:state.archives,cycleStartedAt:state.cycleStartedAt};
+    const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,cycleStartedAt:state.cycleStartedAt};
     state.data=normalized.data;state.meta=normalizeSessionMeta(snap.meta);
     state.archives=normalizeArchives(snap.archives);
+    if(Array.isArray(snap.measurements)) state.measurements=normalizeMeasurements(snap.measurements);
     state.cycleStartedAt=validIso(snap.cycleStartedAt)||new Date().toISOString();
-    if(!saveData()||!saveAux()){
-      state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.cycleStartedAt=previous.cycleStartedAt;
-      saveData();saveAux();throw new Error('Não foi possível restaurar os dados.');
+    if(!saveData()||!saveAux()||!saveMeasurements()){
+      state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.measurements=previous.measurements;state.cycleStartedAt=previous.cycleStartedAt;
+      saveData();saveAux();saveMeasurements();throw new Error('Não foi possível restaurar os dados.');
     }
     if(isRecord(snap.view)){
       state.week=clampWeek(snap.view.week)||1;
@@ -1604,9 +1744,11 @@ function undoLastChange(){
       state.tab=VALID_TABS.includes(snap.view.tab)?snap.view.tab:'b';
       if(STRENGTH_IDS.has(snap.view.evolutionExercise)) evolutionExerciseId=snap.view.evolutionExercise;
       if(Object.prototype.hasOwnProperty.call(EVOLUTION_METRICS,snap.view.evolutionMetric)) evolutionMetric=snap.view.evolutionMetric;
+      if(Object.prototype.hasOwnProperty.call(BODY_METRICS,snap.view.bodyMetric)) bodyMetric=snap.view.bodyMetric;
     }
     storageSet(LS.week,state.week); storageSet(LS.session,state.session); storageSet(LS.tab,state.tab);
     storageSet(LS.evolutionExercise,evolutionExerciseId); storageSet(LS.evolutionMetric,evolutionMetric);
+    storageSet(LS.bodyMetric,bodyMetric);
     storageRemove(LS.snapshot); render(); alert('Última alteração desfeita.');
   }catch(e){ alert(e.message||'Não foi possível desfazer.'); }
 }

@@ -69,7 +69,7 @@ test('migra integralmente dados legados mantendo a convenção da v1.2',()=>{
   const app=boot({jovilite_data:JSON.stringify(legacy),jovilite_lastopen:todayKey()});
   assert.equal(app.run("readEntry(1,'c_agach_smith',1).sets[0].kg"),'50');
   assert.equal(app.run("readEntry(1,'c_agach_smith',2).sets.length"),0);
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,4);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,5);
 });
 
 test('rejeita campos maliciosos e escapa referências em HTML',()=>{
@@ -115,7 +115,7 @@ test('salva feedback por exercício e gera relatório seguro para revisão',()=>
   app.run("setExerciseFeedback('a_remada_unilateral','  prefiro máquina <img src=x onerror=1>  ')");
   assert.equal(app.run("readEntry(1,'a_remada_unilateral').feeling"),'replace');
   assert.equal(app.run("readEntry(1,'a_remada_unilateral').feedback"),'prefiro máquina <img src=x onerror=1>');
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,4);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,5);
   const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral'))");
   assert.equal(card.includes('<img src=x'),false);
   assert.equal(card.includes('&lt;img src=x onerror=1&gt;'),true);
@@ -166,14 +166,41 @@ test('painel de evolução trata histórico vazio sem erro',()=>{
   assert.equal(panel.includes('role="tabpanel"'),true);
 });
 
+test('salva peso e medidas por data, atualiza duplicata e gera gráfico seguro',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  assert.equal(app.run("normalizeMeasureValue('110,55')"),'110.55');
+  assert.equal(app.run("normalizeMeasureValue('<img src=x>')"),'');
+  assert.equal(app.run("validMeasureDate('2026-02-30')"),'');
+  app.run("upsertMeasurement({date:'2026-07-01',weight:'112,5',waist:'118',note:'início <img src=x onerror=1>'})");
+  app.run("upsertMeasurement({date:'2026-07-01',weight:'111',waist:'117'})");
+  app.run("upsertMeasurement({date:'2026-07-15',weight:'109.5',waist:'114',abdomen:'121'})");
+  assert.equal(app.run('state.measurements.length'),2);
+  assert.equal(app.run("state.measurements[0].weight"),'111');
+  assert.equal(JSON.parse(app.store.get('jovilite_body_measurements')).length,2);
+  app.run("state.tab='medidas';bodyMetric='weight'");
+  const panel=app.run('renderMeasurementsPanel()');
+  assert.equal(panel.includes('<svg'),true);
+  assert.equal(panel.includes('OMS'),true);
+  assert.equal(panel.includes('+'),false);
+});
+
+test('normaliza observação de medida e escapa HTML no histórico',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("upsertMeasurement({date:'2026-07-01',weight:'110',note:'medida <img src=x onerror=1>'})");
+  const history=app.run('measurementHistory()');
+  assert.equal(history.includes('<img src=x'),false);
+  assert.equal(history.includes('&lt;img src=x onerror=1&gt;'),true);
+});
+
 test('reinicia toda a periodização e permite desfazer',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};state.week=4;state.session=2;state.tab='ciclo';saveData()`);
+  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};state.week=4;state.session=2;state.tab='ciclo';upsertMeasurement({date:'2026-07-01',weight:'110'});saveData()`);
   app.run('resetPeriodization()');
   assert.equal(app.run('Object.keys(state.data).length'),0);
   assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.week,state.session,state.tab]'))),[1,1,'b']);
   assert.equal(app.run('state.archives.length'),1);
   assert.equal(app.run("state.archives[0].data[1][1].c_terra_barra.sets[0].kg"),'60');
+  assert.equal(app.run("state.measurements[0].weight"),'110');
   assert.ok(app.store.has('jovilite_snapshot'));
   app.run('undoLastChange()');
   assert.equal(app.run("readEntry(1,'c_terra_barra',1).sets[0].kg"),'60');
@@ -222,6 +249,19 @@ test('importação válida normaliza antes de substituir e cria desfazer',()=>{
   assert.equal(app.run("readEntry(1,'c_leg_press',1).sets[0].kg"),'100');
   assert.equal(app.run("readEntry(1,'c_leg_press',1).done"),true);
   assert.ok(app.store.has('jovilite_snapshot'));
+});
+
+test('importa medidas do backup e backup antigo preserva o histórico atual',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("upsertMeasurement({date:'2026-06-01',weight:'115'})");
+  let backup={app:'treino-hard-fofo',schemaVersion:5,data:{},measurements:[{date:'2026-07-01',weight:'110',waist:'118'}]};
+  app.context.importEvent={target:{files:[{size:200,content:JSON.stringify(backup)}],value:'arquivo'}};
+  app.run('importData(importEvent)');
+  assert.equal(app.run("state.measurements[0].weight"),'110');
+  backup={app:'treino-hard-fofo',schemaVersion:1,data:{1:{c_leg_press:{sets:[{kg:'100',reps:'10'}],done:true}}}};
+  app.context.importEvent={target:{files:[{size:200,content:JSON.stringify(backup)}],value:'arquivo'}};
+  app.run('importData(importEvent)');
+  assert.equal(app.run("state.measurements[0].weight"),'110');
 });
 
 test('invalida desfazer ao registrar dados novos após uma limpeza',()=>{
