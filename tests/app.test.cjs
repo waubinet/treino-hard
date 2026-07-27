@@ -69,7 +69,7 @@ test('migra integralmente dados legados mantendo a convenção da v1.2',()=>{
   const app=boot({jovilite_data:JSON.stringify(legacy),jovilite_lastopen:todayKey()});
   assert.equal(app.run("readEntry(1,'c_agach_smith',1).sets[0].kg"),'50');
   assert.equal(app.run("readEntry(1,'c_agach_smith',2).sets.length"),0);
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,5);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,7);
 });
 
 test('rejeita campos maliciosos e escapa referências em HTML',()=>{
@@ -95,18 +95,35 @@ test('todos os vídeos têm curadoria e justificativa visível',()=>{
   assert.equal(app.run("Object.values(VIDEO_REVIEW).every(r=>['guiado','objetivo','visual'].includes(r.l)&&r.s>0)"),true);
   const card=app.run('exerciseCard(WORKOUTS[2].exercises[4])');
   assert.equal(card.includes('Cobre:'),true);
-  assert.equal(card.includes('revisado 20/07/2026'),true);
+  assert.equal(card.includes('revisado 26/07/2026'),true);
 });
 
-test('aplica a sequência pessoal de costas e usa máquinas nas remadas',()=>{
+test('aplica a sequência pessoal de costas, remove redundâncias e corrige os vídeos',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
   const ids=JSON.parse(JSON.stringify(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.filter(e=>e.kind==='per').map(e=>e.id)")));
-  assert.deepEqual(ids.slice(0,5),['a_puxada_supinada','a_puxada_neutra','a_remada_sentada','a_remada_smith','a_remada_unilateral']);
+  assert.deepEqual(ids.slice(0,5),['a_puxada_supinada','a_puxada_neutra','a_remada_sentada','a_remada_unilateral','a_pulldown']);
   assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').label"),'B');
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_smith').name"),'Remada Articulada');
   assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral').detail.includes('Máquina')"),true);
-  assert.equal(app.run("ytId(YT.a_remada_smith)"),'i3FScctBKvc');
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.some(e=>e.id==='a_abs_curto'||e.id==='a_remada_smith')"),false);
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='b').exercises.some(e=>e.id==='b_rot_ombro')"),false);
+  assert.equal(app.run("ytId(YT.a_puxada_supinada)"),'zg1MSZR-y4Y');
+  assert.equal(app.run("ytId(YT.a_puxada_neutra)"),'vUu_4jBxM1c');
+  assert.equal(app.run("ytId(YT.a_pulldown)"),'QTQABcLosXk');
   assert.equal(app.run("ytId(YT.a_remada_unilateral)"),'Prevu525iYQ');
+});
+
+test('mantém crossover, troca o supino inclinado por máquina ou Smith e remove aquecimento final de pernas',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const incline="WORKOUTS.find(w=>w.tid==='b').exercises.find(e=>e.id==='b_supino_inclinado')";
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='b').exercises.some(e=>e.id==='b_crossover')"),true);
+  assert.equal(app.run(`selectedVariant(${incline},readEntry(1,'b_supino_inclinado')).id`),'machine');
+  assert.equal(app.run(`exerciseCard(${incline}).includes('lTDvD97_e3g')`),true);
+  assert.equal(app.run("ensureEntry(1,'b_supino_inclinado').variant"),'machine');
+  app.run("setExerciseVariant('b_supino_inclinado','smith')");
+  assert.equal(app.run("readEntry(1,'b_supino_inclinado').variant"),'smith');
+  assert.equal(app.run(`exerciseCard(${incline}).includes('WP1VLAt8hbM')`),true);
+  assert.equal(app.run("normalizeEntry({sets:[{kg:'20',reps:'8'}],done:true},'b_supino_inclinado').variant"),'dumbbells');
+  assert.equal(app.run("['c_panturrilha_pe','c_panturrilha_sentado'].every(id=>WORKOUTS.find(w=>w.tid==='c').exercises.find(e=>e.id===id).warm===0)"),true);
 });
 
 test('salva feedback por exercício e gera relatório seguro para revisão',()=>{
@@ -115,7 +132,7 @@ test('salva feedback por exercício e gera relatório seguro para revisão',()=>
   app.run("setExerciseFeedback('a_remada_unilateral','  prefiro máquina <img src=x onerror=1>  ')");
   assert.equal(app.run("readEntry(1,'a_remada_unilateral').feeling"),'replace');
   assert.equal(app.run("readEntry(1,'a_remada_unilateral').feedback"),'prefiro máquina <img src=x onerror=1>');
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,5);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,7);
   const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral'))");
   assert.equal(card.includes('<img src=x'),false);
   assert.equal(card.includes('&lt;img src=x onerror=1&gt;'),true);
@@ -192,6 +209,18 @@ test('normaliza observação de medida e escapa HTML no histórico',()=>{
   assert.equal(history.includes('&lt;img src=x onerror=1&gt;'),true);
 });
 
+test('migra medidas antigas para os dois lados e compara medidas bilaterais',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const legacy=JSON.parse(JSON.stringify(app.run("normalizeMeasurement({date:'2026-06-01',weight:'110',arm:'40',thigh:'65'})")));
+  assert.deepEqual([legacy.armLeft,legacy.armRight,legacy.thighLeft,legacy.thighRight],['40','40','65','65']);
+  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',chest:'112',waist:'105',armLeft:'39',armRight:'41',thighLeft:'62',thighRight:'64',calfLeft:'39',calfRight:'40'})");
+  const map=app.run('bodyMap()');
+  assert.equal(map.includes('Mapa corporal ilustrativo'),true);
+  assert.equal(map.includes('Diferença 2 cm'),true);
+  assert.equal(map.includes('não mede força'),true);
+  assert.equal(map.includes('<svg'),true);
+});
+
 test('reinicia toda a periodização e permite desfazer',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
   app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};state.week=4;state.session=2;state.tab='ciclo';upsertMeasurement({date:'2026-07-01',weight:'110'});saveData()`);
@@ -230,6 +259,37 @@ test('registra data real e distingue conclusão completa, parcial e sem registro
   assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'partial');
   app.run("toggleDone(1,'c_terra_barra');setVal(1,'c_terra_barra',1,'kg','60');setVal(1,'c_terra_barra',1,'reps','8');setVal(1,'c_terra_barra',2,'kg','60');setVal(1,'c_terra_barra',2,'reps','8');toggleDone(1,'c_terra_barra')");
   assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'full');
+});
+
+test('finaliza e reabre o treino do dia sem alterar os exercícios individuais',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("state.week=1;state.session=1;finishWorkout('a')");
+  assert.ok(app.run("workoutMeta(1,1,'a',false).completedAt"));
+  assert.equal(app.run("workoutMeta(1,1,'a',false).manualCompleted"),true);
+  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.some(ex=>readEntry(1,ex.id).done)"),false);
+  app.run('renderPanels()');
+  assert.equal(app.run("document.getElementById('panels').innerHTML.includes('✓ Treino do dia finalizado · Reabrir')"),true);
+  app.run("finishWorkout('a')");
+  assert.equal(app.run("Boolean(workoutMeta(1,1,'a',false).completedAt)"),false);
+});
+
+test('preserva exercícios retirados em backups antigos',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const normalized=JSON.parse(JSON.stringify(app.run("normalizeData({1:{1:{a_abs_curto:{sets:[],done:true},a_remada_smith:{sets:[{kg:'50',reps:'10'}],done:true}},2:{}}}).data")));
+  assert.equal(normalized[1][1].a_abs_curto.done,true);
+  assert.equal(normalized[1][1].a_remada_smith.sets[0].kg,'50');
+});
+
+test('troca Smith por barra livre, mantém registro e muda o vídeo',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const squat="WORKOUTS.find(w=>w.tid==='c').exercises.find(e=>e.id==='c_agach_smith')";
+  assert.equal(app.run(`selectedVariant(${squat},readEntry(1,'c_agach_smith')).id`),'smith');
+  assert.equal(app.run(`exerciseCard(${squat}).includes('uDBQtlCLQ0Y')`),true);
+  app.run("setVal(1,'c_agach_smith',0,'kg','20');setExerciseVariant('c_agach_smith','barbell')");
+  assert.equal(app.run("readEntry(1,'c_agach_smith').variant"),'barbell');
+  assert.equal(app.run("readEntry(1,'c_agach_smith').sets[0].kg"),'20');
+  assert.equal(app.run(`exerciseCard(${squat}).includes('4L5nBs8Eq7g')`),true);
+  assert.equal(app.run("normalizeEntry({sets:[],variant:'invalida'},'c_agach_smith').variant||''"),'');
 });
 
 test('importação inválida não altera os dados atuais',()=>{
@@ -302,4 +362,63 @@ test('timer usa prazo absoluto e conclui após suspensão',()=>{
   app.run("startTimer(90,'Descanso');tDeadline=Date.now()-1;tickTimer()");
   assert.equal(app.run('tRem'),0);
   assert.equal(app.run('tFinished'),true);
+});
+
+test('normaliza e persiste preferências sem aceitar chaves desconhecidas',()=>{
+  const app=boot({jovilite_settings:JSON.stringify({sound:false,largeText:true,extra:'não'}),jovilite_lastopen:todayKey()});
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run('state.settings'))),{sound:false,vibration:true,largeText:true,keepAwake:true});
+  app.run("toggleSetting('sound')");
+  assert.equal(JSON.parse(app.store.get('jovilite_settings')).sound,true);
+  assert.equal(app.run("Object.prototype.hasOwnProperty.call(state.settings,'extra')"),false);
+});
+
+test('copia séries anteriores, repete a primeira e permite desfazer o lote',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run(`state.week=2;state.session=1;state.data={1:{1:{},2:{c_terra_barra:{sets:[{kg:'60',reps:'10'},{kg:'65',reps:'8'},{kg:'65',reps:'8'}],done:true}}},2:{1:{},2:{}}};saveData()`);
+  app.run("copyPreviousSets('c_terra_barra',0,3)");
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run("readEntry(2,'c_terra_barra').sets"))),[{kg:'60',reps:'10'},{kg:'65',reps:'8'},{kg:'65',reps:'8'}]);
+  app.run("setVal(2,'c_terra_barra',0,'kg','70');repeatFirstWorkSet('c_terra_barra',0,3)");
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run("readEntry(2,'c_terra_barra').sets.map(s=>s.kg)"))),['70','70','70']);
+  app.run('undoQuickEdit()');
+  assert.deepEqual(JSON.parse(JSON.stringify(app.run("readEntry(2,'c_terra_barra').sets.map(s=>s.kg)"))),['70','65','65']);
+});
+
+test('backup completo inclui ajustes e CSV neutraliza fórmulas',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const payload=JSON.parse(JSON.stringify(app.run('buildBackupPayload()')));
+  assert.equal(payload.schemaVersion,7);
+  assert.equal(payload.settings.keepAwake,true);
+  assert.equal(app.run("csvCell('=2+2')"),'"\'=2+2"');
+  assert.equal(app.run("csvCell('@comando')"),'"\'@comando"');
+});
+
+test('cria e restaura cópia automática local validada',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("state.week=1;state.session=1;setVal(1,'c_terra_barra',0,'kg','60');autoBackupIfDue(true)");
+  const stored=JSON.parse(app.store.get('jovilite_auto_backups'));
+  assert.equal(stored.length,1);
+  assert.equal(stored[0].schemaVersion,7);
+  app.run("setVal(1,'c_terra_barra',0,'kg','90');restoreAutoBackup('auto-'+localDateStamp())");
+  assert.equal(app.run("readEntry(1,'c_terra_barra').sets[0].kg"),'60');
+  assert.ok(app.store.has('jovilite_snapshot'));
+});
+
+test('aviso de atualização só instala após confirmação explícita',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.context.messages=[];
+  app.run("waitingWorker={postMessage:m=>messages.push(m)};refreshAppNotice();applyAppUpdate()");
+  assert.equal(app.run("document.getElementById('appnotice').innerHTML.includes('Atualizar agora')"),true);
+  assert.deepEqual(JSON.parse(JSON.stringify(app.context.messages)),[{type:'SKIP_WAITING'}]);
+});
+
+test('campo de repetições salva no blur e só inicia descanso quando mudou',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='b').exercises.find(e=>e.id==='b_supino_barra'))");
+  assert.equal(card.includes('onchange="commitFieldEdit'),false);
+  assert.equal(card.includes('onblur="if(commitFieldEdit'),true);
+  assert.equal(card.includes("finishSetReps(this.value,90,'Supino Reto')"),true);
+  app.run("state.week=1;state.session=1;beginFieldEdit('b_supino_barra',2,'reps');upd('b_supino_barra',2,'reps','12')");
+  assert.equal(app.run("commitFieldEdit('b_supino_barra',2,'reps','12')"),true);
+  app.run("beginFieldEdit('b_supino_barra',2,'reps')");
+  assert.equal(app.run("commitFieldEdit('b_supino_barra',2,'reps','12')"),false);
 });
