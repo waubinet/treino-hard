@@ -69,7 +69,7 @@ test('migra integralmente dados legados mantendo a convenção da v1.2',()=>{
   const app=boot({jovilite_data:JSON.stringify(legacy),jovilite_lastopen:todayKey()});
   assert.equal(app.run("readEntry(1,'c_agach_smith',1).sets[0].kg"),'50');
   assert.equal(app.run("readEntry(1,'c_agach_smith',2).sets.length"),0);
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,7);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,8);
 });
 
 test('rejeita campos maliciosos e escapa referências em HTML',()=>{
@@ -132,7 +132,7 @@ test('salva feedback por exercício e gera relatório seguro para revisão',()=>
   app.run("setExerciseFeedback('a_remada_unilateral','  prefiro máquina <img src=x onerror=1>  ')");
   assert.equal(app.run("readEntry(1,'a_remada_unilateral').feeling"),'replace');
   assert.equal(app.run("readEntry(1,'a_remada_unilateral').feedback"),'prefiro máquina <img src=x onerror=1>');
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,7);
+  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,8);
   const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral'))");
   assert.equal(card.includes('<img src=x'),false);
   assert.equal(card.includes('&lt;img src=x onerror=1&gt;'),true);
@@ -213,12 +213,40 @@ test('migra medidas antigas para os dois lados e compara medidas bilaterais',()=
   const app=boot({jovilite_lastopen:todayKey()});
   const legacy=JSON.parse(JSON.stringify(app.run("normalizeMeasurement({date:'2026-06-01',weight:'110',arm:'40',thigh:'65'})")));
   assert.deepEqual([legacy.armLeft,legacy.armRight,legacy.thighLeft,legacy.thighRight],['40','40','65','65']);
-  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',chest:'112',waist:'105',armLeft:'39',armRight:'41',thighLeft:'62',thighRight:'64',calfLeft:'39',calfRight:'40'})");
+  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',height:'175',chest:'112',waist:'105',armLeft:'39',armRight:'41',thighLeft:'62',thighRight:'64',calfLeft:'39',calfRight:'40'})");
   const map=app.run('bodyMap()');
-  assert.equal(map.includes('Mapa corporal ilustrativo'),true);
+  assert.equal(map.includes('Modelo corporal proporcional'),true);
   assert.equal(map.includes('Diferença 2 cm'),true);
   assert.equal(map.includes('não mede força'),true);
+  assert.equal(map.includes('Escala ajustada pela altura'),true);
   assert.equal(map.includes('<svg'),true);
+});
+
+test('modelo corporal varia os lados e sobrepõe a medição anterior',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("upsertMeasurement({date:'2026-07-01',height:'175',chest:'110',waist:'104',hip:'112',armLeft:'38',armRight:'38',thighLeft:'61',thighRight:'61',calfLeft:'39',calfRight:'39'})");
+  app.run("upsertMeasurement({date:'2026-07-20',height:'175',chest:'108',waist:'100',hip:'110',armLeft:'37',armRight:'41',thighLeft:'60',thighRight:'65',calfLeft:'38',calfRight:'42'})");
+  const map=app.run('bodyMap()');
+  assert.equal(map.includes('bodyprevious'),true);
+  assert.equal(map.includes('Anterior'),true);
+  assert.equal(map.includes('Altura</span><b>175 cm'),true);
+  const geometry=JSON.parse(JSON.stringify(app.run("bodyGeometry(state.measurements[1])")));
+  assert.equal(geometry.armRight>geometry.armLeft,true);
+  assert.equal(geometry.thighRight>geometry.thighLeft,true);
+  assert.equal(geometry.calfRight>geometry.calfLeft,true);
+  const proportions=JSON.parse(JSON.stringify(app.run("bodyGeometry({height:'175',chest:'108',waist:'90',abdomen:'125',hip:'110'})")));
+  assert.equal(proportions.abdomen>proportions.waist,true);
+  assert.equal(app.run("bodyGeometry({height:'160',chest:'108'}).chest>bodyGeometry({height:'190',chest:'108'}).chest"),true);
+});
+
+test('não inventa comparação corporal a partir de registro anterior sem circunferências',()=>{
+  const app=boot({jovilite_lastopen:todayKey()});
+  app.run("upsertMeasurement({date:'2026-07-01',weight:'110',height:'175'})");
+  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',height:'175',chest:'108',waist:'100'})");
+  const map=app.run('bodyMap()');
+  assert.equal(map.includes('bodyprevious'),false);
+  assert.equal(map.includes('Anterior'),false);
+  assert.equal(map.includes('A2B'),true);
 });
 
 test('reinicia toda a periodização e permite desfazer',()=>{
@@ -386,10 +414,13 @@ test('copia séries anteriores, repete a primeira e permite desfazer o lote',()=
 test('backup completo inclui ajustes e CSV neutraliza fórmulas',()=>{
   const app=boot({jovilite_lastopen:todayKey()});
   const payload=JSON.parse(JSON.stringify(app.run('buildBackupPayload()')));
-  assert.equal(payload.schemaVersion,7);
+  assert.equal(payload.schemaVersion,8);
   assert.equal(payload.settings.keepAwake,true);
   assert.equal(app.run("csvCell('=2+2')"),'"\'=2+2"');
   assert.equal(app.run("csvCell('@comando')"),'"\'@comando"');
+  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',height:'175',waist:'100'});downloadText=(text,name,type)=>globalThis.csvCapture={text,name,type};exportCsv()");
+  assert.equal(app.run("csvCapture.text.includes('\"altura_cm\"')"),true);
+  assert.equal(app.run("csvCapture.text.includes('\"108\";\"175\";\"100\"')"),true);
 });
 
 test('cria e restaura cópia automática local validada',()=>{
@@ -397,7 +428,7 @@ test('cria e restaura cópia automática local validada',()=>{
   app.run("state.week=1;state.session=1;setVal(1,'c_terra_barra',0,'kg','60');autoBackupIfDue(true)");
   const stored=JSON.parse(app.store.get('jovilite_auto_backups'));
   assert.equal(stored.length,1);
-  assert.equal(stored[0].schemaVersion,7);
+  assert.equal(stored[0].schemaVersion,8);
   app.run("setVal(1,'c_terra_barra',0,'kg','90');restoreAutoBackup('auto-'+localDateStamp())");
   assert.equal(app.run("readEntry(1,'c_terra_barra').sets[0].kg"),'60');
   assert.ok(app.store.has('jovilite_snapshot'));
