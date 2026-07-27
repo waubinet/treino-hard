@@ -280,6 +280,9 @@
   .measureform,.measureblock{background:var(--elev);border:1px solid var(--border);border-radius:16px;padding:14px;margin:14px 0 11px;box-shadow:var(--shadow)}
   .measuregrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .measurefield{display:block;min-width:0}.measurefield.full{grid-column:1/-1}
+  .measuregroup{grid-column:1/-1;border:1px solid var(--border);border-radius:13px;padding:11px;margin:0;min-width:0;background:rgba(255,255,255,.015)}
+  .measuregroup legend{padding:0 6px;color:#f0b6cc;font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.45px}
+  .measuregroup .measuregrid{margin-top:2px}
   .measurefield span{display:block;color:var(--dim);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
   .measureinput{width:100%;min-height:46px;border-radius:11px;border:1.5px solid var(--control-border);background:var(--bg);color:var(--text);padding:10px 11px;font:inherit;font-size:16px}
   .measureinput:focus{outline:3px solid #f6b2c8;outline-offset:2px}
@@ -300,14 +303,17 @@
   .bodymapcard{background:var(--elev);border:1px solid var(--border);border-radius:16px;padding:14px;margin:11px 0;box-shadow:var(--shadow)}
   .bodymaptitle{font-size:15.5px;font-weight:900;margin:0}.bodymapsub{color:var(--dim);font-size:11.5px;line-height:1.45;margin:3px 0 8px}
   .bodymapstage{position:relative;background:radial-gradient(circle at 50% 35%,#2a1d25 0,#120f13 54%,#0d0b0e 100%);border:1px solid var(--border);border-radius:13px;overflow:hidden}
-  .bodymapsvg{display:block;width:100%;height:auto;max-height:560px}
-  .bodycurrent .bodytorso,.bodycurrent .bodyhead,.bodycurrent .bodyneck{fill:#6f4054;stroke:#efa4bf;stroke-width:2}
-  .bodycurrent .bodylimb{fill:#9b5b74;stroke:#efa4bf;stroke-width:1.4;stroke-linejoin:round}
-  .bodycurrent .bodyfoot{fill:none;stroke:#9b5b74;stroke-width:12;stroke-linecap:round}
-  .bodyprevious{opacity:.7}.bodyprevious .bodytorso,.bodyprevious .bodyhead,.bodyprevious .bodyneck{fill:none;stroke:#8f97a8;stroke-width:2;stroke-dasharray:7 6}
-  .bodyprevious .bodylimb,.bodyprevious .bodyfoot{fill:none;stroke:#aeb6c8;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:7 6}
+  .bodymapsvg{display:block;width:100%;height:auto;max-height:650px}
+  .bodycurrent .bodymass{fill:#77465b;stroke:#efa4bf;stroke-width:1.6;stroke-linejoin:round}
+  .bodycurrent .bodylimb{fill:#9b5b74;stroke:#efa4bf;stroke-width:1.35;stroke-linejoin:round}
+  .bodycurrent .bodydetail{fill:none;stroke:#d58aa6;stroke-width:1.2;stroke-linecap:round;opacity:.72}
+  .bodyprevious{opacity:.72}.bodyprevious .bodymass,.bodyprevious .bodylimb{fill:none;stroke:#aeb6c8;stroke-width:2;stroke-dasharray:7 6;stroke-linejoin:round}
+  .bodyprevious .bodydetail{display:none}
   .bodymeasureline{stroke:#ffd2e1;stroke-width:2;stroke-linecap:round;stroke-dasharray:3 4;opacity:.92}
   .bodycenterline{stroke:#513a46;stroke-width:1;stroke-dasharray:3 6}
+  .bodymodelstatus{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:10px}
+  .bodymodelstatus div{padding:9px;border:1px solid var(--border);border-radius:11px;background:var(--card)}
+  .bodymodelstatus b{display:block;font-size:11px}.bodymodelstatus span{display:block;color:var(--muted);font-size:10.5px;line-height:1.4;margin-top:3px}
   .bodylegend{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;margin:9px 2px 0;color:var(--muted);font-size:10.5px;font-weight:750}
   .bodylegend span{display:inline-flex;align-items:center;gap:6px}.bodylegend i{width:22px;height:0;border-top:3px solid #efa4bf;border-radius:4px}.bodylegend .previous i{border-top:2px dashed #8f97a8}
   .bodychips{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:10px}
@@ -318,7 +324,7 @@
   .asymitem b{display:block;font-size:11.5px}.asymitem span{display:block;color:var(--muted);font-size:10.5px;line-height:1.35;margin-top:3px}
   .bodymapnote{color:var(--dim);font-size:10.5px;line-height:1.45;margin:9px 1px 0}.bodymapnote a{color:#f0b6cc;font-weight:800}
   @media(max-width:520px){
-    .measuregrid{grid-template-columns:1fr}.measurefield.full{grid-column:auto}.measurestats,.asymgrid,.bodychips{grid-template-columns:1fr}
+    .measuregrid{grid-template-columns:1fr}.measurefield.full{grid-column:auto}.measurestats,.asymgrid,.bodychips,.bodymodelstatus{grid-template-columns:1fr}
     .measurestat{display:flex;align-items:center;justify-content:space-between;text-align:left}.measurestat .v{margin-top:0}
   }
 
@@ -471,7 +477,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 2.1 (modelo corporal proporcional)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 2.2 (modelo anatômico antropométrico)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -730,7 +736,7 @@ function hasSetData(s){
 }
 
 /* ====================== ESTADO ====================== */
-const DATA_SCHEMA=8;
+const DATA_SCHEMA=9;
 const LS = {
   week:'jovilite_week',session:'jovilite_session',tab:'jovilite_tab',data:'jovilite_data',
   lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery',
@@ -895,12 +901,16 @@ function normalizeArchives(raw){
   }).filter(Boolean);
 }
 const BODY_METRICS={
-  weight:{label:'Peso',short:'Peso',unit:'kg'},height:{label:'Altura',short:'Altura',unit:'cm'},waist:{label:'Cintura',short:'Cintura',unit:'cm'},
-  abdomen:{label:'Abdômen no umbigo',short:'Abdômen',unit:'cm'},chest:{label:'Peitoral',short:'Peitoral',unit:'cm'},
-  hip:{label:'Quadril',short:'Quadril',unit:'cm'},
-  armLeft:{label:'Braço esquerdo',short:'Braço E',unit:'cm'},armRight:{label:'Braço direito',short:'Braço D',unit:'cm'},
-  thighLeft:{label:'Coxa esquerda',short:'Coxa E',unit:'cm'},thighRight:{label:'Coxa direita',short:'Coxa D',unit:'cm'},
-  calfLeft:{label:'Panturrilha esquerda',short:'Pant. E',unit:'cm'},calfRight:{label:'Panturrilha direita',short:'Pant. D',unit:'cm'}
+  weight:{label:'Peso',short:'Peso',unit:'kg',group:'base',example:'110,5'},height:{label:'Altura',short:'Altura',unit:'cm',group:'base',example:'175'},
+  inseam:{label:'Altura do entrepernas',short:'Entrepernas',unit:'cm',group:'base',example:'82'},
+  neck:{label:'Circunferência do pescoço',short:'Pescoço',unit:'cm',group:'torso',example:'42'},
+  shoulderWidth:{label:'Largura dos ombros',short:'Ombros',unit:'cm',group:'torso',example:'46'},
+  chest:{label:'Peitoral',short:'Peitoral',unit:'cm',group:'torso',example:'110'},waist:{label:'Cintura',short:'Cintura',unit:'cm',group:'torso',example:'100'},
+  abdomen:{label:'Abdômen no umbigo',short:'Abdômen',unit:'cm',group:'torso',example:'108'},hip:{label:'Quadril',short:'Quadril',unit:'cm',group:'torso',example:'112'},
+  armLeft:{label:'Braço esquerdo',short:'Braço E',unit:'cm',group:'limbs',example:'40'},armRight:{label:'Braço direito',short:'Braço D',unit:'cm',group:'limbs',example:'40'},
+  forearmLeft:{label:'Antebraço esquerdo',short:'Antebraço E',unit:'cm',group:'limbs',example:'32'},forearmRight:{label:'Antebraço direito',short:'Antebraço D',unit:'cm',group:'limbs',example:'32'},
+  thighLeft:{label:'Coxa esquerda',short:'Coxa E',unit:'cm',group:'limbs',example:'62'},thighRight:{label:'Coxa direita',short:'Coxa D',unit:'cm',group:'limbs',example:'62'},
+  calfLeft:{label:'Panturrilha esquerda',short:'Pant. E',unit:'cm',group:'limbs',example:'40'},calfRight:{label:'Panturrilha direita',short:'Pant. D',unit:'cm',group:'limbs',example:'40'}
 };
 function validMeasureDate(value){
   const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||'')); if(!match) return '';
@@ -1423,7 +1433,7 @@ function renderSettingsPanel(){
     `${settingRow('vibration','Vibração','Vibra ao iniciar e concluir o cronômetro, quando o aparelho permite.')}`+
     `${settingRow('largeText','Texto maior','Aumenta os textos principais sem alterar os dados.')}`+
     `${settingRow('keepAwake','Manter tela ativa',wakeSupport?'Evita que a tela apague enquanto o app estiver aberto.':'Este navegador não oferece esse recurso.')}</div>`+
-    `<div class="section"><h3>Aplicativo</h3><p id="updatestatus">${navigator.onLine===false?'Sem conexão. O conteúdo salvo continua disponível.':'Versão 2.1 instalada neste aparelho.'}</p>`+
+    `<div class="section"><h3>Aplicativo</h3><p id="updatestatus">${navigator.onLine===false?'Sem conexão. O conteúdo salvo continua disponível.':'Versão 2.2 instalada neste aparelho.'}</p>`+
     `<button type="button" class="toolbtn" onclick="checkForUpdates()">↻ Procurar atualização</button>`+
     (`storage` in navigator?`<button type="button" class="toolbtn" onclick="requestPersistentStorage()">🛡 Proteger dados contra limpeza automática</button>`:'')+`</div>`+
     renderBackupSettings()+`<div class="spacer24"></div></section>`;
@@ -1545,73 +1555,110 @@ function bilateralSummary(item,label,leftKey,rightKey){
   return `<div class="asymitem"><b>${label}</b><span>Diferença ${formatNumber(diff)} cm (${formatNumber(pct)}%) · ${side}</span></div>`;
 }
 function clampBody(value,min,max){ return Math.max(min,Math.min(max,value)); }
+function ellipseBreadth(circumference,depthRatio=.75){
+  const value=Number(circumference); if(!value) return 0;
+  const a=.5,b=clampBody(Number(depthRatio)||.75,.55,1)*.5;
+  const unitPerimeter=Math.PI*(3*(a+b)-Math.sqrt((3*a+b)*(a+3*b)));
+  return value/unitPerimeter;
+}
+const BODY_MODEL_KEYS=['height','inseam','neck','shoulderWidth','chest','waist','abdomen','hip','armLeft','armRight','forearmLeft','forearmRight','thighLeft','thighRight','calfLeft','calfRight'];
 function bodyGeometry(item){
-  const height=Number(item&&item.height),pxPerCm=height?clampBody(470/height,2.15,3.35):2.55;
-  const measured=(key)=>Number(item&&item[key])||0;
+  const measured=(key)=>Number(item&&item[key])||0,height=measured('height'),stature=height||175;
+  const top=16,sole=624,visualHeight=sole-top,pxPerCm=visualHeight/stature;
   const torsoValues=['chest','waist','abdomen','hip'].map(measured).filter(Boolean);
-  const neutral=torsoValues.length?torsoValues.reduce((sum,value)=>sum+value,0)/torsoValues.length:100;
-  const torso=(key,min,max)=>clampBody((measured(key)||neutral)*.36*pxPerCm,min,max);
-  const limb=(key,fallback,min,max)=>clampBody((measured(key)||measured(fallback)||36)/Math.PI*pxPerCm,min,max);
+  const neutralCirc=torsoValues.length?torsoValues.reduce((sum,value)=>sum+value,0)/torsoValues.length:stature*.59;
+  const breadth=(key,ratio,min,max)=>clampBody(ellipseBreadth(measured(key)||neutralCirc,ratio)*pxPerCm,min,max);
+  const limb=(key,fallback,ratio,min,max)=>{
+    const circumference=measured(key)||measured(fallback)||stature*ratio;
+    return clampBody(circumference/Math.PI*pxPerCm,min,max);
+  };
+  const chest=breadth('chest',.72,84,158),waist=breadth('waist',.76,72,154),abdomen=breadth('abdomen',.82,74,164),hip=breadth('hip',.78,86,166);
+  const shoulder=clampBody(measured('shoulderWidth')?measured('shoulderWidth')*pxPerCm:Math.max(chest*1.12,stature*.235*pxPerCm),104,174);
+  const neck=clampBody(measured('neck')?ellipseBreadth(measured('neck'),.84)*pxPerCm:shoulder*.34,34,62);
+  const inseamCm=clampBody(measured('inseam')||stature*.47,stature*.40,stature*.55),crotch=sole-inseamCm*pxPerCm;
+  const headH=clampBody(stature*.13*pxPerCm,70,84),headW=clampBody(stature*.083*pxPerCm,46,58);
+  const neckTop=top+headH*.82,neckBase=top+headH+14,torsoSpan=Math.max(190,crotch-neckBase);
+  const shoulderY=neckBase+torsoSpan*.08,chestY=neckBase+torsoSpan*.30,waistY=neckBase+torsoSpan*.59;
+  const abdomenY=neckBase+torsoSpan*.73,hipY=neckBase+torsoSpan*.88;
+  const armEnd=Math.min(crotch+visualHeight*.095,shoulderY+visualHeight*.44),elbowY=shoulderY+(armEnd-shoulderY)*.46,wristY=shoulderY+(armEnd-shoulderY)*.82;
+  const kneeY=crotch+(sole-crotch)*.49,ankleY=sole-27;
   return {
-    height,scaleMode:height?'altura':'relativa',
-    chest:torso('chest',76,146),waist:torso('waist',66,142),abdomen:torso('abdomen',68,148),hip:torso('hip',78,150),
-    armLeft:limb('armLeft','armRight',18,43),armRight:limb('armRight','armLeft',18,43),
-    thighLeft:limb('thighLeft','thighRight',28,62),thighRight:limb('thighRight','thighLeft',28,62),
-    calfLeft:limb('calfLeft','calfRight',18,45),calfRight:limb('calfRight','calfLeft',18,45)
+    height,stature,scaleMode:height?'altura':'relativa',pxPerCm,top,sole,crotch,neckTop,neckBase,shoulderY,chestY,waistY,abdomenY,hipY,elbowY,wristY,armEnd,kneeY,ankleY,
+    headH,headW,neck,shoulder,chest,waist,abdomen,hip,
+    armLeft:limb('armLeft','armRight',.22,20,50),armRight:limb('armRight','armLeft',.22,20,50),
+    forearmLeft:limb('forearmLeft','forearmRight',.17,16,40),forearmRight:limb('forearmRight','forearmLeft',.17,16,40),
+    thighLeft:limb('thighLeft','thighRight',.34,30,70),thighRight:limb('thighRight','thighLeft',.34,30,70),
+    calfLeft:limb('calfLeft','calfRight',.22,20,50),calfRight:limb('calfRight','calfLeft',.22,20,50),
+    directCount:BODY_MODEL_KEYS.filter(key=>measured(key)).length
   };
 }
 function bodySilhouette(item,className){
-  const g=bodyGeometry(item),cx=180;
-  const chest=g.chest/2,waist=g.waist/2,abdomen=g.abdomen/2,hip=g.hip/2,shoulder=Math.max(chest+12,54);
-  const torso=`M ${cx-14} 82 C ${cx-28} 84 ${cx-shoulder} 91 ${cx-shoulder} 108 C ${cx-chest} 132 ${cx-chest} 150 ${cx-waist} 194 C ${cx-waist} 207 ${cx-abdomen} 224 ${cx-abdomen} 238 C ${cx-abdomen} 252 ${cx-hip} 264 ${cx-hip} 279 Q ${cx-hip*.62} 301 ${cx} 304 Q ${cx+hip*.62} 301 ${cx+hip} 279 C ${cx+hip} 264 ${cx+abdomen} 252 ${cx+abdomen} 238 C ${cx+abdomen} 224 ${cx+waist} 207 ${cx+waist} 194 C ${cx+chest} 150 ${cx+chest} 132 ${cx+shoulder} 108 C ${cx+shoulder} 91 ${cx+28} 84 ${cx+14} 82 Z`;
+  const g=bodyGeometry(item),cx=200,chest=g.chest/2,waist=g.waist/2,abdomen=g.abdomen/2,hip=g.hip/2,shoulder=g.shoulder/2,neck=g.neck/2;
   const point=(side,offset)=>cx+side*offset;
-  const arm=(side,width)=>{
-    const top=shoulder-5,elbow=68,wrist=89;
-    return `M ${point(side,top+width*.52)} 101 Q ${point(side,elbow+width*.5)} 188 ${point(side,wrist+width*.3)} 283 Q ${point(side,wrist+width*.15)} 294 ${point(side,wrist)} 296 Q ${point(side,wrist-width*.15)} 294 ${point(side,wrist-width*.3)} 283 Q ${point(side,elbow-width*.38)} 188 ${point(side,top-width*.52)} 101 Z`;
+  const head=`M ${cx} ${g.top} C ${cx-g.headW*.48} ${g.top} ${cx-g.headW*.56} ${g.top+g.headH*.35} ${cx-g.headW*.46} ${g.top+g.headH*.62} C ${cx-g.headW*.36} ${g.top+g.headH*.9} ${cx-g.headW*.18} ${g.top+g.headH} ${cx} ${g.top+g.headH} C ${cx+g.headW*.18} ${g.top+g.headH} ${cx+g.headW*.36} ${g.top+g.headH*.9} ${cx+g.headW*.46} ${g.top+g.headH*.62} C ${cx+g.headW*.56} ${g.top+g.headH*.35} ${cx+g.headW*.48} ${g.top} ${cx} ${g.top} Z`;
+  const neckPath=`M ${cx-neck*.78} ${g.top+g.headH*.78} Q ${cx-neck} ${g.neckTop||g.top+g.headH*.86} ${cx-neck} ${g.neckBase} L ${cx+neck} ${g.neckBase} Q ${cx+neck} ${g.top+g.headH*.86} ${cx+neck*.78} ${g.top+g.headH*.78} Z`;
+  const torso=`M ${cx-neck} ${g.neckBase} C ${cx-shoulder*.48} ${g.shoulderY-13} ${cx-shoulder} ${g.shoulderY-3} ${cx-shoulder} ${g.shoulderY+7} C ${cx-chest} ${g.chestY-24} ${cx-chest} ${g.chestY+4} ${cx-waist} ${g.waistY} C ${cx-waist} ${g.waistY+17} ${cx-abdomen} ${g.abdomenY-15} ${cx-abdomen} ${g.abdomenY} C ${cx-abdomen} ${g.abdomenY+18} ${cx-hip} ${g.hipY-10} ${cx-hip} ${g.hipY+4} Q ${cx-hip*.88} ${g.crotch-17} ${cx-g.thighLeft*.24} ${g.crotch} Q ${cx} ${g.crotch+15} ${cx+g.thighRight*.24} ${g.crotch} Q ${cx+hip*.88} ${g.crotch-17} ${cx+hip} ${g.hipY+4} C ${cx+hip} ${g.hipY-10} ${cx+abdomen} ${g.abdomenY+18} ${cx+abdomen} ${g.abdomenY} C ${cx+abdomen} ${g.abdomenY-15} ${cx+waist} ${g.waistY+17} ${cx+waist} ${g.waistY} C ${cx+chest} ${g.chestY+4} ${cx+chest} ${g.chestY-24} ${cx+shoulder} ${g.shoulderY+7} C ${cx+shoulder} ${g.shoulderY-3} ${cx+shoulder*.48} ${g.shoulderY-13} ${cx+neck} ${g.neckBase} Z`;
+  const arm=(side,upperWidth,forearmWidth)=>{
+    const shoulderOffset=shoulder*.93,elbowOffset=shoulder+13,wristOffset=shoulder+21,handOffset=shoulder+20;
+    const elbowWidth=Math.max(forearmWidth*.82,upperWidth*.58),wristWidth=forearmWidth*.52,handWidth=Math.max(wristWidth*1.28,10);
+    return `M ${point(side,shoulderOffset+upperWidth*.48)} ${g.shoulderY+2} C ${point(side,shoulderOffset+upperWidth*.55)} ${g.shoulderY+36} ${point(side,elbowOffset+elbowWidth*.52)} ${g.elbowY-18} ${point(side,elbowOffset+elbowWidth*.5)} ${g.elbowY} C ${point(side,wristOffset+forearmWidth*.52)} ${g.elbowY+25} ${point(side,wristOffset+wristWidth*.5)} ${g.wristY-10} ${point(side,wristOffset+wristWidth*.5)} ${g.wristY} C ${point(side,handOffset+handWidth*.55)} ${g.wristY+15} ${point(side,handOffset+handWidth*.45)} ${g.armEnd-8} ${point(side,handOffset)} ${g.armEnd} C ${point(side,handOffset-handWidth*.45)} ${g.armEnd-8} ${point(side,handOffset-handWidth*.58)} ${g.wristY+22} ${point(side,wristOffset-wristWidth*.5)} ${g.wristY} C ${point(side,wristOffset-forearmWidth*.48)} ${g.wristY-12} ${point(side,elbowOffset-elbowWidth*.48)} ${g.elbowY+22} ${point(side,elbowOffset-elbowWidth*.5)} ${g.elbowY} C ${point(side,shoulderOffset-upperWidth*.46)} ${g.elbowY-18} ${point(side,shoulderOffset-upperWidth*.5)} ${g.shoulderY+38} ${point(side,shoulderOffset-upperWidth*.42)} ${g.shoulderY+2} Z`;
   };
-  const thigh=(side,width)=>{
-    const top=hip*.45,knee=27;
-    return `M ${point(side,top+width*.5)} 286 Q ${point(side,30+width*.42)} 350 ${point(side,knee+width*.33)} 397 Q ${point(side,knee+width*.17)} 405 ${point(side,knee)} 406 Q ${point(side,knee-width*.17)} 405 ${point(side,knee-width*.33)} 397 Q ${point(side,30-width*.4)} 350 ${point(side,top-width*.5)} 286 Z`;
+  const leg=(side,thighWidth,calfWidth)=>{
+    const hipOffset=hip*.48,kneeOffset=hip*.34,ankleOffset=hip*.30;
+    const kneeWidth=Math.max(calfWidth*.72,thighWidth*.52),ankleWidth=calfWidth*.43;
+    return `M ${point(side,hipOffset+thighWidth*.5)} ${g.hipY+5} C ${point(side,hipOffset+thighWidth*.52)} ${g.crotch+28} ${point(side,kneeOffset+kneeWidth*.55)} ${g.kneeY-24} ${point(side,kneeOffset+kneeWidth*.5)} ${g.kneeY} C ${point(side,kneeOffset+calfWidth*.54)} ${g.kneeY+22} ${point(side,ankleOffset+ankleWidth*.55)} ${g.ankleY-22} ${point(side,ankleOffset+ankleWidth*.5)} ${g.ankleY} L ${point(side,ankleOffset-ankleWidth*.5)} ${g.ankleY} C ${point(side,ankleOffset-ankleWidth*.55)} ${g.ankleY-22} ${point(side,kneeOffset-calfWidth*.48)} ${g.kneeY+22} ${point(side,kneeOffset-kneeWidth*.5)} ${g.kneeY} C ${point(side,kneeOffset-kneeWidth*.5)} ${g.kneeY-24} ${point(side,hipOffset-thighWidth*.47)} ${g.crotch+28} ${point(side,hipOffset-thighWidth*.45)} ${g.hipY+5} Z`;
   };
-  const calf=(side,width)=>{
-    const knee=27,ankle=34;
-    return `M ${point(side,knee+width*.35)} 394 Q ${point(side,31+width*.5)} 443 ${point(side,ankle+width*.2)} 503 Q ${point(side,ankle+width*.1)} 510 ${point(side,ankle)} 511 Q ${point(side,ankle-width*.1)} 510 ${point(side,ankle-width*.2)} 503 Q ${point(side,31-width*.42)} 443 ${point(side,knee-width*.35)} 394 Z`;
+  const foot=(side)=>{
+    const ankleOffset=hip*.30,ankleWidth=(side<0?g.calfLeft:g.calfRight)*.43,toeOffset=ankleOffset+18;
+    return `M ${point(side,ankleOffset+ankleWidth*.48)} ${g.ankleY-2} C ${point(side,ankleOffset+ankleWidth*.55)} ${g.ankleY+10} ${point(side,toeOffset+12)} ${g.sole-14} ${point(side,toeOffset+12)} ${g.sole-8} Q ${point(side,toeOffset+8)} ${g.sole+2} ${point(side,toeOffset-7)} ${g.sole} Q ${point(side,ankleOffset-ankleWidth*.5)} ${g.sole-3} ${point(side,ankleOffset-ankleWidth*.5)} ${g.sole-10} L ${point(side,ankleOffset-ankleWidth*.5)} ${g.ankleY-2} Z`;
   };
-  return `<g class="${className}"><circle class="bodyhead" cx="${cx}" cy="43" r="25"/><path class="bodyneck" d="M168 65 L168 84 L192 84 L192 65 Z"/><path class="bodytorso" d="${torso}"/>`+
-    `<path class="bodylimb" d="${arm(-1,g.armLeft)}"/><path class="bodylimb" d="${arm(1,g.armRight)}"/>`+
-    `<path class="bodylimb" d="${thigh(-1,g.thighLeft)}"/><path class="bodylimb" d="${thigh(1,g.thighRight)}"/>`+
-    `<path class="bodylimb" d="${calf(-1,g.calfLeft)}"/><path class="bodylimb" d="${calf(1,g.calfRight)}"/>`+
-    `<path class="bodyfoot" d="M146 505 L126 516"/><path class="bodyfoot" d="M214 505 L234 516"/></g>`;
+  return `<g class="${className}"><path class="bodymass" d="${head}"/><path class="bodymass" d="${neckPath}"/><path class="bodymass" d="${torso}"/>`+
+    `<path class="bodylimb" d="${arm(-1,g.armLeft,g.forearmLeft)}"/><path class="bodylimb" d="${arm(1,g.armRight,g.forearmRight)}"/>`+
+    `<path class="bodylimb" d="${leg(-1,g.thighLeft,g.calfLeft)}"/><path class="bodylimb" d="${leg(1,g.thighRight,g.calfRight)}"/>`+
+    `<path class="bodylimb" d="${foot(-1)}"/><path class="bodylimb" d="${foot(1)}"/>`+
+    `<path class="bodydetail" d="M${cx-neck*.8} ${g.neckBase+8} Q${cx-shoulder*.45} ${g.shoulderY+10} ${cx-shoulder*.72} ${g.shoulderY+16} M${cx+neck*.8} ${g.neckBase+8} Q${cx+shoulder*.45} ${g.shoulderY+10} ${cx+shoulder*.72} ${g.shoulderY+16} M${cx-g.thighLeft*.22} ${g.kneeY} Q${cx-hip*.34} ${g.kneeY+5} ${cx-g.thighLeft*.42} ${g.kneeY} M${cx+g.thighRight*.22} ${g.kneeY} Q${cx+hip*.34} ${g.kneeY+5} ${cx+g.thighRight*.42} ${g.kneeY}"/></g>`;
 }
 function bodyMeasureLines(item){
-  const g=bodyGeometry(item),cx=180,rows=[['chest',130,g.chest],['waist',194,g.waist],['abdomen',232,g.abdomen],['hip',271,g.hip]];
+  const g=bodyGeometry(item),cx=200,rows=[['shoulderWidth',g.shoulderY,g.shoulder],['chest',g.chestY,g.chest],['waist',g.waistY,g.waist],['abdomen',g.abdomenY,g.abdomen],['hip',g.hipY,g.hip]];
   return rows.filter(([key])=>item[key]).map(([,y,width])=>`<line class="bodymeasureline" x1="${cx-width/2}" y1="${y}" x2="${cx+width/2}" y2="${y}"/>`).join('');
 }
 function bodyMeasureChips(item){
   return Object.entries(BODY_METRICS).filter(([key])=>item[key]).map(([key,meta])=>
     `<div class="bodychip"><span>${meta.short}</span><b>${formatNumber(Number(item[key]))} ${meta.unit}</b></div>`).join('');
 }
+function bodyModelStatus(item,geometry){
+  const missing=BODY_MODEL_KEYS.filter(key=>!item[key]).map(key=>BODY_METRICS[key].short);
+  const missingText=missing.length?`${missing.slice(0,4).join(', ')}${missing.length>4?` e mais ${missing.length-4}`:''}`:'nenhuma';
+  return `<div class="bodymodelstatus"><div><b>Dados diretos do modelo</b><span>${geometry.directCount} de ${BODY_MODEL_KEYS.length} medidas antropométricas preenchidas.</span></div>`+
+    `<div><b>Partes estimadas</b><span>${missingText}. São usadas apenas para completar a silhueta.</span></div></div>`;
+}
 function bodyMap(){
   const item=state.measurements[state.measurements.length-1];
-  if(!item) return `<div class="bodymapcard"><h3 class="bodymaptitle">Modelo corporal proporcional</h3><div class="evoempty">Salve uma medição para gerar a comparação visual.</div></div>`;
-  const shapeKeys=['chest','waist','abdomen','hip','armLeft','armRight','thighLeft','thighRight','calfLeft','calfRight'];
+  if(!item) return `<div class="bodymapcard"><h3 class="bodymaptitle">Silhueta anatômica proporcional</h3><div class="evoempty">Salve uma medição para gerar a comparação visual.</div></div>`;
+  const shapeKeys=BODY_MODEL_KEYS.filter(key=>key!=='height'&&key!=='inseam');
   const previous=state.measurements.slice(0,-1).reverse().find(saved=>shapeKeys.some(key=>saved[key]))||null;
   const geometry=bodyGeometry(item),hasShape=shapeKeys.some(key=>item[key]);
-  if(!hasShape) return `<div class="bodymapcard"><h3 class="bodymaptitle">Modelo corporal proporcional</h3><p class="bodymapsub">Última medição · ${formatMeasureDate(item.date)}</p><div class="evoempty">Peso e altura são acompanhados no gráfico, mas não bastam para desenhar o formato. Adicione ao menos uma circunferência corporal.</div></div>`;
-  const aria=`Modelo proporcional das medidas de ${formatMeasureDate(item.date)}${previous?`, comparado a ${formatMeasureDate(previous.date)}`:''}. Representação ilustrativa, não anatômica.`;
-  return `<div class="bodymapcard"><h3 class="bodymaptitle">Modelo corporal proporcional</h3><p class="bodymapsub">Atual · ${formatMeasureDate(item.date)}${previous?` · comparação com ${formatMeasureDate(previous.date)}`:''}</p>`+
-    `<div class="bodymapstage"><svg class="bodymapsvg" viewBox="0 0 360 535" role="img" aria-label="${esc(aria)}"><title>${esc(aria)}</title><line class="bodycenterline" x1="180" y1="12" x2="180" y2="523"/>`+
+  if(!hasShape) return `<div class="bodymapcard"><h3 class="bodymaptitle">Silhueta anatômica proporcional</h3><p class="bodymapsub">Última medição · ${formatMeasureDate(item.date)}</p><div class="evoempty">Peso, altura e entrepernas são acompanhados, mas não determinam o contorno. Adicione ao menos uma medida do pescoço, tronco ou membros.</div></div>`;
+  const aria=`Silhueta anatômica proporcional das medidas de ${formatMeasureDate(item.date)}${previous?`, comparada a ${formatMeasureDate(previous.date)}`:''}. Representação antropométrica ilustrativa.`;
+  return `<div class="bodymapcard"><h3 class="bodymaptitle">Silhueta anatômica proporcional</h3><p class="bodymapsub">Vista frontal · atual ${formatMeasureDate(item.date)}${previous?` · contorno anterior ${formatMeasureDate(previous.date)}`:''}</p>`+
+    `<div class="bodymapstage"><svg class="bodymapsvg" viewBox="0 0 400 640" role="img" aria-label="${esc(aria)}"><title>${esc(aria)}</title><line class="bodycenterline" x1="200" y1="10" x2="200" y2="628"/>`+
     bodySilhouette(item,'bodycurrent')+(previous?bodySilhouette(previous,'bodyprevious'):'')+bodyMeasureLines(item)+`</svg></div>`+
     `<div class="bodylegend"><span><i></i>Atual</span>${previous?`<span class="previous"><i></i>Anterior</span>`:''}<span>Escala ${geometry.scaleMode==='altura'?'ajustada pela altura':'relativa — adicione a altura para calibrar'}</span></div>`+
+    bodyModelStatus(item,geometry)+
     `<div class="bodychips">${bodyMeasureChips(item)}</div>`+
-    `<div class="asymgrid">${bilateralSummary(item,'Braços','armLeft','armRight')}${bilateralSummary(item,'Coxas','thighLeft','thighRight')}${bilateralSummary(item,'Panturrilhas','calfLeft','calfRight')}</div>`+
-    `<p class="bodymapnote">A largura visual usa as circunferências e, quando informada, a altura como escala. Regiões sem medida recebem uma transição neutra. O desenho serve para comparar seus próprios registros: não reconstrói anatomia, não estima composição corporal e diferença de circunferência não mede força. Método visual baseado em relações antropométricas simplificadas; referências: <a href="https://arxiv.org/abs/2409.17671" target="_blank" rel="noopener noreferrer">A2B</a> e <a href="https://arxiv.org/abs/2206.07036" target="_blank" rel="noopener noreferrer">SHAPY</a>.</p></div>`;
+    `<div class="asymgrid">${bilateralSummary(item,'Braços','armLeft','armRight')}${bilateralSummary(item,'Antebraços','forearmLeft','forearmRight')}${bilateralSummary(item,'Coxas','thighLeft','thighRight')}${bilateralSummary(item,'Panturrilhas','calfLeft','calfRight')}</div>`+
+    `<p class="bodymapnote">As circunferências do tronco são convertidas em largura frontal por seções elípticas; membros usam diâmetro circular aproximado. Altura e entrepernas definem a escala e os marcos verticais. O resultado é uma silhueta comparativa, não uma reconstrução do corpo, diagnóstico ou estimativa de composição corporal; diferença de circunferência não mede força. Fontes: <a href="https://doi.org/10.15221/22.12" target="_blank" rel="noopener noreferrer">3DBODY.TECH</a>, <a href="https://www.nasa.gov/wp-content/uploads/2015/03/human_integration_design_handbook_revision_1.pdf" target="_blank" rel="noopener noreferrer">NASA HIDH</a> e <a href="https://arxiv.org/abs/1109.1175" target="_blank" rel="noopener noreferrer">Hasler et al.</a>.</p></div>`;
 }
 function renderMeasurementsPanel(){
   const meta=BODY_METRICS[bodyMetric],points=measurementPoints(bodyMetric),first=points[0],latest=points[points.length-1];
   const delta=points.length>=2?latest.value-first.value:null,deltaText=delta==null?'—':`${delta>0?'+':''}${formatNumber(delta)} ${meta.unit}`;
-  const fields=Object.entries(BODY_METRICS).map(([key,item])=>`<label class="measurefield"><span>${item.label} (${item.unit})</span>`+
-    `<input class="measureinput" id="measure-${key}" name="${key}" inputmode="decimal" autocomplete="off" placeholder="Ex.: ${key==='weight'?'110,5':key==='height'?'175':'100'}"></label>`).join('');
+  const groupMeta={base:'Escala e proporções verticais',torso:'Pescoço e tronco',limbs:'Membros — esquerda e direita'};
+  const metricField=([key,item])=>`<label class="measurefield"><span>${item.label} (${item.unit})</span>`+
+    `<input class="measureinput" id="measure-${key}" name="${key}" inputmode="decimal" autocomplete="off" placeholder="Ex.: ${item.example||'40'}"></label>`;
+  const fields=Object.entries(groupMeta).map(([group,title])=>{
+    const entries=Object.entries(BODY_METRICS).filter(([,item])=>(item.group||'limbs')===group);
+    return `<fieldset class="measuregroup"><legend>${title}</legend><div class="measuregrid">${entries.map(metricField).join('')}</div></fieldset>`;
+  }).join('');
   const on=state.tab==='medidas';
   return `<section role="tabpanel" id="panel-medidas" aria-labelledby="tab-medidas" aria-hidden="${!on}" class="panel ${on?'on':''}">`+
     `<h2 class="ptitle">Peso e Medidas</h2><div class="psub">Histórico corporal separado da periodização</div>`+
@@ -1619,7 +1666,7 @@ function renderMeasurementsPanel(){
       `<label class="measurefield full"><span>Data</span><input class="measureinput" id="measure-date" name="date" type="date" value="${localDateStamp()}" required></label>`+
       fields+`<label class="measurefield full"><span>Observação opcional</span><textarea class="measureinput" id="measure-note" name="note" maxlength="160" placeholder="Ex.: medi pela manhã, antes do café"></textarea></label>`+
     `</div><div class="measureactions"><button class="toolbtn" type="submit">Salvar medição</button></div>`+
-    `<p class="measurehint">Para comparar: repita horário, condições, lado e ponto da fita. Altura: sem calçados; cintura: fita horizontal no ponto médio entre a última costela palpável e o topo do quadril, após expirar normalmente; quadril: parte mais larga dos glúteos. “Abdômen no umbigo” é uma referência pessoal separada. Fontes: <a href="https://wwwn.cdc.gov/nchs/data/nhanes/public/2021/manuals/2021-Anthropometry-Procedures-Manual-508.pdf" target="_blank" rel="noopener noreferrer">CDC/NHANES</a> e <a href="https://www.who.int/publications/i/item/9789241501491" target="_blank" rel="noopener noreferrer">OMS</a>.</p></form>`+
+    `<p class="measurehint">Para comparar: repita horário, condições, lado e ponto da fita. Altura e entrepernas: sem calçados; entrepernas vai do ponto mais alto junto à virilha até o chão. Ombros: largura reta entre os pontos ósseos externos, de preferência com ajuda. Cintura: fita horizontal no ponto médio entre a última costela palpável e o topo do quadril; quadril: parte mais larga dos glúteos. “Abdômen no umbigo” permanece uma referência pessoal separada. Fontes: <a href="https://wwwn.cdc.gov/nchs/data/nhanes/public/2021/manuals/2021-Anthropometry-Procedures-Manual-508.pdf" target="_blank" rel="noopener noreferrer">CDC/NHANES</a> e <a href="https://www.nasa.gov/wp-content/uploads/2015/03/human_integration_design_handbook_revision_1.pdf" target="_blank" rel="noopener noreferrer">NASA HIDH</a>.</p></form>`+
     `<div class="measureblock"><label class="measurefield measuremetric"><span>Parâmetro do gráfico</span><select class="measureinput" onchange="setBodyMetric(this.value)">`+
       Object.entries(BODY_METRICS).map(([key,item])=>`<option value="${key}" ${bodyMetric===key?'selected':''}>${item.label}</option>`).join('')+`</select></label>`+
       `<div class="measurestats"><div class="measurestat"><div class="k">Inicial</div><div class="v">${first?formatNumber(first.value)+' '+meta.unit:'—'}</div></div>`+
@@ -1950,7 +1997,7 @@ function csvCell(value){
 }
 function exportCsv(){
   syncLatestData(); syncLatestMeasurements();
-  const headers=['tipo','data','semana','ocorrencia','treino','exercicio','variacao','serie','carga_kg','repeticoes','peso_kg','altura_cm','cintura_cm','abdomen_cm','peitoral_cm','quadril_cm','braco_esq_cm','braco_dir_cm','coxa_esq_cm','coxa_dir_cm','panturrilha_esq_cm','panturrilha_dir_cm','observacao'];
+  const headers=['tipo','data','semana','ocorrencia','treino','exercicio','variacao','serie','carga_kg','repeticoes','peso_kg','altura_cm','entrepernas_cm','pescoco_cm','largura_ombros_cm','cintura_cm','abdomen_cm','peitoral_cm','quadril_cm','braco_esq_cm','braco_dir_cm','antebraco_esq_cm','antebraco_dir_cm','coxa_esq_cm','coxa_dir_cm','panturrilha_esq_cm','panturrilha_dir_cm','observacao'];
   const rows=[headers];
   const makeRow=values=>headers.map(header=>values[header]??'');
   for(let week=1;week<=8;week++) for(let session=1;session<=2;session++) orderedWorkouts().forEach(workout=>{
@@ -1961,9 +2008,9 @@ function exportCsv(){
         exercicio:exObj.name,variacao:variant?(variant.short||variant.name):'',serie:index+1,carga_kg:set.kg||'',repeticoes:set.reps||'',observacao:entry.feedback||''}));
     }); });
   });
-  state.measurements.forEach(item=>rows.push(makeRow({tipo:'medida',data:item.date,peso_kg:item.weight||'',altura_cm:item.height||'',
-    cintura_cm:item.waist||'',abdomen_cm:item.abdomen||'',peitoral_cm:item.chest||'',quadril_cm:item.hip||'',
-    braco_esq_cm:item.armLeft||'',braco_dir_cm:item.armRight||'',coxa_esq_cm:item.thighLeft||'',coxa_dir_cm:item.thighRight||'',
+  state.measurements.forEach(item=>rows.push(makeRow({tipo:'medida',data:item.date,peso_kg:item.weight||'',altura_cm:item.height||'',entrepernas_cm:item.inseam||'',
+    pescoco_cm:item.neck||'',largura_ombros_cm:item.shoulderWidth||'',cintura_cm:item.waist||'',abdomen_cm:item.abdomen||'',peitoral_cm:item.chest||'',quadril_cm:item.hip||'',
+    braco_esq_cm:item.armLeft||'',braco_dir_cm:item.armRight||'',antebraco_esq_cm:item.forearmLeft||'',antebraco_dir_cm:item.forearmRight||'',coxa_esq_cm:item.thighLeft||'',coxa_dir_cm:item.thighRight||'',
     panturrilha_esq_cm:item.calfLeft||'',panturrilha_dir_cm:item.calfRight||'',observacao:item.note||''})));
   downloadText('\uFEFF'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n'),'treino-hard-registros-'+localDateStamp()+'.csv','text/csv;charset=utf-8');
   showStatus('CSV exportado para consulta. Para restauração, use sempre o backup JSON.','ok');
