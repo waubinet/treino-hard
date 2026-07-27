@@ -32,9 +32,9 @@
   body.modal-open{overflow:hidden}
   .app{max-width:760px;margin:0 auto}
   button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
-  input{font:inherit}
+  input,select,textarea{font:inherit}
   [hidden]{display:none!important}
-  button:focus-visible,input:focus-visible,a:focus-visible{outline:3px solid #f6b2c8;outline-offset:3px}
+  button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid #f6b2c8;outline-offset:3px}
   .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
     clip:rect(0,0,0,0);white-space:nowrap;border:0}
   ::selection{background:var(--purple);color:#fff}
@@ -86,6 +86,10 @@
   .statusmsg.ok{background:rgba(34,197,94,.1);border-color:var(--greendim);color:#bbf7d0}
   .statusmsg button{display:inline-block;margin-top:7px;padding:7px 10px;border-radius:9px;
     background:var(--card);border:1px solid currentColor;font-weight:800}
+  .appnotice{margin:10px 16px 0;padding:11px 12px;border:1px solid var(--control-border);border-radius:13px;
+    background:var(--elev);display:flex;align-items:center;gap:10px;color:var(--muted);font-size:12px;font-weight:750}
+  .appnotice.update{border-color:var(--purple);color:#f5cfdd}.appnotice.offline{border-color:var(--orangedim);color:#fde2b8}
+  .appnotice button{margin-left:auto;min-height:38px;padding:7px 11px;border-radius:10px;background:var(--purple);color:#fff;font-weight:850}
 
   /* Tabs — STICKY */
   .tabsnav{position:sticky;top:0;z-index:40;margin-top:10px;
@@ -113,6 +117,9 @@
     background:linear-gradient(90deg,var(--green),#16a34a);transition:width .35s ease}
   .progtxt{color:var(--dim);font-size:11px;font-weight:700;margin:-9px 0 14px}
   .progtxt .warn{color:#fde68a}
+  .workoutfinish{width:100%;min-height:48px;margin:-2px 0 14px;padding:11px 14px;border-radius:12px;
+    border:1px solid var(--green);background:rgba(34,197,94,.09);color:#bbf7d0;font-weight:900}
+  .workoutfinish.on{background:var(--green);color:#06250f}.workoutfinish:active{transform:scale(.99)}
 
   /* CARD */
   .card{background:var(--card);border:1px solid var(--border);border-radius:16px;
@@ -160,6 +167,12 @@
     background:rgba(94,200,120,.12);color:#9be6ad;font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.35px}
   .vbtn .vreason{color:var(--dim);font-size:10px;font-weight:500;margin-left:5px}
   .vbtn .ext{margin-left:auto;color:var(--dim);font-size:15px}
+  .variantbox{margin:11px 0;padding:10px;border:1px solid var(--control-border);border-radius:12px;background:#100e13}
+  .variantlabel{display:block;margin-bottom:7px;color:var(--dim);font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.4px}
+  .variantbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .variantbtn{min-height:44px;padding:8px;border:1px solid var(--control-border);border-radius:10px;background:var(--card2);color:var(--muted);font-size:12px;font-weight:850}
+  .variantbtn.on{border-color:var(--purple);background:var(--purpdim);color:#fff}
+  .variantnote{margin:7px 1px 0;color:var(--dim);font-size:10.5px;line-height:1.4}
   /* Player de vídeo (modal — toca dentro do app) */
   .vmodal{position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:100;display:none;
     flex-direction:column;align-items:center;justify-content:center;padding:16px}
@@ -221,6 +234,10 @@
   .prevref{margin:0 2px 8px;color:var(--muted);font-size:11.5px;font-weight:600;
     background:rgba(207,122,154,.08);border:1px dashed var(--bluedim);border-radius:9px;padding:7px 11px}
   .prevref b{color:#e0a3b8;font-weight:800}
+  .quickrow{display:flex;flex-wrap:wrap;gap:7px;margin:0 2px 9px}
+  .quickbtn{min-height:38px;padding:7px 10px;border:1px solid var(--control-border);border-radius:10px;
+    background:var(--card2);color:var(--muted);font-size:11.5px;font-weight:800}
+  .quickbtn.undo{border-color:var(--purple);color:#f5cfdd}
   .todaybadge{margin-left:7px;font-size:8.5px;font-weight:900;background:var(--green);color:#06250f;
     padding:2px 6px;border-radius:999px;letter-spacing:.4px;vertical-align:middle}
 
@@ -280,8 +297,18 @@
   .measurevalues{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px}
   .measurevalue{background:var(--card2);border:1px solid var(--border);border-radius:999px;padding:4px 8px;color:var(--muted);font-size:11px;font-weight:750}
   .measurenote{margin-top:7px;color:var(--muted);font-size:11.5px;line-height:1.4;overflow-wrap:anywhere}
+  .bodymapcard{background:var(--elev);border:1px solid var(--border);border-radius:16px;padding:14px;margin:11px 0;box-shadow:var(--shadow)}
+  .bodymaptitle{font-size:15.5px;font-weight:900;margin:0}.bodymapsub{color:var(--dim);font-size:11.5px;line-height:1.45;margin:3px 0 8px}
+  .bodymapsvg{display:block;width:100%;max-height:520px;background:linear-gradient(180deg,#120f13,#0d0b0e);border:1px solid var(--border);border-radius:13px}
+  .bodyshape{fill:#3b2c35;stroke:#806573;stroke-width:2}.bodylimb{stroke:#806573;stroke-width:24;stroke-linecap:round}.bodyleg{stroke:#806573;stroke-width:34;stroke-linecap:round}
+  .bodyband{stroke:#d96d8f;stroke-width:5;stroke-linecap:round}.bodydot{fill:#d96d8f;stroke:#f6b2c8;stroke-width:2}
+  .bodylabel{fill:#f6eef1;font-size:12px;font-weight:800}.bodylabel.dim{fill:#bba9b3;font-size:10px}
+  .asymgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .asymitem{padding:9px;border:1px solid var(--border);border-radius:11px;background:var(--card)}
+  .asymitem b{display:block;font-size:11.5px}.asymitem span{display:block;color:var(--muted);font-size:10.5px;line-height:1.35;margin-top:3px}
+  .bodymapnote{color:var(--dim);font-size:10.5px;line-height:1.45;margin:9px 1px 0}
   @media(max-width:520px){
-    .measuregrid{grid-template-columns:1fr}.measurefield.full{grid-column:auto}.measurestats{grid-template-columns:1fr}
+    .measuregrid{grid-template-columns:1fr}.measurefield.full{grid-column:auto}.measurestats,.asymgrid{grid-template-columns:1fr}
     .measurestat{display:flex;align-items:center;justify-content:space-between;text-align:left}.measurestat .v{margin-top:0}
   }
 
@@ -345,6 +372,18 @@
   .archive:last-child{border-bottom:0;padding-bottom:0}
   .archive strong{display:block;font-size:13px}.archive span{display:block;color:var(--dim);font-size:11px;margin-top:2px}
   .backupwarn{color:#fde68a!important;margin-top:8px!important}
+  .tab.ajustes.on{background:#d7b0c0;border-color:#d7b0c0;color:#1a0d12}
+  .settingrow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)}
+  .settingrow:last-child{border-bottom:0}.settingcopy{flex:1}.settingcopy strong{display:block;font-size:13.5px}
+  .settingcopy span{display:block;color:var(--dim);font-size:11.5px;line-height:1.4;margin-top:3px}
+  .switch{position:relative;width:52px;height:32px;flex:0 0 auto;border-radius:999px;border:1px solid var(--control-border);background:var(--card2)}
+  .switch::after{content:'';position:absolute;width:24px;height:24px;left:3px;top:3px;border-radius:50%;background:var(--muted);transition:.18s}
+  .switch.on{background:var(--purple);border-color:var(--purple)}.switch.on::after{left:23px;background:#fff}
+  .backupitem{padding:10px 0;border-bottom:1px solid var(--border)}.backupitem:last-child{border-bottom:0}
+  .backupitem strong{display:block;font-size:12.5px}.backupitem span{display:block;color:var(--dim);font-size:11px;margin-top:3px}
+  body.large-text{font-size:18px}.large-text .cname{font-size:19px}.large-text .ptitle{font-size:24px}
+  .large-text .psub,.large-text .notes li,.large-text .section p,.large-text .cdetail{font-size:14px}
+  .large-text .tab,.large-text .toolbtn,.large-text .donebtn{font-size:15px}
 
   /* Timer bar */
   .timerbar{position:fixed;left:0;right:0;bottom:0;background:rgba(21,21,26,.96);
@@ -413,6 +452,7 @@
   </div>
   <div class="wsum" id="wsum"></div>
   <div id="deloadnote"></div>
+  <div class="appnotice" id="appnotice" role="status" aria-live="polite" hidden></div>
   <div class="statusmsg" id="statusmsg" role="status" aria-live="polite" hidden></div>
 
   <nav class="tabsnav" aria-label="Navegação das fichas">
@@ -421,7 +461,7 @@
 
   <main id="panels"></main>
 
-  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 1.8 (peso e medidas)</span></footer>
+  <footer class="foot">Salvo automaticamente neste aparelho.<br>Treino Hard (Fofo) · 8 semanas 🐻💪<br><span class="version">versão GitHub · 2.0 (acompanhamento completo)</span></footer>
 </div>
 
 <div class="vmodal" id="vmodal" role="dialog" aria-modal="true" aria-labelledby="vmtitle" aria-hidden="true" hidden onclick="if(event.target.id==='vmodal')closeVid()">
@@ -449,16 +489,18 @@
 <script>
 /* ====================== DADOS ====================== */
 const YT = {
-  a_puxada_supinada:'https://www.youtube.com/watch?v=IFDUGxHRIKA',  // Puxada alta supinada — execução e dica
-  a_remada_smith:'https://www.youtube.com/watch?v=i3FScctBKvc',
+  a_puxada_supinada:'https://www.youtube.com/watch?v=zg1MSZR-y4Y',
   a_remada_unilateral:'https://www.youtube.com/watch?v=Prevu525iYQ',
-  a_puxada_neutra:'https://www.youtube.com/watch?v=V-Z_RntYhZg',
+  a_puxada_neutra:'https://www.youtube.com/watch?v=vUu_4jBxM1c',
   a_remada_sentada:'https://www.youtube.com/watch?v=HZPqEGzrLRg',  // Remada baixa triângulo — execução + cinesiologia
+  a_pulldown:'https://www.youtube.com/watch?v=QTQABcLosXk',
   a_crucifixo_inv:'https://www.youtube.com/watch?v=eo4O-BvfjRk',
   a_biceps_martelo:'https://www.youtube.com/watch?v=YrZ0qzBi-kk',
   a_rosca_barra_w:'https://www.youtube.com/watch?v=V6UEDzY51gY',  // Rosca direta barra W — execução correta
   b_supino_barra:'https://www.youtube.com/watch?v=9Cy3ngopGRk',
-  b_supino_inclinado:'https://www.youtube.com/watch?v=3dnLfE3mB1I',
+  b_supino_inclinado_halteres:'https://www.youtube.com/watch?v=3dnLfE3mB1I',
+  b_supino_inclinado_maquina:'https://www.youtube.com/watch?v=lTDvD97_e3g',
+  b_supino_inclinado_smith:'https://www.youtube.com/watch?v=WP1VLAt8hbM',
   b_crossover:'https://www.youtube.com/watch?v=jqTlJt3JXzQ',
   b_crucifixo_aparelho:'https://www.youtube.com/watch?v=zEcIgGm7fxU',
   b_desenv_maquina:'https://www.youtube.com/watch?v=Xd5bgkvYdfk',
@@ -466,6 +508,7 @@ const YT = {
   b_triceps_testa:'https://www.youtube.com/watch?v=VakpIeaaeXA',
   b_triceps_pulley:'https://www.youtube.com/watch?v=7le1JRUUagM',  // Tríceps polia alta com corda — execução e postura
   c_agach_smith:'https://www.youtube.com/watch?v=uDBQtlCLQ0Y',
+  c_agach_livre:'https://www.youtube.com/watch?v=4L5nBs8Eq7g',
   c_terra_barra:'https://www.youtube.com/watch?v=3otpFrCvjLw',
   c_leg_press:'https://www.youtube.com/watch?v=waAxlYvtCcI',
   c_extensor:'https://www.youtube.com/watch?v=Svq2T3L9oKo',
@@ -476,18 +519,19 @@ const YT = {
   // Aquecimento / mobilidade / alongamentos dentro dos treinos
   a_alonga_dorsal:'https://www.youtube.com/watch?v=eVmGZVPhjV0',
   a_alonga_peitoral:'https://www.youtube.com/watch?v=6Be-s3RwVp4',
-  a_abs_curto:'https://www.youtube.com/watch?v=KiKZsrjYuU4',
   b_alonga_dorsal:'https://www.youtube.com/watch?v=eVmGZVPhjV0',
-  b_rot_ombro:'https://www.youtube.com/watch?v=oElBNT5bjhA',
   c_alonga_adutor:'https://www.youtube.com/watch?v=imijpudAW7s',
   c_mob_quadril:'https://www.youtube.com/watch?v=R6zbYBwgioc',
   c_alonga_posterior:'https://www.youtube.com/watch?v=x861NmGgbpQ',
   c_mob_tornozelo:'https://www.youtube.com/watch?v=3pprN9t_P1o',
 };
 
-// Canal declarado pelo próprio YouTube, revisado em 12/07/2026.
+// Canal declarado pelo próprio YouTube, revisado em 26/07/2026.
 const VIDEO_CHANNEL = {
+  '4L5nBs8Eq7g':'Laércio Refundini','QTQABcLosXk':'Laércio Refundini',
+  'vUu_4jBxM1c':'Laércio Refundini','zg1MSZR-y4Y':'Miqueias Alves Personal',
   '1KR5m7IfdIc':'Treino Correto','3dnLfE3mB1I':'MyTrainingPRO',
+  'lTDvD97_e3g':'Zé Personal Floripa','WP1VLAt8hbM':'Leandro Twin',
   '3otpFrCvjLw':'Comer, Treinar e Amar','3pprN9t_P1o':'Descomplicando a Musculação - NS Personal',
   '5DKEAuY65jM':'koach Team','6Be-s3RwVp4':'Grupo Longevitá - Brasília',
   '7le1JRUUagM':'Treino Mestre',
@@ -512,10 +556,16 @@ const VIDEO_CHANNEL = {
 };
 function videoSource(url){ return VIDEO_CHANNEL[ytId(url)]||'YouTube'; }
 
-// Duração, correspondência com o exercício e cobertura técnica revisadas em 20/07/2026.
+// Duração, correspondência com o exercício e cobertura técnica revisadas em 26/07/2026.
 // O nível descreve o que o vídeo entrega; não é certificação profissional do autor.
 const VIDEO_REVIEW = {
+  '4L5nBs8Eq7g':{s:426,l:'guiado',c:'rack + barra + pés + descida + subida'},
+  'QTQABcLosXk':{s:500,l:'guiado',c:'posição inicial + execução + erros comuns'},
+  'vUu_4jBxM1c':{s:322,l:'guiado',c:'triângulo + postura + trajetória'},
+  'zg1MSZR-y4Y':{s:77,l:'guiado',c:'pegada supinada + postura + execução'},
   '1KR5m7IfdIc':{s:17,l:'visual'},'3dnLfE3mB1I':{s:58,l:'objetivo'},
+  'lTDvD97_e3g':{s:61,l:'guiado',c:'ajuste da máquina + postura + trajetória'},
+  'WP1VLAt8hbM':{s:130,l:'guiado',c:'posição do banco + pegada + execução no Smith'},
   '3otpFrCvjLw':{s:229,l:'guiado'},'3pprN9t_P1o':{s:96,l:'guiado'},
   '5DKEAuY65jM':{s:30,l:'objetivo'},'6Be-s3RwVp4':{s:31,l:'objetivo'},
   '7le1JRUUagM':{s:43,l:'objetivo'},'9Cy3ngopGRk':{s:63,l:'guiado'},
@@ -553,27 +603,30 @@ function videoReview(url){
 }
 
 const ex = (id,name,detail,kind,sets,reps,opt={}) =>
-  ({id,name,detail,kind,sets,reps,isNew:!!opt.isNew,notes:opt.notes||[],warm:opt.warm||0});
+  ({id,name,detail,kind,sets,reps,isNew:!!opt.isNew,notes:opt.notes||[],warm:opt.warm||0,
+    variants:opt.variants||[],defaultVariant:opt.defaultVariant||''});
 
 const WORKOUTS = [
   {tid:'a',label:'B',name:'Costas + Bíceps',exercises:[
     ex('a_alonga_dorsal','Alongamento Dorsais','Espaldar','mob',2,'20-30 seg'),
     ex('a_alonga_peitoral','Alongamento Peitoral',null,'mob',2,'20-30 seg'),
-    ex('a_abs_curto','Abs Curto no Solo',null,'mob',2,'12',{notes:['Aquecimento de core']}),
     ex('a_puxada_supinada','Puxada Frontal','Pegada supinada','per',3,null,{warm:2}),
     ex('a_puxada_neutra','Puxada Frontal','Pegada neutra','per',3),
     ex('a_remada_sentada','Remada Sentada','Triângulo','per',3),
-    ex('a_remada_smith','Remada Articulada','Máquina · pegada neutra · tronco apoiado','per',3,{notes:['Substitui a remada curvada por conforto e estabilidade']}),
     ex('a_remada_unilateral','Remada Unilateral','Máquina · 1 braço','per',3,{notes:['Preferência pessoal: máquina em vez de halter']}),
+    ex('a_pulldown','Pulldown na Polia','Braços estendidos · barra ou corda','per',3,{isNew:true,notes:['Complementa as puxadas e remadas sem repetir outra remada articulada']}),
     ex('a_crucifixo_inv','Crucifixo Invertido','Aparelho pegada pronada','per',3),
     ex('a_biceps_martelo','Bíceps Martelo','Em pé bilateral','per',3),
     ex('a_rosca_barra_w','Rosca Direta','Barra W','per',3,null,{isNew:true}),
   ]},
   {tid:'b',label:'A',name:'Peito + Ombros + Tríceps',exercises:[
     ex('b_alonga_dorsal','Alongamento Dorsais','Espaldar','mob',2,'20-30 seg'),
-    ex('b_rot_ombro','Rotação Externa de Ombro',null,'mob',2,'12',{notes:['Baixa carga']}),
     ex('b_supino_barra','Supino Reto','Com barra','per',3,null,{warm:2}),
-    ex('b_supino_inclinado','Supino Inclinado','Halteres','per',3),
+    ex('b_supino_inclinado','Supino Inclinado','Escolha o aparelho','per',3,null,{defaultVariant:'machine',variants:[
+      {id:'dumbbells',hidden:true,short:'Halteres anteriores',name:'Supino Inclinado com Halteres',detail:'Registro anterior à versão 2.0',vid:YT.b_supino_inclinado_halteres,notes:['Registro histórico preservado; escolha máquina ou Smith para as próximas ocorrências']},
+      {id:'machine',short:'Máquina',name:'Supino Inclinado na Máquina',detail:'Máquina articulada ou seletorizada',vid:YT.b_supino_inclinado_maquina,notes:['Ajuste o assento para as alças ficarem na linha do peitoral superior','Prefira esta opção quando quiser treinar sem depender de ajuda para posicionar a carga']},
+      {id:'smith',short:'Smith',name:'Supino Inclinado no Smith',detail:'Banco inclinado sob a barra guiada',vid:YT.b_supino_inclinado_smith,notes:['Centralize o banco antes de colocar carga','Ajuste e teste as travas de segurança antes da série']}
+    ]}),
     ex('b_crossover','Crossover','No cabo','per',3,null,{isNew:true,notes:['Substitui o supino reto com halteres']}),
     ex('b_crucifixo_aparelho','Crucifixo','No aparelho','per',3),
     ex('b_desenv_maquina','Desenvolvimento','Máquina pegada pronada','per',3),
@@ -586,14 +639,17 @@ const WORKOUTS = [
     ex('c_mob_quadril','Mobilidade de Quadril','Borboleta','mob',2,'15'),
     ex('c_alonga_posterior','Alongamento Posterior','Sentado','mob',2,'20-30 seg'),
     ex('c_mob_tornozelo','Mobilidade de Tornozelo',null,'mob',2,'10'),
-    ex('c_agach_smith','Agachamento','Aparelho Smith','per',3,null,{warm:2}),
+    ex('c_agach_smith','Agachamento','Escolha o equipamento','per',3,null,{warm:2,defaultVariant:'smith',variants:[
+      {id:'smith',short:'Smith',name:'Agachamento no Smith',detail:'Barra guiada',vid:YT.c_agach_smith,notes:['Use uma carga que permita manter a execução controlada']},
+      {id:'barbell',short:'Barra livre',name:'Agachamento Livre com Barra',detail:'Barra livre no rack',vid:YT.c_agach_livre,notes:['Comece leve ao trocar de equipamento','Ajuste as travas de segurança do rack antes da série']}
+    ]}),
     ex('c_terra_barra','Levantamento Terra','Barra','per',3),
     ex('c_leg_press','Leg Press','45°','per',3),
     ex('c_extensor','Extensor de Joelhos',null,'per',3),
     ex('c_flexor_sentado','Flexora em Pé','Máquina · 1 perna','per',3),
     ex('c_flexor_deitado','Stiff','Barra ou halteres','per',3),
-    ex('c_panturrilha_pe','Flexão Plantar','Leg Press','per',3,null,{warm:2}),
-    ex('c_panturrilha_sentado','Flexão Plantar','Banco Sóleo','per',3,null,{warm:2}),
+    ex('c_panturrilha_pe','Flexão Plantar','Leg Press','per',3),
+    ex('c_panturrilha_sentado','Flexão Plantar','Banco Sóleo','per',3),
   ]},
 ];
 const WORKOUT_DISPLAY=['b','a','c']; // ordem visual A, B, C; IDs internos preservados para não perder dados
@@ -664,14 +720,19 @@ function hasSetData(s){
 }
 
 /* ====================== ESTADO ====================== */
-const DATA_SCHEMA=5;
+const DATA_SCHEMA=7;
 const LS = {
   week:'jovilite_week',session:'jovilite_session',tab:'jovilite_tab',data:'jovilite_data',
   lastOpen:'jovilite_lastopen',snapshot:'jovilite_snapshot',recovery:'jovilite_recovery',
   evolutionExercise:'jovilite_evolution_exercise',evolutionMetric:'jovilite_evolution_metric',
   meta:'jovilite_session_meta',archives:'jovilite_cycle_archives',cycleStarted:'jovilite_cycle_started',
-  lastBackup:'jovilite_last_backup',measurements:'jovilite_body_measurements',bodyMetric:'jovilite_body_metric'
+  lastBackup:'jovilite_last_backup',measurements:'jovilite_body_measurements',bodyMetric:'jovilite_body_metric',
+  settings:'jovilite_settings',autoBackups:'jovilite_auto_backups'
 };
+const DEFAULT_SETTINGS={sound:true,vibration:true,largeText:false,keepAwake:true};
+function normalizeSettings(raw){
+  const source=isRecord(raw)?raw:{}; return Object.fromEntries(Object.entries(DEFAULT_SETTINGS).map(([key,value])=>[key,typeof source[key]==='boolean'?source[key]:value]));
+}
 let storageHealthy=true;
 function showStatus(message,type='error',withExport=false){
   const el=document.getElementById('statusmsg'); if(!el) return;
@@ -691,7 +752,9 @@ function storageSet(key,value){
 function storageRemove(key){ try{ localStorage.removeItem(key); return true; }catch(e){ return false; } }
 function clampWeek(v){ v=parseInt(v,10); return (v>=1&&v<=8)?v:0; }
 function isRecord(v){ return !!v && typeof v==='object' && !Array.isArray(v); }
-const VALID_EXERCISE_IDS=new Set(WORKOUTS.flatMap(w=>w.exercises.map(e=>e.id)));
+const RETIRED_EXERCISE_IDS=new Set(['a_abs_curto','a_remada_smith','b_rot_ombro']);
+const VALID_EXERCISE_IDS=new Set([...WORKOUTS.flatMap(w=>w.exercises.map(e=>e.id)),...RETIRED_EXERCISE_IDS]);
+const EXERCISE_VARIANTS=new Map(WORKOUTS.flatMap(w=>w.exercises.filter(e=>e.variants.length).map(e=>[e.id,new Set(e.variants.map(v=>v.id))])));
 const VALID_FEELINGS=new Set(['good','awkward','pain','replace']);
 const FEELING_LABELS={good:'Bem',awkward:'Desconfortável',pain:'Senti dor',replace:'Quero substituir'};
 function sanitizeFeedback(value){
@@ -714,7 +777,7 @@ function sanitizeInput(field,value){
   const parts=s.split('.');
   return parts[0].slice(0,4)+(parts.length>1?'.'+parts[1].slice(0,2):'');
 }
-function normalizeEntry(raw){
+function normalizeEntry(raw,exId=''){
   if(!isRecord(raw)) return null;
   const sets=Array.isArray(raw.sets) ? raw.sets.slice(0,8).map(s=>({
     kg:normalizeStoredField('kg',isRecord(s)?s.kg:''),
@@ -723,13 +786,15 @@ function normalizeEntry(raw){
   const feeling=VALID_FEELINGS.has(raw.feeling)?raw.feeling:'';
   const feedback=sanitizeFeedback(raw.feedback);
   const feedbackAt=(feeling||feedback)?validIso(raw.feedbackAt):null;
-  return {sets,done:raw.done===true,...(feeling?{feeling}:{}),...(feedback?{feedback}:{}),...(feedbackAt?{feedbackAt}:{})};
+  const variants=EXERCISE_VARIANTS.get(exId); let variant=variants&&variants.has(raw.variant)?raw.variant:'';
+  if(!variant&&exId==='b_supino_inclinado'&&(raw.done===true||sets.some(hasSetData)||feeling||feedback)) variant='dumbbells';
+  return {sets,done:raw.done===true,...(variant?{variant}:{}),...(feeling?{feeling}:{}),...(feedback?{feedback}:{}),...(feedbackAt?{feedbackAt}:{})};
 }
 function normalizeBucket(raw,stats){
   const out={}; if(!isRecord(raw)) return out;
   Object.keys(raw).forEach(id=>{
     if(!VALID_EXERCISE_IDS.has(id)){ stats.ignored++; return; }
-    const en=normalizeEntry(raw[id]);
+    const en=normalizeEntry(raw[id],id);
     if(en){ out[id]=en; if(en.done||en.feeling||en.feedback||en.sets.some(hasSetData)) stats.entries++; }
     else stats.ignored++;
   });
@@ -793,10 +858,10 @@ function normalizeSessionMeta(raw){
       const bucket=wk[session]; if(!isRecord(bucket)) continue;
       WORKOUTS.forEach(w=>{
         const item=bucket[w.tid]; if(!isRecord(item)) return;
-        const startedAt=validIso(item.startedAt),completedAt=validIso(item.completedAt);
+        const startedAt=validIso(item.startedAt),completedAt=validIso(item.completedAt),manualCompleted=completedAt&&item.manualCompleted===true;
         if(startedAt||completedAt){
           if(!out[week]) out[week]={1:{},2:{}};
-          out[week][session][w.tid]={...(startedAt?{startedAt}:{}),...(completedAt?{completedAt}:{})};
+          out[week][session][w.tid]={...(startedAt?{startedAt}:{}),...(completedAt?{completedAt}:{}),...(manualCompleted?{manualCompleted:true}:{})};
         }
       });
     }
@@ -822,7 +887,10 @@ function normalizeArchives(raw){
 const BODY_METRICS={
   weight:{label:'Peso',short:'Peso',unit:'kg'},waist:{label:'Cintura',short:'Cintura',unit:'cm'},
   abdomen:{label:'Abdômen no umbigo',short:'Abdômen',unit:'cm'},chest:{label:'Peitoral',short:'Peitoral',unit:'cm'},
-  hip:{label:'Quadril',short:'Quadril',unit:'cm'},arm:{label:'Braço',short:'Braço',unit:'cm'},thigh:{label:'Coxa',short:'Coxa',unit:'cm'}
+  hip:{label:'Quadril',short:'Quadril',unit:'cm'},
+  armLeft:{label:'Braço esquerdo',short:'Braço E',unit:'cm'},armRight:{label:'Braço direito',short:'Braço D',unit:'cm'},
+  thighLeft:{label:'Coxa esquerda',short:'Coxa E',unit:'cm'},thighRight:{label:'Coxa direita',short:'Coxa D',unit:'cm'},
+  calfLeft:{label:'Panturrilha esquerda',short:'Pant. E',unit:'cm'},calfRight:{label:'Panturrilha direita',short:'Pant. D',unit:'cm'}
 };
 function validMeasureDate(value){
   const match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value||'')); if(!match) return '';
@@ -837,6 +905,9 @@ function normalizeMeasurement(raw,index=0){
   if(!isRecord(raw)) return null; const date=validMeasureDate(raw.date); if(!date) return null;
   const item={id:String(raw.id||('medida-'+date+'-'+index)).replace(/[^A-Za-z0-9_-]/g,'').slice(0,80)||('medida-'+date+'-'+index),date};
   Object.keys(BODY_METRICS).forEach(key=>{ const value=normalizeMeasureValue(raw[key]); if(value) item[key]=value; });
+  const legacyArm=normalizeMeasureValue(raw.arm),legacyThigh=normalizeMeasureValue(raw.thigh);
+  if(legacyArm){ if(!item.armLeft) item.armLeft=legacyArm; if(!item.armRight) item.armRight=legacyArm; }
+  if(legacyThigh){ if(!item.thighLeft) item.thighLeft=legacyThigh; if(!item.thighRight) item.thighRight=legacyThigh; }
   if(!Object.keys(BODY_METRICS).some(key=>item[key])) return null;
   const note=String(raw.note||'').replace(/[\u0000-\u001F\u007F]/g,' ').replace(/\s+/g,' ').trim().slice(0,160); if(note) item.note=note;
   item.savedAt=validIso(raw.savedAt)||new Date().toISOString(); return item;
@@ -857,7 +928,7 @@ function saveAux(){
   return okMeta&&okArchives&&okStart;
 }
 
-const VALID_TABS = ['a','b','c','alg','evol','medidas','ciclo'];
+const VALID_TABS = ['a','b','c','alg','evol','medidas','ciclo','ajustes'];
 const initialLoad=loadData();
 const savedSession=parseInt(storageGet(LS.session),10);
 const initialCycleStarted=validIso(storageGet(LS.cycleStarted))||new Date().toISOString();
@@ -869,12 +940,15 @@ let state = {
   meta:normalizeSessionMeta(parseStoredJson(LS.meta,{})),
   archives:normalizeArchives(parseStoredJson(LS.archives,[])),
   measurements:normalizeMeasurements(parseStoredJson(LS.measurements,[])),
+  settings:normalizeSettings(parseStoredJson(LS.settings,{})),
   cycleStartedAt:initialCycleStarted,
 };
 // Aba salva inválida (ex.: uma ficha removida) → volta para a primeira ficha, B.
 if(!VALID_TABS.includes(state.tab)) state.tab='b';
 if(initialLoad.needsSave) saveData();
 saveAux();
+storageSet(LS.settings,JSON.stringify(state.settings));
+document.body.classList.toggle('large-text',state.settings.largeText);
 const stSel = {}; // índice do alongamento -> segundos escolhidos
 const STRENGTH_EXERCISES=orderedWorkouts().flatMap(w=>w.exercises.map(e=>({...e,workout:w.label}))).filter(e=>e.kind!=='mob');
 const STRENGTH_IDS=new Set(STRENGTH_EXERCISES.map(e=>e.id));
@@ -886,7 +960,12 @@ if(!['maxKg','volume'].includes(evolutionMetric)) evolutionMetric='maxKg';
 let bodyMetric=storageGet(LS.bodyMetric);
 if(!Object.prototype.hasOwnProperty.call(BODY_METRICS,bodyMetric)) bodyMetric='weight';
 
-const EMPTY_ENTRY = {sets:[],done:false,feeling:'',feedback:''};
+const EMPTY_ENTRY = {sets:[],done:false,variant:'',feeling:'',feedback:''};
+let fieldEditDraft=null,lastQuickEdit=null;
+function selectedVariant(exObj,entry=EMPTY_ENTRY){
+  if(!exObj||!exObj.variants||!exObj.variants.length) return null;
+  return exObj.variants.find(v=>v.id===entry.variant)||exObj.variants.find(v=>v.id===exObj.defaultVariant)||exObj.variants[0];
+}
 // Leitura: nunca cria nada (evita inchar o backup só de abrir a tela)
 function sessionBucket(week,session,create){
   const wk=state.data[week];
@@ -900,7 +979,15 @@ function readEntry(week,exId,session=state.session){
 // Escrita: garante que a entrada exista antes de gravar
 function ensureEntry(week,exId){
   const bucket=sessionBucket(week,state.session,true);
-  return bucket[exId] || (bucket[exId]={sets:[],done:false});
+  const workout=EXERCISE_WORKOUT.get(exId);
+  const exObj=workout&&workout.exercises.find(ex=>ex.id===exId);
+  if(bucket[exId]){
+    if(exObj&&exObj.variants.length&&!bucket[exId].variant) bucket[exId].variant=exObj.defaultVariant||exObj.variants.find(v=>!v.hidden)?.id||exObj.variants[0].id;
+    return bucket[exId];
+  }
+  const entry=bucket[exId]={sets:[],done:false};
+  if(exObj&&exObj.variants.length) entry.variant=exObj.defaultVariant||exObj.variants.find(v=>!v.hidden)?.id||exObj.variants[0].id;
+  return entry;
 }
 function workoutMeta(week,session,tid,create=false){
   let wk=state.meta[week];
@@ -931,9 +1018,21 @@ function updateWorkoutCompleted(exId){
   const meta=workoutMeta(state.week,state.session,workout.tid,true);
   if(!meta.startedAt) meta.startedAt=new Date().toISOString();
   const allDone=workout.exercises.every(ex=>readEntry(state.week,ex.id).done);
-  if(allDone && !meta.completedAt) meta.completedAt=new Date().toISOString();
-  if(!allDone && meta.completedAt) delete meta.completedAt;
+  if(allDone && !meta.completedAt){ meta.completedAt=new Date().toISOString(); delete meta.manualCompleted; }
+  if(!allDone && meta.completedAt && !meta.manualCompleted) delete meta.completedAt;
   saveAux();
+}
+function finishWorkout(tid){
+  const workout=WORKOUTS.find(w=>w.tid===tid); if(!workout) return false;
+  const meta=workoutMeta(state.week,state.session,tid,true);
+  if(meta.completedAt){
+    if(!confirm('Reabrir este treino do dia? Os registros dos exercícios serão mantidos.')) return false;
+    delete meta.completedAt; delete meta.manualCompleted; saveAux(); render('finish-'+tid); return true;
+  }
+  const done=workout.exercises.filter(ex=>readEntry(state.week,ex.id).done).length;
+  if(done<workout.exercises.length&&!confirm(`Finalizar o treino do dia com ${done} de ${workout.exercises.length} exercícios marcados? Os exercícios não marcados continuarão assim.`)) return false;
+  if(!meta.startedAt) meta.startedAt=new Date().toISOString();
+  meta.completedAt=new Date().toISOString(); meta.manualCompleted=true; saveAux(); render('finish-'+tid); return true;
 }
 function setVal(week,exId,i,field,val){
   syncLatestData();
@@ -942,6 +1041,45 @@ function setVal(week,exId,i,field,val){
   e.sets[i][field]=val;
   touchWorkout(exId);
   if(saveData()) storageRemove(LS.snapshot);
+}
+function beginFieldEdit(exId,i,field){
+  const entry=readEntry(state.week,exId),set=entry.sets[i]||{};
+  fieldEditDraft={week:state.week,session:state.session,exId,i,field,before:String(set[field]??'')};
+}
+function commitFieldEdit(exId,i,field,value){
+  if(!fieldEditDraft||fieldEditDraft.exId!==exId||fieldEditDraft.i!==i||fieldEditDraft.field!==field) return false;
+  const after=sanitizeInput(field,value);
+  const changed=fieldEditDraft.before!==after;
+  if(changed) lastQuickEdit={type:'field',...fieldEditDraft,after};
+  fieldEditDraft=null; return changed;
+}
+function copyPreviousSets(exId,warmN,count){
+  syncLatestData(); const prev=prevReference(exId,state.week,warmN); if(!prev){ alert('Ainda não há uma execução anterior para copiar.'); return; }
+  const entry=ensureEntry(state.week,exId),indices=Array.from({length:count},(_,j)=>warmN+j);
+  if(indices.some(i=>hasSetData(entry.sets[i]))&&!confirm('Substituir os valores já preenchidos pelas séries anteriores?')) return;
+  const before=indices.map(i=>({...entry.sets[i]||{kg:'',reps:''}}));
+  indices.forEach(i=>{ const source=prev.sets[i]||{}; entry.sets[i]={kg:normalizeStoredField('kg',source.kg),reps:normalizeStoredField('reps',source.reps)}; });
+  lastQuickEdit={type:'batch',week:state.week,session:state.session,exId,indices,before};
+  touchWorkout(exId); if(saveData()) storageRemove(LS.snapshot); render();
+}
+function repeatFirstWorkSet(exId,warmN,count){
+  syncLatestData(); const entry=ensureEntry(state.week,exId),source=entry.sets[warmN];
+  if(!hasSetData(source)){ alert('Preencha a primeira série de trabalho antes de repetir.'); return; }
+  const indices=Array.from({length:Math.max(0,count-1)},(_,j)=>warmN+j+1);
+  if(indices.some(i=>hasSetData(entry.sets[i]))&&!confirm('Substituir as demais séries pelos valores da primeira?')) return;
+  const before=indices.map(i=>({...entry.sets[i]||{kg:'',reps:''}}));
+  indices.forEach(i=>entry.sets[i]={kg:String(source.kg??''),reps:String(source.reps??'')});
+  lastQuickEdit={type:'batch',week:state.week,session:state.session,exId,indices,before};
+  touchWorkout(exId); if(saveData()) storageRemove(LS.snapshot); render();
+}
+function undoQuickEdit(){
+  const edit=lastQuickEdit; if(!edit) return;
+  state.week=edit.week; state.session=edit.session; storageSet(LS.week,state.week); storageSet(LS.session,state.session);
+  syncLatestData(); const entry=ensureEntry(edit.week,edit.exId);
+  if(edit.type==='field'){
+    if(!entry.sets[edit.i]) entry.sets[edit.i]={kg:'',reps:''}; entry.sets[edit.i][edit.field]=edit.before;
+  }else edit.indices.forEach((index,pos)=>entry.sets[index]={...edit.before[pos]});
+  lastQuickEdit=null; saveData(); render(); showStatus('Último preenchimento desfeito.','ok');
 }
 function toggleDone(week,exId){
   syncLatestData(); const e=ensureEntry(week,exId),workout=EXERCISE_WORKOUT.get(exId);
@@ -975,6 +1113,13 @@ function setExerciseFeedback(exId,value){
   if(clean||entry.feeling) entry.feedbackAt=new Date().toISOString(); else delete entry.feedbackAt;
   touchWorkout(exId); if(saveData()) storageRemove(LS.snapshot);
   render('feedback-'+exId);
+}
+function setExerciseVariant(exId,variant){
+  const variants=EXERCISE_VARIANTS.get(exId); if(!variants||!variants.has(variant)) return false;
+  syncLatestData(); const entry=ensureEntry(state.week,exId);
+  if(entry.variant===variant) return true;
+  if((entry.done||entry.sets.some(hasSetData))&&!confirm('Trocar o equipamento nesta ocorrência? As cargas e repetições já registradas serão mantidas, mas não são diretamente comparáveis entre aparelhos.')) return false;
+  entry.variant=variant; touchWorkout(exId); if(saveData()) storageRemove(LS.snapshot); render('variant-'+exId+'-'+variant); return true;
 }
 
 /* ====================== RENDER ====================== */
@@ -1016,6 +1161,7 @@ function renderTabs(){
   h+=`<button type="button" data-focus="tab-evol" role="tab" id="tab-evol" aria-controls="panel-evol" aria-selected="${state.tab==='evol'}" class="tab evol ${state.tab==='evol'?'on':''}" onclick="setTab('evol')">Evolução</button>`;
   h+=`<button type="button" data-focus="tab-medidas" role="tab" id="tab-medidas" aria-controls="panel-medidas" aria-selected="${state.tab==='medidas'}" class="tab medidas ${state.tab==='medidas'?'on':''}" onclick="setTab('medidas')">Medidas</button>`;
   h+=`<button type="button" data-focus="tab-ciclo" role="tab" id="tab-ciclo" aria-controls="panel-ciclo" aria-selected="${state.tab==='ciclo'}" class="tab ciclo ${state.tab==='ciclo'?'on':''}" onclick="setTab('ciclo')">Ciclo</button>`;
+  h+=`<button type="button" data-focus="tab-ajustes" role="tab" id="tab-ajustes" aria-controls="panel-ajustes" aria-selected="${state.tab==='ajustes'}" class="tab ajustes ${state.tab==='ajustes'?'on':''}" onclick="setTab('ajustes')">Ajustes</button>`;
   $('#tabs').innerHTML=h;
   requestAnimationFrame(()=>{
     const bar=$('#tabs'),active=bar&&bar.querySelector('.tab.on'); if(!bar||!active) return;
@@ -1028,8 +1174,9 @@ function renderTabs(){
 function exerciseCard(exObj){
   const week=state.week;
   const e=readEntry(week,exObj.id);
+  const variant=selectedVariant(exObj,e),displayEx=variant?{...exObj,...variant,id:exObj.id}:exObj;
   const t=targetFor(exObj,week);
-  const vid=YT[exObj.id];
+  const vid=variant&&variant.vid?variant.vid:YT[exObj.id];
   const done=e.done;
   const logStatus=workLogStatus(exObj,e,week);
   const rl=restLabel(restSec(exObj,week));
@@ -1045,6 +1192,12 @@ function exerciseCard(exObj){
   if(feeling&&feeling!=='good') badges+=`<span class="badge b-logwarn">${esc(FEELING_LABELS[feeling])}</span>`;
 
   let body='';
+  if(exObj.variants.length){
+    const visibleVariants=exObj.variants.filter(v=>!v.hidden);
+    body+=`<div class="variantbox"><span class="variantlabel">Equipamento desta ocorrência</span><div class="variantbar">`+
+      visibleVariants.map(v=>`<button type="button" data-focus="variant-${exObj.id}-${v.id}" aria-pressed="${variant&&variant.id===v.id}" class="variantbtn ${variant&&variant.id===v.id?'on':''}" onclick="setExerciseVariant('${exObj.id}','${v.id}')">${esc(v.short||v.name)}</button>`).join('')+
+      `</div><p class="variantnote">${variant&&variant.hidden?'Registro antigo em halteres preservado. Escolha um aparelho antes de continuar esta ocorrência.':'O vídeo e as orientações mudam junto com o equipamento. As cargas ficam registradas com a variação escolhida.'}</p></div>`;
+  }
   if(exObj.kind==='mob'){
     const eff = (exObj.reps==='20-30 seg') ? ' · esforço 6-7/10' : '';
     body+=`<div class="target"><span class="ico">🎯</span><div><div class="t1">Alvo</div>`+
@@ -1062,13 +1215,13 @@ function exerciseCard(exObj){
 
   if(vid){
     const review=videoReview(vid);
-    body+=`<button type="button" class="vbtn" onclick="openVid('${vid}','${exObj.name.replace(/'/g,'')}')">`+
-      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(vid))} · revisado 20/07/2026</span>`+
+    body+=`<button type="button" class="vbtn" onclick="openVid('${vid}','${displayEx.name.replace(/'/g,'')}')">`+
+      `<span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(vid))} · revisado 26/07/2026</span>`+
       `<span class="vquality">${review.label}</span><span class="vreason">Cobre: ${esc(review.coverage)} · ${review.reason}</span></span>`+
       `<span class="ext">▸</span></button>`;
   }
-  if(exObj.notes.length){
-    body+='<ul class="notes">'+exObj.notes.map(n=>`<li>• ${n}</li>`).join('')+'</ul>';
+  if(displayEx.notes.length){
+    body+='<ul class="notes">'+displayEx.notes.map(n=>`<li>• ${esc(n)}</li>`).join('')+'</ul>';
   }
 
   if(exObj.kind==='mob'){
@@ -1078,7 +1231,7 @@ function exerciseCard(exObj){
     const prev = prevReference(exObj.id,week,warmN);
     const autoRest = (exObj.kind==='per' || exObj.kind==='fix'); // só séries de trabalho
     const rs = restSec(exObj,week);
-    const nm = exObj.name.replace(/'/g,'');
+    const nm = displayEx.name.replace(/'/g,'');
 
     // Séries de aquecimento (índices 0..warmN-1) — carga leve, sem descanso automático
     if(warmN>0){
@@ -1088,9 +1241,9 @@ function exerciseCard(exObj){
         const sv=e.sets[i]||{kg:'',reps:''};
         body+=`<div class="srow">`+
           `<div class="stag warm">A${i+1}</div>`+
-          `<div class="field"><input class="sin" type="text" inputmode="decimal" maxlength="7" autocomplete="off" spellcheck="false" aria-label="Carga — ${esc(exObj.name)} — aquecimento ${i+1}" placeholder="kg" value="${esc(sv.kg??'')}" oninput="this.value=upd('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
+          `<div class="field"><input class="sin" type="text" inputmode="decimal" maxlength="7" autocomplete="off" spellcheck="false" aria-label="Carga — ${esc(displayEx.name)} — aquecimento ${i+1}" placeholder="kg" value="${esc(sv.kg??'')}" onfocus="beginFieldEdit('${exObj.id}',${i},'kg')" oninput="this.value=upd('${exObj.id}',${i},'kg',this.value)" onblur="commitFieldEdit('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
           `<span class="sx">×</span>`+
-          `<div class="field"><input class="sin" type="text" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="Repetições — ${esc(exObj.name)} — aquecimento ${i+1}" placeholder="reps" value="${esc(sv.reps??'')}" oninput="this.value=upd('${exObj.id}',${i},'reps',this.value)"><span class="funit">reps</span></div>`+
+          `<div class="field"><input class="sin" type="text" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="Repetições — ${esc(displayEx.name)} — aquecimento ${i+1}" placeholder="reps" value="${esc(sv.reps??'')}" onfocus="beginFieldEdit('${exObj.id}',${i},'reps')" oninput="this.value=upd('${exObj.id}',${i},'reps',this.value)" onblur="commitFieldEdit('${exObj.id}',${i},'reps',this.value)"><span class="funit">reps</span></div>`+
           `</div>`;
       }
       body+='</div>';
@@ -1108,17 +1261,20 @@ function exerciseCard(exObj){
         body+=`<div class="prevref">↩ <b>${refLabel}</b>: ${ref}</div>`;
       }
     }
+    body+=`<div class="quickrow">`+
+      (prev?`<button type="button" class="quickbtn" onclick="copyPreviousSets('${exObj.id}',${warmN},${t.sets})">↩ Copiar anterior</button>`:'')+
+      `<button type="button" class="quickbtn" onclick="repeatFirstWorkSet('${exObj.id}',${warmN},${t.sets})">⧉ Repetir 1ª série</button>`+
+      (lastQuickEdit&&lastQuickEdit.exId===exObj.id&&lastQuickEdit.week===state.week&&lastQuickEdit.session===state.session?`<button type="button" class="quickbtn undo" onclick="undoQuickEdit()">↶ Desfazer</button>`:'')+`</div>`;
     body+='<div class="sets">';
     for(let j=0;j<t.sets;j++){
       const i=warmN+j;
       const sv=e.sets[i]||{kg:'',reps:''};
       const pkg = (prev && prev.sets[i] && prev.sets[i].kg!==''&&prev.sets[i].kg!=null) ? prev.sets[i].kg : 'kg';
-      const repsChange = autoRest ? ` onchange="finishSetReps(this.value,${rs},'${nm}')"` : '';
       body+=`<div class="srow">`+
         `<div class="stag">${j+1}</div>`+
-        `<div class="field"><input class="sin" type="text" inputmode="decimal" maxlength="7" autocomplete="off" spellcheck="false" aria-label="Carga — ${esc(exObj.name)} — série ${j+1}" placeholder="${esc(pkg)}" value="${esc(sv.kg??'')}" oninput="this.value=upd('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
+        `<div class="field"><input class="sin" type="text" inputmode="decimal" maxlength="7" autocomplete="off" spellcheck="false" aria-label="Carga — ${esc(displayEx.name)} — série ${j+1}" placeholder="${esc(pkg)}" value="${esc(sv.kg??'')}" onfocus="beginFieldEdit('${exObj.id}',${i},'kg')" oninput="this.value=upd('${exObj.id}',${i},'kg',this.value)" onblur="commitFieldEdit('${exObj.id}',${i},'kg',this.value)"><span class="funit">kg</span></div>`+
         `<span class="sx">×</span>`+
-        `<div class="field"><input class="sin" type="text" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="Repetições — ${esc(exObj.name)} — série ${j+1}" placeholder="${t.reps}" value="${esc(sv.reps??'')}" oninput="this.value=upd('${exObj.id}',${i},'reps',this.value)"${repsChange}><span class="funit">reps</span></div>`+
+        `<div class="field"><input class="sin" type="text" inputmode="numeric" maxlength="3" autocomplete="off" spellcheck="false" aria-label="Repetições — ${esc(displayEx.name)} — série ${j+1}" placeholder="${t.reps}" value="${esc(sv.reps??'')}" onfocus="beginFieldEdit('${exObj.id}',${i},'reps')" oninput="this.value=upd('${exObj.id}',${i},'reps',this.value)" onblur="if(commitFieldEdit('${exObj.id}',${i},'reps',this.value))${autoRest?`finishSetReps(this.value,${rs},'${nm}')`:'void 0'}"><span class="funit">reps</span></div>`+
         `</div>`;
     }
     body+='</div>';
@@ -1139,14 +1295,14 @@ function exerciseCard(exObj){
   const kindClass='k-'+exObj.kind;
   return `<article class="card ${kindClass} ${done?'done':''}">`+
     `<div class="chead"><div>`+
-      `<h3 class="cname">${exObj.name}</h3>`+
-      (exObj.detail?`<div class="cdetail">${exObj.detail}</div>`:'')+
+      `<h3 class="cname">${esc(displayEx.name)}</h3>`+
+      (displayEx.detail?`<div class="cdetail">${esc(displayEx.detail)}</div>`:'')+
       (badges?`<div class="badges">${badges}</div>`:'')+
     `</div>`+
-    (exObj.kind!=='mob'?`<button type="button" data-focus="done-${exObj.id}" aria-pressed="${done}" aria-label="${done?'Desmarcar':'Marcar'} ${esc(exObj.name)} como concluído" class="donebtn ${done?'on':''}" onclick="markDone('${exObj.id}')">${done?(logStatus==='full'?'✓':'Feito'):'Marcar'}</button>`:'')+
+    (exObj.kind!=='mob'?`<button type="button" data-focus="done-${exObj.id}" aria-pressed="${done}" aria-label="${done?'Desmarcar':'Marcar'} ${esc(displayEx.name)} como concluído" class="donebtn ${done?'on':''}" onclick="markDone('${exObj.id}')">${done?(logStatus==='full'?'✓':'Feito'):'Marcar'}</button>`:'')+
     `</div>`+
     body+
-    (exObj.kind!=='mob'?`<button type="button" class="restbtn" onclick="startTimer(${restSec(exObj,week)},'Descanso · ${exObj.name.replace(/'/g,'')}')">⏱ Descanso ${rl}</button>`:'')+
+    (exObj.kind!=='mob'?`<button type="button" class="restbtn" onclick="startTimer(${restSec(exObj,week)},'Descanso · ${displayEx.name.replace(/'/g,'')}')">⏱ Descanso ${rl}</button>`:'')+
     `</article>`;
 }
 
@@ -1227,6 +1383,41 @@ function backupMessage(){
   const days=Math.floor((Date.now()-Date.parse(last))/86400000);
   return days>=7?`Último backup há ${days} dias. Recomendamos exportar uma nova cópia.`:`Último backup: ${formatDateTime(last)}.`;
 }
+function normalizeAutoBackups(raw){
+  if(!Array.isArray(raw)) return []; return raw.filter(item=>isRecord(item)&&item.app==='treino-hard-fofo'&&isRecord(item.data)&&validIso(item.savedAt)).slice(-3);
+}
+function getAutoBackups(){ return normalizeAutoBackups(parseStoredJson(LS.autoBackups,[])); }
+function renderBackupSettings(){
+  const automatic=getAutoBackups().slice().reverse();
+  const list=automatic.length?automatic.map(item=>`<div class="backupitem"><strong>${formatDateTime(item.savedAt)} · ${entryCount(item.data)} registro(s)</strong>`+
+    `<span>${normalizeMeasurements(item.measurements).length} medição(ões) · cópia somente neste aparelho</span>`+
+    `<button type="button" class="toolbtn" onclick="restoreAutoBackup('${esc(item.id)}')">Restaurar esta cópia</button></div>`).join(''):
+    `<p>Nenhuma cópia automática ainda. A primeira será criada após haver registros.</p>`;
+  return `<div class="section"><h3>Backup e recuperação</h3><p>O JSON restaura todo o app. O CSV serve para abrir seus registros em planilhas e não pode ser importado.</p>`+
+    `<button type="button" class="toolbtn" onclick="exportData()">⬇ Exportar backup completo (JSON)</button>`+
+    `<button type="button" class="toolbtn" onclick="exportCsv()">▦ Exportar registros (CSV)</button>`+
+    `<button type="button" class="toolbtn" onclick="openImport()">⬆ Importar backup com prévia</button>`+
+    `<input type="file" id="importfile" accept=".json,application/json" hidden onchange="importData(event)">`+
+    (backupMessage()?`<p class="backupwarn">${esc(backupMessage())}</p>`:'')+`</div>`+
+    `<div class="section"><h3>Cópias automáticas locais</h3><p>São mantidas até três cópias recentes neste navegador. Elas ajudam em erros acidentais, mas não substituem o JSON guardado fora do aparelho.</p>${list}</div>`;
+}
+function settingRow(key,title,description){
+  const on=state.settings[key]; return `<div class="settingrow"><div class="settingcopy"><strong>${title}</strong><span>${description}</span></div>`+
+    `<button type="button" data-focus="setting-${key}" class="switch ${on?'on':''}" role="switch" aria-checked="${on}" aria-label="${title}" onclick="toggleSetting('${key}')"></button></div>`;
+}
+function renderSettingsPanel(){
+  const on=state.tab==='ajustes',wakeSupport='wakeLock' in navigator;
+  return `<section role="tabpanel" id="panel-ajustes" aria-labelledby="tab-ajustes" aria-hidden="${!on}" class="panel ${on?'on':''}">`+
+    `<h2 class="ptitle">Ajustes do app</h2><div class="psub">Preferências deste aparelho</div><div class="spacer14"></div>`+
+    `<div class="section"><h3>Experiência</h3>${settingRow('sound','Som do cronômetro','Toca dois avisos ao encerrar o descanso.')}`+
+    `${settingRow('vibration','Vibração','Vibra ao iniciar e concluir o cronômetro, quando o aparelho permite.')}`+
+    `${settingRow('largeText','Texto maior','Aumenta os textos principais sem alterar os dados.')}`+
+    `${settingRow('keepAwake','Manter tela ativa',wakeSupport?'Evita que a tela apague enquanto o app estiver aberto.':'Este navegador não oferece esse recurso.')}</div>`+
+    `<div class="section"><h3>Aplicativo</h3><p id="updatestatus">${navigator.onLine===false?'Sem conexão. O conteúdo salvo continua disponível.':'Versão 2.0 instalada neste aparelho.'}</p>`+
+    `<button type="button" class="toolbtn" onclick="checkForUpdates()">↻ Procurar atualização</button>`+
+    (`storage` in navigator?`<button type="button" class="toolbtn" onclick="requestPersistentStorage()">🛡 Proteger dados contra limpeza automática</button>`:'')+`</div>`+
+    renderBackupSettings()+`<div class="spacer24"></div></section>`;
+}
 function evolutionPoints(exObj,metric=evolutionMetric){
   const points=[],warmN=exObj.warm||0;
   for(let week=1;week<=8;week++){
@@ -1239,7 +1430,8 @@ function evolutionPoints(exObj,metric=evolutionMetric){
       const maxKg=loads.length?Math.max(...loads):null;
       const volume=pairs.length?pairs.reduce((sum,s)=>sum+s.kg*s.reps,0):null;
       const totalReps=reps.length?reps.reduce((sum,v)=>sum+v,0):null;
-      points.push({index:(week-1)*2+(session-1),week,session,label:`${WEEK_LABEL[week]} · ${session}º`,
+      const variant=selectedVariant(exObj,entry),variantLabel=variant?(variant.short||variant.name):'';
+      points.push({index:(week-1)*2+(session-1),week,session,label:`${WEEK_LABEL[week]} · ${session}º${variantLabel?' · '+variantLabel:''}`,
         maxKg,volume,totalReps,value:metric==='volume'?volume:maxKg});
     }
   }
@@ -1302,7 +1494,7 @@ function renderEvolutionPanel(){
     `<div class="section"><h3>Registros recentes</h3>`+
       (rows?`<div class="tablewrap"><table class="evotable"><thead><tr><th>Ocorrência</th><th>Carga máx.</th><th>Reps</th><th>Volume</th></tr></thead><tbody>${rows}</tbody></table></div>`:
         `<div class="evoempty">Os registros aparecerão aqui conforme você preencher os treinos.</div>`)+
-      `<p class="evonote">Carga máxima considera a maior carga das séries de trabalho. Volume registrado = soma de carga × repetições; aquecimentos não entram no cálculo.</p></div>`+
+      `<p class="evonote">Carga máxima considera a maior carga das séries de trabalho. Volume registrado = soma de carga × repetições; aquecimentos não entram no cálculo.${exObj.variants.length?' Cargas de equipamentos diferentes aparecem identificadas e não devem ser comparadas como se fossem equivalentes.':''}</p></div>`+
     `<div class="spacer24"></div></section>`;
 }
 
@@ -1335,6 +1527,37 @@ function measurementHistory(){
       `<div class="measurevalues">${values}</div>${item.note?`<div class="measurenote">${esc(item.note)}</div>`:''}</article>`;
   }).join('')+`</div>`;
 }
+function bodyBand(item,key,y,label){
+  if(!item||!item[key]) return '';
+  const value=Number(item[key]),half=Math.max(38,Math.min(92,value*.55));
+  return `<line class="bodyband" x1="${210-half}" y1="${y}" x2="${210+half}" y2="${y}"/><text class="bodylabel" x="12" y="${y+4}">${label}: ${formatNumber(value)} cm</text>`;
+}
+function bodySide(item,key,x,y,label,anchor,labelY=y+4){
+  if(!item||!item[key]) return '';
+  return `<circle class="bodydot" cx="${x}" cy="${y}" r="6"/><text class="bodylabel" x="${anchor==='end'?x-12:x+12}" y="${labelY}" text-anchor="${anchor}">${label} ${formatNumber(Number(item[key]))}</text>`;
+}
+function bilateralSummary(item,label,leftKey,rightKey){
+  const left=Number(item&&item[leftKey]),right=Number(item&&item[rightKey]);
+  if(!left||!right) return `<div class="asymitem"><b>${label}</b><span>Preencha os dois lados para comparar.</span></div>`;
+  const diff=Math.abs(left-right),pct=Math.round(diff/Math.max(left,right)*1000)/10;
+  const side=left===right?'medidas iguais':`maior medida: ${left>right?'esquerda':'direita'}`;
+  return `<div class="asymitem"><b>${label}</b><span>Diferença ${formatNumber(diff)} cm (${formatNumber(pct)}%) · ${side}</span></div>`;
+}
+function bodyMap(){
+  const item=state.measurements[state.measurements.length-1];
+  if(!item) return `<div class="bodymapcard"><h3 class="bodymaptitle">Mapa corporal ilustrativo</h3><div class="evoempty">Salve uma medição para visualizar os números no corpo de referência.</div></div>`;
+  const aria=`Mapa ilustrativo das medidas de ${formatMeasureDate(item.date)}. Não representa formato anatômico real.`;
+  return `<div class="bodymapcard"><h3 class="bodymaptitle">Mapa corporal ilustrativo</h3><p class="bodymapsub">Última medição · ${formatMeasureDate(item.date)}</p>`+
+    `<svg class="bodymapsvg" viewBox="0 0 420 520" role="img" aria-label="${esc(aria)}"><title>${esc(aria)}</title>`+
+    `<circle class="bodyshape" cx="210" cy="52" r="31"/><path class="bodyshape" d="M158 102 Q210 78 262 102 L278 260 Q250 286 210 290 Q170 286 142 260 Z"/>`+
+    `<line class="bodylimb" x1="153" y1="120" x2="105" y2="270"/><line class="bodylimb" x1="267" y1="120" x2="315" y2="270"/><line class="bodyleg" x1="190" y1="278" x2="178" y2="472"/><line class="bodyleg" x1="230" y1="278" x2="242" y2="472"/>`+
+    bodyBand(item,'chest',142,'Peitoral')+bodyBand(item,'waist',190,'Cintura')+bodyBand(item,'abdomen',218,'Abdômen')+bodyBand(item,'hip',257,'Quadril')+
+    bodySide(item,'armLeft',125,118,'Braço E','end',112)+bodySide(item,'armRight',295,118,'Braço D','start',112)+
+    bodySide(item,'thighLeft',181,344,'Coxa E','end')+bodySide(item,'thighRight',239,344,'Coxa D','start')+
+    bodySide(item,'calfLeft',189,430,'Pant. E','end')+bodySide(item,'calfRight',231,430,'Pant. D','start')+`</svg>`+
+    `<div class="asymgrid">${bilateralSummary(item,'Braços','armLeft','armRight')}${bilateralSummary(item,'Coxas','thighLeft','thighRight')}${bilateralSummary(item,'Panturrilhas','calfLeft','calfRight')}</div>`+
+    `<p class="bodymapnote">As faixas variam com as circunferências apenas para facilitar a leitura. A silhueta não reconstrói seu corpo, não estima composição corporal e diferença de circunferência não mede força.</p></div>`;
+}
 function renderMeasurementsPanel(){
   const meta=BODY_METRICS[bodyMetric],points=measurementPoints(bodyMetric),first=points[0],latest=points[points.length-1];
   const delta=points.length>=2?latest.value-first.value:null,deltaText=delta==null?'—':`${delta>0?'+':''}${formatNumber(delta)} ${meta.unit}`;
@@ -1347,13 +1570,13 @@ function renderMeasurementsPanel(){
       `<label class="measurefield full"><span>Data</span><input class="measureinput" id="measure-date" name="date" type="date" value="${localDateStamp()}" required></label>`+
       fields+`<label class="measurefield full"><span>Observação opcional</span><textarea class="measureinput" id="measure-note" name="note" maxlength="160" placeholder="Ex.: medi pela manhã, antes do café"></textarea></label>`+
     `</div><div class="measureactions"><button class="toolbtn" type="submit">Salvar medição</button></div>`+
-    `<p class="measurehint">Para comparar: repita horário e condições. Cintura: fita horizontal no ponto médio entre a última costela palpável e o topo do quadril, após expirar normalmente; quadril: parte mais larga dos glúteos. “Abdômen no umbigo” é uma referência pessoal separada. Fontes: <a href="https://www.who.int/publications/i/item/9789241501491" target="_blank" rel="noopener noreferrer">OMS</a> e <a href="https://www.nhlbi.nih.gov/health/heart-healthy-living/healthy-weight" target="_blank" rel="noopener noreferrer">NHLBI/NIH</a>.</p></form>`+
+    `<p class="measurehint">Para comparar: repita horário, condições, lado e ponto da fita. Cintura: fita horizontal no ponto médio entre a última costela palpável e o topo do quadril, após expirar normalmente; quadril: parte mais larga dos glúteos. “Abdômen no umbigo” é uma referência pessoal separada. Fontes: <a href="https://www.who.int/publications/i/item/9789241501491" target="_blank" rel="noopener noreferrer">OMS</a> e <a href="https://www.nhlbi.nih.gov/health/heart-healthy-living/healthy-weight" target="_blank" rel="noopener noreferrer">NHLBI/NIH</a>.</p></form>`+
     `<div class="measureblock"><label class="measurefield measuremetric"><span>Parâmetro do gráfico</span><select class="measureinput" onchange="setBodyMetric(this.value)">`+
       Object.entries(BODY_METRICS).map(([key,item])=>`<option value="${key}" ${bodyMetric===key?'selected':''}>${item.label}</option>`).join('')+`</select></label>`+
       `<div class="measurestats"><div class="measurestat"><div class="k">Inicial</div><div class="v">${first?formatNumber(first.value)+' '+meta.unit:'—'}</div></div>`+
       `<div class="measurestat"><div class="k">Atual</div><div class="v">${latest?formatNumber(latest.value)+' '+meta.unit:'—'}</div></div>`+
       `<div class="measurestat"><div class="k">Variação</div><div class="v">${deltaText}</div></div></div>`+
-      `<div class="chartcard"><div class="charttitle">${meta.label}</div>${measurementChart(bodyMetric)}</div></div>`+
+      `<div class="chartcard"><div class="charttitle">${meta.label}</div>${measurementChart(bodyMetric)}</div></div>${bodyMap()}`+
     `<div class="section"><h3>Histórico</h3>${measurementHistory()}</div><div class="spacer24"></div></section>`;
 }
 function upsertMeasurement(raw){
@@ -1390,6 +1613,7 @@ function renderPanels(){
       (meta&&meta.completedAt?` · concluído ${formatDateTime(meta.completedAt)}`:meta&&meta.startedAt?` · iniciado ${formatDateTime(meta.startedAt)}`:'')+`</div>`;
     h+=`<div class="prog" role="progressbar" aria-label="Progresso do treino ${w.label}" aria-valuemin="0" aria-valuemax="${total}" aria-valuenow="${done}"><i style="width:${pct}%"></i></div>`;
     h+=`<div class="progtxt">${done}/${total} concluídos neste treino${incomplete?` · <span class="warn">${incomplete} sem registro completo</span>`:''}</div>`;
+    h+=`<button type="button" data-focus="finish-${w.tid}" aria-pressed="${!!(meta&&meta.completedAt)}" class="workoutfinish ${meta&&meta.completedAt?'on':''}" onclick="finishWorkout('${w.tid}')">${meta&&meta.completedAt?'✓ Treino do dia finalizado · Reabrir':'Finalizar treino do dia'}</button>`;
     h+=w.exercises.map(exerciseCard).join('');
     h+=`<div class="spacer24"></div></section>`;
   });
@@ -1407,7 +1631,7 @@ function renderPanels(){
     h+=`<article class="stcard">`+
       `<h3 class="stname">${s.name}<span class="sttag ${tagClass}">${s.tipo}</span></h3>`+
       `<div class="stmeta">${s.freq}</div>`+
-      (s.vid?(()=>{const review=videoReview(s.vid);return `<button type="button" class="vbtn stretch-video" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(s.vid))} · revisado 20/07/2026</span><span class="vquality">${review.label}</span><span class="vreason">Cobre: ${esc(review.coverage)} · ${review.reason}</span></span><span class="ext">▸</span></button>`;})():'')+
+      (s.vid?(()=>{const review=videoReview(s.vid);return `<button type="button" class="vbtn stretch-video" onclick="openVid('${s.vid}','${s.name.replace(/'/g,'')}')"><span class="vplay">▶</span><span>Ver demonstração<span class="vs">Canal: ${esc(videoSource(s.vid))} · revisado 26/07/2026</span><span class="vquality">${review.label}</span><span class="vreason">Cobre: ${esc(review.coverage)} · ${review.reason}</span></span><span class="ext">▸</span></button>`;})():'')+
       `<div class="stopts">`+
         [20,25,30].map(sec=>`<button type="button" aria-pressed="${sel===sec}" class="stopt ${sel===sec?'on':''}" data-st="${i}" data-sec="${sec}" onclick="pickSt(${i},${sec})">${sec}s</button>`).join('')+
       `</div>`+
@@ -1450,17 +1674,14 @@ function renderPanels(){
   h+=`<div class="section"><h3>📚 Base de evidência da ficha</h3><p>A divisão pode seguir sua preferência quando o volume semanal é equivalente. Exercícios prioritários devem vir cedo na sessão; por isso sua sequência habitual abre o treino B. Volume maior pode ajudar, mas com retornos decrescentes — qualquer redução ou troca adicional será discutida antes.</p><p>Fontes: <a href="https://pubmed.ncbi.nlm.nih.gov/41843416/" target="_blank" rel="noopener noreferrer">ACSM 2026</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/41343037/" target="_blank" rel="noopener noreferrer">dose–resposta de volume</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/38595233/" target="_blank" rel="noopener noreferrer">split vs. corpo inteiro</a>, <a href="https://pubmed.ncbi.nlm.nih.gov/32077380/" target="_blank" rel="noopener noreferrer">ordem dos exercícios</a> e <a href="https://pubmed.ncbi.nlm.nih.gov/35438660/" target="_blank" rel="noopener noreferrer">variação de exercícios</a>.</p></div>`;
   h+=`<div class="section"><h3>🛡 Uso seguro</h3><p>Este app é um diário educativo: ele não observa sua técnica nem substitui avaliação profissional. Interrompa o exercício diante de dor intensa ou nova, tontura, desmaio, dor no peito ou falta de ar incomum e procure orientação adequada. Fontes: <a href="https://www.gov.br/saude/pt-br/assuntos/saude-brasil/eu-quero-me-exercitar/noticias/2022/a-atividade-fisica-pode-auxiliar-na-reducao-das-dores-osseas-articulares-e-musculares" target="_blank" rel="noopener noreferrer">Ministério da Saúde</a> e <a href="https://www.newcastle-hospitals.nhs.uk/services/newcastle-occupational-health-service/information-for-staff/physiotherapy/self-help-leaflets/exercise-and-your-health-a-guide-to-getting-started/" target="_blank" rel="noopener noreferrer">NHS</a>.</p></div>`;
   h+=`<div class="section"><h3>🎥 Curadoria dos vídeos</h3><p>Os vídeos foram reavaliados em 20/07/2026 quanto à correspondência exata com o exercício, aparelho, canal e conteúdo demonstrado. Seis fontes foram substituídas nesta revisão, incluindo remada articulada e remada unilateral na máquina.</p><p><b>Guia técnico</b>: inclui orientação além do movimento. <b>Demonstração</b>: mostra a execução principal. <b>Referência</b>: serve para reconhecer o movimento. Cada card informa o que o vídeo cobre e a duração.</p><p>Os selos descrevem o conteúdo; não certificam o autor nem substituem avaliação profissional.</p></div>`;
-  h+=`<div class="section"><h3>💾 Dados</h3>`+
-     `<button type="button" class="toolbtn" onclick="exportData()">⬇ Exportar backup (JSON)</button>`+
-     `<button type="button" class="toolbtn" onclick="openImport()">⬆ Importar backup validado</button>`+
+  h+=`<div class="section"><h3>🧰 Manutenção de dados</h3>`+
      (storageGet(LS.snapshot)?`<button type="button" class="toolbtn" onclick="undoLastChange()">↶ Desfazer última limpeza/importação</button>`:'')+
      (storageGet(LS.recovery)?`<button type="button" class="toolbtn" onclick="exportRecovery()">⚕ Baixar dados preservados para recuperação</button>`:'')+
      `<button type="button" class="toolbtn danger" onclick="resetWorkout()">Limpar todos os A/B/C do ${state.session}º treino da semana ${WEEK_LABEL[state.week]}</button>`+
      `<button type="button" class="toolbtn danger" onclick="resetPeriodization()">Reiniciar periodização do zero</button>`+
-     `<input type="file" id="importfile" accept=".json,application/json" hidden onchange="importData(event)">`+
-     (backupMessage()?`<p class="backupwarn">${esc(backupMessage())}</p>`:'')+
      `</div>`;
   h+=`<div class="spacer24"></div></section>`;
+  h+=renderSettingsPanel();
 
   $('#panels').innerHTML=h;
 }
@@ -1485,6 +1706,13 @@ function setEvolutionMetric(metric){
 function setBodyMetric(metric){
   if(!Object.prototype.hasOwnProperty.call(BODY_METRICS,metric)) return;
   bodyMetric=metric; storageSet(LS.bodyMetric,metric); render();
+}
+function toggleSetting(key){
+  if(!Object.prototype.hasOwnProperty.call(DEFAULT_SETTINGS,key)) return;
+  state.settings[key]=!state.settings[key]; storageSet(LS.settings,JSON.stringify(state.settings));
+  document.body.classList.toggle('large-text',state.settings.largeText);
+  if(key==='keepAwake'){ if(state.settings.keepAwake) requestWakeLock(); else releaseWakeLock(); }
+  render('setting-'+key);
 }
 function upd(exId,i,f,v){ const clean=sanitizeInput(f,v); setVal(state.week,exId,i,f,clean); return clean; }
 // Inicia o descanso ao concluir a edição de reps (o valor já foi salvo via input)
@@ -1616,14 +1844,16 @@ function timerStop(){
 /* ====================== ÁUDIO / VIBRAÇÃO ====================== */
 let audioCtx=null;
 function primeAudio(){
+  if(!state.settings.sound) return;
   try{
     if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
     if(audioCtx.state==='suspended'){ const p=audioCtx.resume(); if(p&&p.catch) p.catch(()=>{}); }
   }catch(e){}
 }
-function vibrate(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+function vibrate(p){ try{ if(state.settings.vibration&&navigator.vibrate) navigator.vibrate(p); }catch(e){} }
 function doneBeep(){
   vibrate([200,100,200]);
+  if(!state.settings.sound) return;
   try{
     if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
     const play=()=>{
@@ -1648,6 +1878,11 @@ function doneBeep(){
 function localDateStamp(dt=new Date()){
   return dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
 }
+function buildBackupPayload(){
+  return {app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,exportedAt:new Date().toISOString(),
+    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric,bodyMetric},
+    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,settings:state.settings};
+}
 function downloadText(text,name,type='application/json'){
   const blob=new Blob([text],{type}),a=document.createElement('a');
   a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); a.remove();
@@ -1655,12 +1890,31 @@ function downloadText(text,name,type='application/json'){
 }
 function exportData(){
   syncLatestData(); syncLatestMeasurements();
-  const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,exportedAt:new Date().toISOString(),
-    view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric,bodyMetric},
-    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements};
+  const payload=buildBackupPayload();
   downloadText(JSON.stringify(payload,null,2),'treino-hard-backup-'+localDateStamp()+'.json');
   storageSet(LS.lastBackup,new Date().toISOString());
   showStatus('Backup exportado. Guarde o arquivo em um local seguro.','ok');
+}
+function csvCell(value){
+  let text=String(value??'').replace(/\r?\n/g,' '); if(/^[=+\-@]/.test(text)) text="'"+text;
+  return '"'+text.replace(/"/g,'""')+'"';
+}
+function exportCsv(){
+  syncLatestData(); syncLatestMeasurements();
+  const headers=['tipo','data','semana','ocorrencia','treino','exercicio','variacao','serie','carga_kg','repeticoes','peso_kg','cintura_cm','abdomen_cm','peitoral_cm','quadril_cm','braco_esq_cm','braco_dir_cm','coxa_esq_cm','coxa_dir_cm','panturrilha_esq_cm','panturrilha_dir_cm','observacao'];
+  const rows=[headers];
+  for(let week=1;week<=8;week++) for(let session=1;session<=2;session++) orderedWorkouts().forEach(workout=>{
+    const meta=workoutMeta(week,session,workout.tid,false),date=meta&&meta.startedAt?localDateStamp(new Date(meta.startedAt)):'';
+    workout.exercises.forEach(exObj=>{ const entry=readEntry(week,exObj.id,session); entry.sets.forEach((set,index)=>{
+      if(!hasSetData(set)) return; const row=Array(headers.length).fill(''),variant=selectedVariant(exObj,entry);
+      [row[0],row[1],row[2],row[3],row[4],row[5],row[6],row[7],row[8],row[9],row[21]]=['treino',date,WEEK_LABEL[week],session,workout.label,exObj.name,variant?(variant.short||variant.name):'',index+1,set.kg||'',set.reps||'',entry.feedback||'']; rows.push(row);
+    }); });
+  });
+  state.measurements.forEach(item=>{ const row=Array(headers.length).fill('');
+    [row[0],row[1],row[10],row[11],row[12],row[13],row[14],row[15],row[16],row[17],row[18],row[19],row[20],row[21]]=['medida',item.date,item.weight||'',item.waist||'',item.abdomen||'',item.chest||'',item.hip||'',item.armLeft||'',item.armRight||'',item.thighLeft||'',item.thighRight||'',item.calfLeft||'',item.calfRight||'',item.note||'']; rows.push(row);
+  });
+  downloadText('\uFEFF'+rows.map(row=>row.map(csvCell).join(';')).join('\r\n'),'treino-hard-registros-'+localDateStamp()+'.csv','text/csv;charset=utf-8');
+  showStatus('CSV exportado para consulta. Para restauração, use sempre o backup JSON.','ok');
 }
 function exportArchive(id){
   const archive=state.archives.find(item=>item.id===id); if(!archive) return;
@@ -1671,8 +1925,29 @@ function exportArchive(id){
 function createSnapshot(reason){
   const payload={app:'treino-hard-fofo',schemaVersion:DATA_SCHEMA,savedAt:new Date().toISOString(),reason,
     view:{week:state.week,session:state.session,tab:state.tab,evolutionExercise:evolutionExerciseId,evolutionMetric,bodyMetric},
-    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements};
+    cycleStartedAt:state.cycleStartedAt,data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,settings:state.settings};
   return storageSet(LS.snapshot,JSON.stringify(payload));
+}
+function autoBackupIfDue(force=false){
+  if(entryCount(state.data)===0&&state.measurements.length===0) return false;
+  const today=localDateStamp(),backups=getAutoBackups(),existing=backups.find(item=>item.day===today);
+  if(existing&&!force) return false;
+  syncLatestData(); syncLatestMeasurements(); const payload={...buildBackupPayload(),id:'auto-'+today,day:today,savedAt:new Date().toISOString(),reason:'Cópia automática local'};
+  const next=[...backups.filter(item=>item.day!==today),payload].slice(-3);
+  try{ localStorage.setItem(LS.autoBackups,JSON.stringify(next)); return true; }
+  catch(e){ try{ localStorage.setItem(LS.autoBackups,JSON.stringify([payload])); return true; }catch(inner){ return false; } }
+}
+function restoreAutoBackup(id){
+  const backup=getAutoBackups().find(item=>item.id===id); if(!backup) return;
+  const normalized=normalizeData(backup.data),measurements=normalizeMeasurements(backup.measurements);
+  if(!normalized.valid){ alert('Esta cópia local não passou na validação. Nada foi alterado.'); return; }
+  if(!confirm(`Restaurar a cópia de ${formatDateTime(backup.savedAt)} com ${normalized.entries} registro(s) e ${measurements.length} medição(ões)?`)) return;
+  syncLatestData(); syncLatestMeasurements(); if(!createSnapshot('Antes de restaurar cópia automática')){ alert('Não foi possível criar a cópia de desfazer. Restauração cancelada.'); return; }
+  const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,settings:state.settings,cycleStartedAt:state.cycleStartedAt};
+  state.data=normalized.data; state.meta=normalizeSessionMeta(backup.meta); state.archives=normalizeArchives(backup.archives);
+  state.measurements=measurements; state.settings=normalizeSettings(backup.settings); state.cycleStartedAt=validIso(backup.cycleStartedAt)||new Date().toISOString();
+  if(!saveData()||!saveAux()||!saveMeasurements()||!storageSet(LS.settings,JSON.stringify(state.settings))){ Object.assign(state,previous); saveData();saveAux();saveMeasurements();storageSet(LS.settings,JSON.stringify(state.settings));alert('Não foi possível restaurar; os dados anteriores foram mantidos.');return; }
+  document.body.classList.toggle('large-text',state.settings.largeText); render(); alert('Cópia automática restaurada. Você ainda pode desfazer em Ciclo.');
 }
 function importData(ev){
   const f=ev.target.files[0]; if(!f) return;
@@ -1685,19 +1960,23 @@ function importData(ev){
       if(Number(j.schemaVersion||1)>DATA_SCHEMA) throw new Error('Backup criado por uma versão mais nova do app.');
       const normalized=normalizeData(j.data);
       if(!normalized.valid) throw new Error('Estrutura de dados inválida.');
-      const details=`${normalized.entries} registro(s)`+(normalized.ignored?` e ${normalized.ignored} item(ns) inválido(s) ignorado(s)`:'' );
-      if(!confirm(`Importar ${details}? Os dados atuais serão substituídos, mas poderão ser desfeitos.`)) return;
+      const importedMeasurements=Array.isArray(j.measurements)?normalizeMeasurements(j.measurements):state.measurements;
+      const importedArchives=Array.isArray(j.archives)?normalizeArchives(j.archives):state.archives;
+      const origin=j.exportedAt?`\nCriado em: ${formatDateTime(j.exportedAt)||'data inválida'}`:'';
+      const details=`${normalized.entries} registro(s), ${importedMeasurements.length} medição(ões) e ${importedArchives.length} ciclo(s) arquivado(s)`+(normalized.ignored?`\n${normalized.ignored} item(ns) inválido(s) serão ignorado(s)`:'' );
+      if(!confirm(`Prévia do backup:\n${details}${origin}\n\nImportar? Os dados atuais serão substituídos, mas poderão ser desfeitos.`)) return;
       syncLatestData(); syncLatestMeasurements();
       if(!createSnapshot('Antes da importação')) throw new Error('Não foi possível criar a cópia de segurança. Importação cancelada.');
-      const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,cycleStartedAt:state.cycleStartedAt};
+      const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,settings:state.settings,cycleStartedAt:state.cycleStartedAt};
       state.data=normalized.data;
       state.meta=normalizeSessionMeta(j.meta);
       if(Array.isArray(j.archives)) state.archives=normalizeArchives(j.archives);
       if(Array.isArray(j.measurements)) state.measurements=normalizeMeasurements(j.measurements);
+      if(isRecord(j.settings)) state.settings=normalizeSettings(j.settings);
       state.cycleStartedAt=validIso(j.cycleStartedAt)||new Date().toISOString();
-      if(!saveData()||!saveAux()||!saveMeasurements()){
-        state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.measurements=previous.measurements;state.cycleStartedAt=previous.cycleStartedAt;
-        saveData();saveAux();saveMeasurements();throw new Error('Não foi possível salvar o backup importado.');
+      if(!saveData()||!saveAux()||!saveMeasurements()||!storageSet(LS.settings,JSON.stringify(state.settings))){
+        state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.measurements=previous.measurements;state.settings=previous.settings;state.cycleStartedAt=previous.cycleStartedAt;
+        saveData();saveAux();saveMeasurements();storageSet(LS.settings,JSON.stringify(state.settings));throw new Error('Não foi possível salvar o backup importado.');
       }
       if(isRecord(j.view)){
         state.week=clampWeek(j.view.week)||state.week;
@@ -1710,6 +1989,7 @@ function importData(ev){
       storageSet(LS.week,state.week); storageSet(LS.session,state.session); storageSet(LS.tab,state.tab);
       storageSet(LS.evolutionExercise,evolutionExerciseId); storageSet(LS.evolutionMetric,evolutionMetric);
       storageSet(LS.bodyMetric,bodyMetric);
+      document.body.classList.toggle('large-text',state.settings.largeText);
       render(); alert('Backup validado e importado com segurança.'+(normalized.legacy?' Os dados antigos foram convertidos para o 1º treino, mantendo a compatibilidade com a versão 1.2.':''));
     }catch(e){ alert(e.message||'Erro ao ler o arquivo. Nenhum dado foi alterado.'); }
   };
@@ -1729,14 +2009,15 @@ function undoLastChange(){
     const snap=JSON.parse(storageGet(LS.snapshot)||'null');
     if(!snap || snap.app!=='treino-hard-fofo') throw new Error('Cópia de desfazer inválida.');
     const normalized=normalizeData(snap.data); if(!normalized.valid) throw new Error('Cópia de desfazer corrompida.');
-    const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,cycleStartedAt:state.cycleStartedAt};
+    const previous={data:state.data,meta:state.meta,archives:state.archives,measurements:state.measurements,settings:state.settings,cycleStartedAt:state.cycleStartedAt};
     state.data=normalized.data;state.meta=normalizeSessionMeta(snap.meta);
     state.archives=normalizeArchives(snap.archives);
     if(Array.isArray(snap.measurements)) state.measurements=normalizeMeasurements(snap.measurements);
+    if(isRecord(snap.settings)) state.settings=normalizeSettings(snap.settings);
     state.cycleStartedAt=validIso(snap.cycleStartedAt)||new Date().toISOString();
-    if(!saveData()||!saveAux()||!saveMeasurements()){
-      state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.measurements=previous.measurements;state.cycleStartedAt=previous.cycleStartedAt;
-      saveData();saveAux();saveMeasurements();throw new Error('Não foi possível restaurar os dados.');
+    if(!saveData()||!saveAux()||!saveMeasurements()||!storageSet(LS.settings,JSON.stringify(state.settings))){
+      state.data=previous.data;state.meta=previous.meta;state.archives=previous.archives;state.measurements=previous.measurements;state.settings=previous.settings;state.cycleStartedAt=previous.cycleStartedAt;
+      saveData();saveAux();saveMeasurements();storageSet(LS.settings,JSON.stringify(state.settings));throw new Error('Não foi possível restaurar os dados.');
     }
     if(isRecord(snap.view)){
       state.week=clampWeek(snap.view.week)||1;
@@ -1749,6 +2030,7 @@ function undoLastChange(){
     storageSet(LS.week,state.week); storageSet(LS.session,state.session); storageSet(LS.tab,state.tab);
     storageSet(LS.evolutionExercise,evolutionExerciseId); storageSet(LS.evolutionMetric,evolutionMetric);
     storageSet(LS.bodyMetric,bodyMetric);
+    document.body.classList.toggle('large-text',state.settings.largeText);
     storageRemove(LS.snapshot); render(); alert('Última alteração desfeita.');
   }catch(e){ alert(e.message||'Não foi possível desfazer.'); }
 }
@@ -1790,6 +2072,46 @@ function resetPeriodization(){
 /* ====================== UTIL ====================== */
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
+/* ====================== APP / DISPOSITIVO ====================== */
+let wakeLock=null,swRegistration=null,waitingWorker=null,reloadingForUpdate=false;
+async function requestWakeLock(){
+  if(!state.settings.keepAwake||document.hidden||!('wakeLock' in navigator)) return;
+  try{ wakeLock=await navigator.wakeLock.request('screen'); wakeLock.addEventListener('release',()=>{wakeLock=null;}); }catch(e){}
+}
+function releaseWakeLock(){ if(wakeLock){ const lock=wakeLock; wakeLock=null; const p=lock.release(); if(p&&p.catch) p.catch(()=>{}); } }
+async function requestPersistentStorage(){
+  if(!navigator.storage||!navigator.storage.persist){ showStatus('Este navegador não oferece proteção adicional de armazenamento.'); return; }
+  try{ const granted=await navigator.storage.persist(); showStatus(granted?'Proteção adicional ativada neste navegador.':'O navegador não concedeu proteção adicional; mantenha backups JSON. ',granted?'ok':'error'); }
+  catch(e){ showStatus('Não foi possível solicitar a proteção adicional.'); }
+}
+function refreshAppNotice(){
+  const el=document.getElementById('appnotice'); if(!el) return;
+  if(waitingWorker){ el.className='appnotice update'; el.innerHTML='<span>✨ Uma nova versão está pronta.</span><button type="button" onclick="applyAppUpdate()">Atualizar agora</button>'; el.hidden=false; return; }
+  if(navigator.onLine===false){ el.className='appnotice offline'; el.textContent='Sem conexão — seus registros locais continuam disponíveis.'; el.hidden=false; return; }
+  el.hidden=true;
+}
+function offerAppUpdate(worker){ waitingWorker=worker; refreshAppNotice(); }
+function watchRegistration(reg){
+  swRegistration=reg; if(reg.waiting) offerAppUpdate(reg.waiting);
+  reg.addEventListener('updatefound',()=>{ const worker=reg.installing; if(!worker) return; worker.addEventListener('statechange',()=>{ if(worker.state==='installed'&&navigator.serviceWorker.controller) offerAppUpdate(worker); }); });
+}
+function applyAppUpdate(){ if(waitingWorker) waitingWorker.postMessage({type:'SKIP_WAITING'}); }
+async function checkForUpdates(){
+  if(!swRegistration){ showStatus('A verificação estará disponível após o app concluir a inicialização.'); return; }
+  if(navigator.onLine===false){ showStatus('Conecte-se à internet para procurar atualizações.'); return; }
+  try{
+    await swRegistration.update();
+    const message=waitingWorker?'Nova versão pronta para instalar.':swRegistration.installing?'Atualização encontrada e sendo preparada.':'Você já está usando a versão mais recente.';
+    showStatus(message,'ok'); refreshAppNotice();
+  }
+  catch(e){ showStatus('Não foi possível verificar atualizações agora.'); }
+}
+function advanceNumericField(ev){
+  if(ev.key!=='Enter'||!ev.target.classList||!ev.target.classList.contains('sin')) return;
+  ev.preventDefault(); const fields=[...document.querySelectorAll('.panel.on .sin')]; const index=fields.indexOf(ev.target);
+  if(index>=0&&fields[index+1]) fields[index+1].focus(); else ev.target.blur();
+}
+
 /* ====================== INIT ====================== */
 // No 1º acesso de cada dia, abre o treino de hoje (Seg=A…Sáb=C).
 // Em reloads no mesmo dia, mantém a aba onde você estava.
@@ -1809,20 +2131,28 @@ function resumeApp(){
   const changed=syncTodayWorkout();
   if(changed) render();
   if(tInt&&!tFinished) tickTimer();
+  requestWakeLock(); refreshAppNotice();
 }
-document.addEventListener('visibilitychange',resumeApp);
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) releaseWakeLock(); else resumeApp(); });
 window.addEventListener('pageshow',resumeApp);
+window.addEventListener('pagehide',()=>autoBackupIfDue(true));
 window.addEventListener('storage',ev=>{
   const editing=['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName);
-  if(ev.key!==LS.data || !ev.newValue || editing) return;
-  const latest=decodeData(ev.newValue,false);
-  if(latest.valid){ state.data=latest.data; render(); }
+  if(!ev.newValue||editing) return;
+  if(ev.key===LS.data){ const latest=decodeData(ev.newValue,false); if(latest.valid){ state.data=latest.data; render(); } return; }
+  if(ev.key===LS.measurements){ state.measurements=normalizeMeasurements(parseStoredJson(LS.measurements,[])); render(); return; }
+  if(ev.key===LS.settings){ state.settings=normalizeSettings(parseStoredJson(LS.settings,{})); document.body.classList.toggle('large-text',state.settings.largeText); render(); }
 });
-document.addEventListener('pointerdown', primeAudio, {once:true});
+document.addEventListener('pointerdown',()=>{ primeAudio(); requestWakeLock(); }, {once:true});
+document.addEventListener('keydown',advanceNumericField);
+window.addEventListener('online',refreshAppNotice); window.addEventListener('offline',refreshAppNotice);
 render();
+autoBackupIfDue();
 if('serviceWorker' in navigator){
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{ if(reloadingForUpdate) return; reloadingForUpdate=true; location.reload(); });
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').then(watchRegistration).catch(()=>{}));
 }
+refreshAppNotice();
 </script>
 </body>
 </html>

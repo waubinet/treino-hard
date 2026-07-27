@@ -1,8 +1,12 @@
-const CACHE_NAME='treino-hard-v1.8';
+const CACHE_NAME='treino-hard-v2.0';
 const APP_SHELL=['./','./index.html','./logo.png','./manifest.webmanifest'];
 
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
+  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)));
+});
+
+self.addEventListener('message',event=>{
+  if(event.data&&event.data.type==='SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate',event=>{
