@@ -2478,3 +2478,119 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
 
   assert.deepEqual(erros, []);
 });
+
+test('preferência de reprodução de vídeo: três modos, persistência e domínio sem cookies', {timeout: 150000}, async t => {
+  const {page, context, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+
+  await openTab(page, 'Ajustes');
+  const seletor = page.locator('select[data-action="setting-video-mode"]');
+  assert.equal(await seletor.count(), 1, 'o modo de vídeo precisa estar em Ajustes');
+  assert.deepEqual(
+    (await seletor.locator('option').allInnerTexts()).map(item => item.trim()),
+    ['Abrir no YouTube (usa sua conta/Premium)', 'Assistir dentro do app', 'Perguntar a cada vídeo']
+  );
+  assert.equal(await seletor.inputValue(), 'external', 'o padrão é abrir no YouTube');
+
+  // Persistência da escolha.
+  await seletor.selectOption('inline');
+  await page.waitForTimeout(400);
+  await reloadApp(page);
+  await openTab(page, 'Ajustes');
+  assert.equal(await page.locator('select[data-action="setting-video-mode"]').inputValue(), 'inline');
+  assert.equal((await readStoredDocument(page)).settings.videoMode, 'inline');
+
+  // Modo interno: iframe restrito ao domínio sem cookies, com o recorte revisado.
+  await openTab(page, 'Empurrar A');
+  const botao = page.locator('#panels button[data-action="open-video"]').first();
+  await botao.click();
+  await page.locator('#video-modal iframe').waitFor({state: 'attached', timeout: 15000});
+  const src = await page.locator('#video-modal iframe').getAttribute('src');
+  assert.ok(src.startsWith('https://www.youtube-nocookie.com/embed/'), `prévia fora do domínio sem cookies: ${src}`);
+  assert.ok(src.includes('rel=0'), 'a prévia não sugere vídeos de terceiros ao terminar');
+  assert.match(await page.locator('#video-external').getAttribute('href'), /^https:\/\/www\.youtube\.com\/watch\?v=/);
+  await page.keyboard.press('Escape');
+  await page.locator('#video-modal').waitFor({state: 'hidden'});
+
+  // Modo perguntar: nada abre antes da escolha.
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('ask');
+  await page.waitForTimeout(400);
+  await openTab(page, 'Empurrar A');
+  await page.locator('#panels button[data-action="open-video"]').first().click();
+  await page.locator('#app-modal').waitFor({state: 'visible', timeout: 10000});
+  const rotulos = (await page.locator('#app-modal button').allInnerTexts()).map(item => item.trim());
+  assert.ok(rotulos.includes('Abrir no YouTube'), `faltou a opção externa: ${rotulos.join(' | ')}`);
+  assert.ok(rotulos.includes('Assistir dentro do app'), `faltou a opção interna: ${rotulos.join(' | ')}`);
+  assert.equal(await page.locator('#video-modal').isHidden(), true, 'nada pode abrir antes da escolha');
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+
+  // Modo externo: abre uma aba nova para o YouTube, sem embed.
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('external');
+  await page.waitForTimeout(400);
+  await openTab(page, 'Empurrar A');
+  const [aba] = await Promise.all([
+    context.waitForEvent('page', {timeout: 15000}),
+    page.locator('#panels button[data-action="open-video"]').first().click()
+  ]);
+  assert.ok(aba, 'o modo externo precisa abrir uma aba');
+  assert.equal(await page.locator('#video-modal').isHidden(), true, 'o modo externo não abre a prévia interna');
+  await aba.close();
+
+  assert.deepEqual(errors, []);
+});
+
+test('cartão de exercício expõe a estrutura da referência', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const itens = [
+    ['nome', '.cname'],
+    ['selo', '.badges .badge'],
+    ['botão Marcar', 'button[data-action="exercise-complete"]'],
+    ['bloco de alvo', '.target .t1'],
+    ['bloco de vídeo', 'button[data-action="open-video"], p.video-pending'],
+    ['cabeçalho das séries', '.setshd .lab'],
+    ['alvo das séries', '.setshd .goal'],
+    ['carga', '.set-field-load input'],
+    ['repetições', '.set-field-reps input'],
+    ['RIR', '.set-field-rir select'],
+    ['confirmação por série', 'button[data-action="set-complete"]'],
+    ['como me senti', 'details.feedback > summary'],
+    ['descanso', 'button[data-action="timer-start-rest"]']
+  ];
+  for (const [nome, seletor] of itens) {
+    assert.ok(await cartao.locator(seletor).count() > 0, `o cartão precisa expor ${nome}`);
+  }
+
+  // As séries são linhas do cartão, não cartões aninhados.
+  const aninhado = await cartao.locator('.set-row').first().evaluate(node => {
+    const estilo = getComputedStyle(node);
+    return {borda: estilo.borderTopWidth, fundo: estilo.backgroundColor};
+  });
+  assert.equal(aninhado.borda, '0px', 'a linha da série não pode ter borda de cartão');
+  assert.match(aninhado.fundo, /rgba\(0, 0, 0, 0\)|transparent/, 'a linha da série não pode ter fundo próprio');
+
+  // Ações rápidas: Repetir aparece sempre; Desfazer só depois de confirmar.
+  assert.equal(await cartao.locator('button[data-action="repeat-first-set"]').count(), 1);
+  assert.equal(await cartao.locator('button[data-action="timer-undo"]').count(), 0);
+  await cartao.locator('.set-field-load input').first().fill('30');
+  await cartao.locator('.set-field-reps input').first().fill('14');
+  await cartao.locator('button[data-action="set-complete"]').first().click();
+  await page.waitForTimeout(500);
+  assert.equal(await cartao.locator('button[data-action="timer-undo"]').count(), 1, 'Desfazer precisa aparecer após confirmar');
+
+  // Repetir 1ª série copia carga e repetições sem confirmar as demais.
+  await cartao.locator('button[data-action="repeat-first-set"]').click();
+  await page.waitForTimeout(500);
+  const segunda = cartao.locator('.set-row:not(.is-warmup)').nth(1);
+  assert.equal(await segunda.locator('.set-field-load input').inputValue(), '30');
+  assert.equal(await segunda.locator('.set-field-reps input').inputValue(), '14');
+  assert.doesNotMatch(await segunda.getAttribute('class'), /is-complete/, 'repetir não pode confirmar a série sozinha');
+
+  assert.deepEqual(errors, []);
+});

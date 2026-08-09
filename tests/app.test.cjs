@@ -337,7 +337,9 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
   const accepted = Object.entries(videos).filter(([, video]) => video.status === 'accepted');
   const approvedClasses = new Set(['technical_guide', 'objective_demo', 'visual_reference']);
 
-  assert.ok(accepted.length >= 29, 'a primeira rodada audiovisual precisa manter os candidatos efetivamente assistidos');
+  // 29 candidatos foram revisados; dois deixaram de responder publicamente em
+  // 09/08/2026 e voltaram para pendente sem perder a revisão registrada.
+  assert.ok(accepted.length >= 27, 'a curadoria já feita não pode ser descartada');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.equal(video.exactMatch, true, `${key}: correspondência exata`);
@@ -1186,4 +1188,111 @@ test('conformidade: versão do app e esquema de dados são independentes', () =>
   const backup = app.Core.buildBackup(app.Core.defaultState());
   assert.equal(backup.schemaVersion, 11);
   assert.equal(Object.prototype.hasOwnProperty.call(backup, 'appVersion'), false, 'a versão do app não entra no formato persistido');
+});
+
+// ---------------------------------------------------------------------------
+// Inventário do catálogo de vídeos.
+//
+// Estes testes descrevem o catálogo real. Se um número mudar, o teste falha e a
+// documentação precisa ser corrigida junto — foi assim que a contradição entre
+// CHANGELOG e PENDENCIAS apareceu na 3.2.0.
+// ---------------------------------------------------------------------------
+
+const VIDEO_STATUSES = Object.freeze(['accepted', 'pending', 'rejected']);
+const VIDEO_CLASSIFICATIONS = Object.freeze(['technical_guide', 'objective_demo', 'visual_reference', 'pending']);
+const CAMPOS_OBRIGATORIOS_APROVADO = Object.freeze(['youtubeId', 'url', 'title', 'channel', 'duration', 'reviewedAt', 'positives', 'limitations', 'decision']);
+
+test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  const chaves = Object.keys(videos);
+  const contagem = chaves.reduce((total, chave) => {
+    total[videos[chave].status] = (total[videos[chave].status] || 0) + 1;
+    return total;
+  }, {});
+  assert.equal(chaves.length, 41, 'total de entradas do catálogo');
+  assert.deepEqual(contagem, {accepted: 27, pending: 14}, 'distribuição por estado');
+  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 32, 'entradas com identificador do YouTube');
+  assert.equal(chaves.filter(chave => videos[chave].url).length, 32, 'entradas com URL');
+});
+
+test('inventário de vídeos: estados e classificações usam o enum do código', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  for (const [chave, video] of Object.entries(videos)) {
+    assert.ok(VIDEO_STATUSES.includes(video.status), `estado desconhecido em ${chave}: ${video.status}`);
+    assert.ok(VIDEO_CLASSIFICATIONS.includes(video.classification), `classificação desconhecida em ${chave}: ${video.classification}`);
+    assert.ok(video.exerciseId, `${chave} sem exercício associado`);
+  }
+});
+
+test('inventário de vídeos: aprovado exige metadados completos de revisão', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  const aprovados = Object.entries(videos).filter(([, video]) => video.status === 'accepted');
+  assert.ok(aprovados.length > 0);
+  for (const [chave, video] of aprovados) {
+    for (const campo of CAMPOS_OBRIGATORIOS_APROVADO) {
+      assert.ok(video[campo], `${chave} aprovado sem ${campo}`);
+    }
+    assert.notEqual(video.classification, 'pending', `${chave} aprovado sem classificação real`);
+    assert.match(video.reviewedAt, /^\d{4}-\d{2}-\d{2}$/, `${chave} com data de revisão inválida`);
+    assert.match(video.url, /^https:\/\/www\.youtube\.com\/watch\?v=/, `${chave} com URL fora do YouTube`);
+    assert.ok(video.url.endsWith(video.youtubeId), `${chave} com URL que não corresponde ao identificador`);
+    assert.equal(video.availability, 'available_external', `${chave} aprovado sem disponibilidade confirmada`);
+  }
+});
+
+test('inventário de vídeos: pendente nunca se apresenta como aprovado', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  for (const [chave, video] of Object.entries(videos)) {
+    if (video.status === 'accepted') continue;
+    assert.notEqual(video.availability, 'available_external_approved', chave);
+    // Um vídeo indisponível guarda o motivo, sem apagar a revisão já feita.
+    if (video.availability.startsWith('unavailable')) {
+      assert.ok(video.decision, `${chave} indisponível sem decisão registrada`);
+      assert.match(video.decision, /pendente|indispon/i, `${chave} indisponível sem motivo legível`);
+    }
+  }
+});
+
+test('inventário de vídeos: identificador repetido só com recorte diferente e documentado', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  const porIdentificador = new Map();
+  for (const [chave, video] of Object.entries(videos)) {
+    if (!video.youtubeId) continue;
+    if (!porIdentificador.has(video.youtubeId)) porIdentificador.set(video.youtubeId, []);
+    porIdentificador.get(video.youtubeId).push([chave, video]);
+  }
+  for (const [identificador, entradas] of porIdentificador) {
+    if (entradas.length === 1) continue;
+    const recortes = entradas.map(([, video]) => video.startSeconds);
+    assert.equal(new Set(recortes).size, entradas.length, `${identificador} reaproveitado sem recortes distintos`);
+    entradas.forEach(([chave, video]) => {
+      assert.ok(video.limitations, `${chave} reaproveita vídeo sem registrar a limitação`);
+      assert.ok(video.decision, `${chave} reaproveita vídeo sem registrar a decisão`);
+    });
+  }
+});
+
+test('inventário de vídeos: toda execução possível da ficha resolve uma entrada', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  // O aplicativo resolve a chave assim: a variante escolhida tem prioridade e,
+  // sem variante, vale a chave do exercício.
+  const chavesEfetivas = new Set();
+  Object.values(app.Data.CATALOG).forEach(exercise => {
+    const variantes = exercise.variants || [];
+    if (!variantes.length) {
+      chavesEfetivas.add(exercise.videoKey);
+      return;
+    }
+    variantes.forEach(variant => chavesEfetivas.add(variant.videoKey || exercise.videoKey));
+  });
+  app.Data.MOBILITY_SEQUENCE.forEach(exercise => chavesEfetivas.add(exercise.videoKey));
+  for (const chave of chavesEfetivas) {
+    assert.ok(Object.prototype.hasOwnProperty.call(videos, chave), `a ficha aponta para a chave inexistente ${chave}`);
+  }
 });

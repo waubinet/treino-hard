@@ -2,6 +2,39 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.2.1] — auditoria factual do catálogo de vídeos — 2026-08-09
+
+Correção de estado, sem reforma. Esquema **11** inalterado.
+
+### Corrigido
+
+- `squat_free_barbell` e `mob_hamstring_seated` estavam `accepted` mas deixaram de
+  responder publicamente (oEmbed 401 em 09/08/2026). Voltaram para `pending` com a
+  disponibilidade registrada; a revisão de conteúdo já feita foi preservada e pode
+  ser reaproveitada se os vídeos voltarem. Sem essa correção, dois cartões
+  ofereciam um vídeo que não abre.
+- `CHANGELOG` e `PENDENCIAS` declaravam estados incompatíveis do catálogo. Os
+  números passam a vir do código e são travados por testes.
+- `CLAUDE.md` apontava uma branch de trabalho que não era mais a corrente.
+
+### Adicionado
+
+- Seis testes de inventário de vídeo em `tests/app.test.cjs`: contagem por estado,
+  enum válido, metadados obrigatórios de aprovado, pendente que não se disfarça de
+  aprovado, reaproveitamento de identificador só com recorte distinto e
+  documentado, e resolução de toda execução possível da ficha.
+- Dois testes de navegador: preferência de reprodução (três modos, persistência,
+  `youtube-nocookie.com`, nada abre no modo "perguntar" antes da escolha) e
+  estrutura do cartão de exercício, incluindo a checagem de que a linha da série
+  não tem borda nem fundo de cartão.
+
+### Estado do catálogo, extraído do código
+
+41 entradas · 27 `accepted` · 14 `pending` · 0 `rejected` · 32 com identificador ·
+15 `technical_guide`, 12 `objective_demo`, 2 `visual_reference` · 0 aprovados com
+metadado faltando. O identificador `ON8kg47QpOY` é reaproveitado de propósito em
+peck deck e crucifixo invertido, com recortes de 48 s e 97 s documentados.
+
 ## [3.2.0] — cartão de exercício da referência 2.2 — 2026-08-09
 
 Continuação do trabalho recebido do Codex, preservado integralmente. Esquema de

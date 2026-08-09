@@ -1,6 +1,6 @@
 # Pendências reais
 
-Atualizado em **2026-08-09**. Versão publicada: **3.2.0**, esquema **11**,
+Atualizado em **2026-08-09**. Versão publicada: **3.2.1**, esquema **11**,
 em `https://waubinet.github.io/treino-hard/`.
 
 A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
@@ -10,17 +10,41 @@ Esta lista contém somente o que ainda **não** foi comprovado.
 
 ## Vídeos
 
-- [ ] Selecionar e assistir candidatos para os 34 itens do catálogo.
-- [ ] Registrar título, canal, duração, idioma, disponibilidade, incorporação, correspondência, cobertura, limitações e decisão.
-- [ ] Testar `youtube-nocookie.com` e a abertura externa depois de aprovar ao menos um vídeo.
-- [ ] Implementar a preferência "Abrir no YouTube / Assistir dentro do app / Perguntar toda vez" em Ajustes.
+Números extraídos de `js/workouts.js` em 2026-08-09 e travados por testes de
+inventário em `tests/app.test.cjs`:
 
-Estado atual: **0 vídeos assistidos, 0 aprovados, 34 itens `pending`**. Todos os cards
-exibem "Vídeo pendente de curadoria." e nenhum bloqueia o registro do treino.
+| Medida | Valor |
+|---|---|
+| entradas no catálogo | 41 |
+| `accepted` | 27 |
+| `pending` | 14 |
+| `rejected` | 0 |
+| com identificador do YouTube | 32 |
+| sem candidato | 9 |
+| `technical_guide` / `objective_demo` / `visual_reference` | 15 / 12 / 2 |
+| aprovados sem metadado de revisão | 0 |
 
-Nenhum vídeo pode ser aprovado sem que alguém assista à demonstração e confira
-exercício, equipamento, pegada, posição, trajetória, amplitude e lateralidade. Isso
-não foi feito e não será declarado como feito.
+O enum do código é `accepted`, `pending` e `rejected`. A documentação usa os
+mesmos nomes.
+
+A preferência de reprodução **já está implementada** em Ajustes, com os três
+modos, persistência e prévia interna restrita a `youtube-nocookie.com`. Coberta
+por teste de navegador.
+
+Ainda pendente:
+
+- [ ] Revisar os 14 itens `pending`: 9 nunca tiveram candidato e 5 têm candidato
+      registrado mas sem aprovação.
+- [ ] Reavaliar `squat_free_barbell` e `mob_hamstring_seated`, rebaixados de
+      `accepted` para `pending` em 09/08/2026 porque deixaram de responder
+      publicamente (oEmbed 401). A revisão de conteúdo continua registrada e pode
+      ser reaproveitada se voltarem.
+- [ ] A curadoria dos 27 aprovados foi feita em execução anterior; ela não foi
+      reconferida assistindo aos vídeos nesta auditoria.
+
+Um vídeo que não permite incorporação **não** é o mesmo que um vídeo errado: o
+catálogo separa disponibilidade (`availability`, `embedCompatible`) de qualidade
+da demonstração (`classification`).
 
 ## Acessibilidade
 

@@ -472,9 +472,9 @@
     ez_bar_curl: reviewedVideo({exerciseId: 'ez_bar_curl', status: 'pending', classification: 'pending', exactMatch: false}),
     hammer_curl_standing: reviewedVideo({exerciseId: 'hammer_curl_standing', status: 'pending', classification: 'pending', exactMatch: false}),
     squat_free_barbell: reviewedVideo({
-      exerciseId: 'squat', variationId: 'free_barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '4L5nBs8Eq7g',
-      title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
-      positives: 'Mostra rack, posição da barra, pegada, base, descida e fundo.', limitations: 'Base, posição da barra e profundidade dependem da antropometria e mobilidade.', decision: 'Aprovar como guia técnico.'
+      exerciseId: 'squat', variationId: 'free_barbell', status: 'pending', classification: 'technical_guide', exactMatch: true, youtubeId: '4L5nBs8Eq7g',
+      title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'unavailable_2026-08-09',
+      positives: 'Mostra rack, posição da barra, pegada, base, descida e fundo.', limitations: 'Base, posição da barra e profundidade dependem da antropometria e mobilidade.', decision: 'Rebaixado para pendente em 09/08/2026: o vídeo deixou de responder publicamente (oEmbed 401). A avaliação do conteúdo continua válida e pode ser reaproveitada se ele voltar.'
     }),
     squat_smith: reviewedVideo({
       exerciseId: 'squat', variationId: 'smith', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'uDBQtlCLQ0Y',
@@ -537,9 +537,9 @@
       positives: 'É dinâmico e demonstra abertura e fechamento dos joelhos.', limitations: 'Usa cadeira, difere da borboleta no chão e quase não ensina setup.', decision: 'Manter pendente até encontrar guia melhor e exatamente compatível.'
     }),
     mob_hamstring_seated: reviewedVideo({
-      exerciseId: 'mob_hamstring_seated', status: 'accepted', classification: 'visual_reference', exactMatch: true, youtubeId: '2s6jU4I5gy4',
-      title: 'Alongamento dos posteriores de coxa sentado', channel: 'Cinesio Pro', duration: '0:13', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
-      positives: 'Movimento bilateral isolado e claramente visível.', limitations: 'Muito curto, flexiona bastante o tronco e pode ser desconfortável com barriga grande.', decision: 'Aprovar somente como referência visual.'
+      exerciseId: 'mob_hamstring_seated', status: 'pending', classification: 'visual_reference', exactMatch: true, youtubeId: '2s6jU4I5gy4',
+      title: 'Alongamento dos posteriores de coxa sentado', channel: 'Cinesio Pro', duration: '0:13', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'unavailable_2026-08-09',
+      positives: 'Movimento bilateral isolado e claramente visível.', limitations: 'Muito curto, flexiona bastante o tronco e pode ser desconfortável com barriga grande.', decision: 'Rebaixado para pendente em 09/08/2026: o vídeo deixou de responder publicamente (oEmbed 401). A avaliação do conteúdo continua válida e pode ser reaproveitada se ele voltar.'
     }),
     mob_ankle: reviewedVideo({
       exerciseId: 'mob_ankle', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '3pprN9t_P1o',

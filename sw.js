@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'treino-hard-';
-const CACHE_NAME = `${CACHE_PREFIX}v3.2.0`;
+const CACHE_NAME = `${CACHE_PREFIX}v3.2.1`;
 const OFFLINE_DOCUMENT = './index.html';
 
 const APP_SHELL = Object.freeze([

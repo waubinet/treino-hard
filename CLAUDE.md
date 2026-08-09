@@ -4,7 +4,9 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Branch de trabalho: `agent/v3-six-day-sessions`, integrada por fast-forward em `main`.
+- Estado atual: versão **3.2.1**, esquema **11**, cache `treino-hard-v3.2.1`.
+- Trabalho recente feito em `agent/3.2-claude-handoff`, integrada por fast-forward
+  em `main`. Crie uma branch nova por rodada e integre por fast-forward.
 
 ## Arquitetura
 
@@ -109,6 +111,11 @@ Chrome e os cenários de concorrência falham por timeout.
 - Chaves `__proto__`, `prototype` e `constructor` são recusadas na importação, junto
   com profundidade acima de 20 e campos inesperados do esquema 11.
 - Fórmulas do CSV são neutralizadas com apóstrofo.
+- Vídeos: enum `accepted` / `pending` / `rejected`. Disponibilidade
+  (`availability`, `embedCompatible`) é separada da qualidade da demonstração
+  (`classification`): um vídeo que não incorpora não é um vídeo errado. Aprovado
+  exige título, canal, duração, data da revisão, pontos positivos, limitações e
+  decisão — travado por testes de inventário.
 - Backup criptografado: AES-GCM 256, PBKDF2-SHA-256 com **600 000** iterações em
   arquivos novos, salt e IV aleatórios, cabeçalho autenticado como AAD, formato
   versionado. Backups antigos com 310 000 iterações continuam abrindo: o número de
