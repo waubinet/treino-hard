@@ -34,6 +34,9 @@ function startStaticServer() {
   return new Promise(resolve => server.listen(0, '127.0.0.1', () => resolve(server)));
 }
 
+// Segunda-feira usada nos cenários que dependem de existir treino no dia.
+const SEGUNDA_FIXA = new Date(2026, 7, 10, 8, 0, 0);
+
 async function waitAppReady(page) {
   await page.locator('#save-state').waitFor({state: 'visible'});
   await page.waitForFunction(() => /Salvo|Somente leitura|Importação concluída|Snapshot restaurado|Dados recarregados|Falha/
@@ -148,7 +151,7 @@ async function fillWorkSets(page, reps) {
     await row.locator('select').nth(1).selectOption('completed');
     // Uma sessão reaberta pode já conter uma confirmação anterior. Em ambos os
     // casos o clique explícito é obrigatório para renovar/manter completedAt.
-    await row.getByRole('button', {name: /^(?:Concluir|Atualizar) série$/}).click();
+    await row.getByRole('button', {name: /^(Concluir|Atualizar) série \d+$/}).click();
   }
   return total;
 }
@@ -170,6 +173,13 @@ async function finishSessionCompletely(page, workoutLabel) {
   await waitStatus(page, 'Iniciado');
   await completeMobilityItems(page);
   await fillWorkSets(page, 12);
+  // Exercícios unilaterais escondem o outro lado atrás do chip: registrar os dois.
+  const chipsLado = page.locator('button[data-action="side-pick"][aria-pressed="false"]');
+  for (let guarda = 0; guarda < 6 && await chipsLado.count() > 0; guarda += 1) {
+    await chipsLado.first().click();
+    await page.waitForTimeout(200);
+    await fillWorkSets(page, 12);
+  }
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await waitStatus(page, 'Concluído');
 }
@@ -227,11 +237,12 @@ test('fluxos essenciais funcionam em Chrome, responsivo e offline', {timeout: 90
   await firstWorkSet.locator('input').nth(0).fill('52');
   await firstWorkSet.locator('input').nth(1).fill('13');
   await firstWorkSet.locator('select').nth(0).selectOption('3');
-  await firstWorkSet.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await firstWorkSet.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await assert.doesNotReject(() => firstWorkSet.waitFor({state: 'visible'}));
   assert.match(await firstWorkSet.getAttribute('class'), /is-complete/);
   assert.equal(await page.locator('#timer-bar').isHidden(), true, 'cronômetro não deve iniciar com a configuração padrão');
-  await firstWorkSet.getByRole('button', {name: 'Iniciar descanso', exact: true}).click();
+  await openSetMore(firstWorkSet);
+  await firstWorkSet.getByRole('button', {name: 'Iniciar descanso desta série', exact: true}).click();
   assert.equal(await page.locator('#timer-bar').isVisible(), true);
   await page.locator('#timer-bar').getByRole('button', {name: 'Desfazer série', exact: true}).click();
   await page.waitForTimeout(400);
@@ -296,7 +307,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   await workSet.locator('input').nth(0).fill('52,5');
   await workSet.locator('input').nth(1).fill('13');
   await workSet.locator('select').nth(0).selectOption('3');
-  await workSet.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await workSet.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.waitForTimeout(300);
 
   await reloadApp(page);
@@ -483,7 +494,7 @@ test('status escolhido só conta depois da confirmação explícita da série', 
   assert.equal(await statusPill(page).innerText(), 'Iniciado');
 
   const beforeConfirmationRevision = stored.revision;
-  await row.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await row.getByRole('button', {name: /^Concluir série \d+$/}).click();
   stored = await waitForStoredRevision(page, beforeConfirmationRevision);
   session = stored.sessions.find(item => item.id === sessionId);
   exercise = session.exercises.find(item => item.exerciseId === 'chest_press_machine');
@@ -699,11 +710,12 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await page.waitForTimeout(300);
   assert.equal(await page.locator('#timer-bar').isHidden(), true);
 
-  await firstWork.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await firstWork.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.waitForTimeout(300);
   assert.equal(await page.locator('#timer-bar').isHidden(), true, 'sem início automático o cronômetro fica parado');
 
-  await firstWork.getByRole('button', {name: 'Iniciar descanso', exact: true}).click();
+  await openSetMore(firstWork);
+  await firstWork.getByRole('button', {name: 'Iniciar descanso desta série', exact: true}).click();
   assert.equal(await page.locator('#timer-bar').isVisible(), true);
   assert.match(await page.locator('#timer-number').innerText(), /^0:4[0-5]$/, 'o cronômetro deve respeitar os 45 s personalizados');
   await page.locator('#timer-bar').getByRole('button', {name: '+30 s', exact: true}).click();
@@ -724,7 +736,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await openTab(page, 'Empurrar A');
   const secondWork = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(4);
   await secondWork.locator('input').nth(1).fill('12');
-  await secondWork.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await secondWork.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.locator('#timer-bar').waitFor({state: 'visible', timeout: 5000});
   assert.match(await page.locator('#timer-number').innerText(), /^[12]:\d{2}$/);
 
@@ -838,7 +850,7 @@ test('semana, deload, arquivamento e snapshot preservam o ciclo anterior', {time
   const marker = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
   await marker.locator('input').nth(0).fill('60');
   await marker.locator('input').nth(1).fill('12');
-  await marker.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await marker.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.waitForTimeout(300);
 
   await page.locator('button[data-action="cycle-week-set"][data-week="2"]').click();
@@ -853,7 +865,7 @@ test('semana, deload, arquivamento e snapshot preservam o ciclo anterior', {time
   await openTab(page, 'Puxar A');
   // Deload: seis exercícios com no máximo 2 séries, e a remada unilateral
   // materializada nos dois lados (2 + 2 + 2×2 + 2 + 2 + 2 = 14 linhas).
-  assert.equal(await page.locator('.set-row:not(.is-warmup)').count(), 14, 'no deload cada exercício cai para no máximo 2 séries');
+  assert.equal(await page.locator('.set-row:not(.is-warmup)').count(), 12, 'no deload cada exercício cai para no máximo 2 séries e o unilateral mostra um lado');
   assert.ok(await page.locator('.badge.is-deload').count() > 0, 'o deload precisa estar sinalizado');
 
   await page.locator('button[data-action="cycle-week-set"][data-week="1"]').click();
@@ -953,7 +965,7 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
   await row.locator('input').nth(0).fill('62');
   await row.locator('input').nth(1).fill('12');
   let before = await readStoredDocument(page);
-  await row.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await row.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await waitForStoredRevision(page, before.revision);
 
   before = await readStoredDocument(page);
@@ -1013,7 +1025,7 @@ async function seedSampleData(page) {
   await workSet.locator('select').nth(0).selectOption('2');
   await openSetMore(workSet);
   await workSet.locator('input').nth(3).fill('=SOMA(1;2) sentou bem');
-  await workSet.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await workSet.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.waitForTimeout(300);
 
   await openTab(page, 'Caminhada');
@@ -1152,7 +1164,7 @@ test('backup criptografado: ida e volta, senha errada e arquivo adulterado', {ti
   assert.equal(envelope.formatVersion, 1);
   assert.equal(envelope.kdf.name, 'PBKDF2');
   assert.equal(envelope.kdf.hash, 'SHA-256');
-  assert.equal(envelope.kdf.iterations, 310000);
+  assert.equal(envelope.kdf.iterations, 600000, 'novos backups usam o fator de trabalho atual');
   assert.equal(envelope.cipher.name, 'AES-GCM');
   assert.equal(envelope.cipher.length, 256);
   assert.equal(Buffer.from(envelope.kdf.salt, 'base64').length, 16);
@@ -1502,13 +1514,13 @@ test('nenhuma entrada do usuário vira HTML executável', {timeout: 180000}, asy
   const notaRow = card.locator('.set-row').nth(3);
   await openSetMore(notaRow);
   await notaRow.locator('input').nth(3).fill(payload);
-  await card.getByText('Como me senti neste exercício', {exact: true}).click();
+  await card.getByText('Como me senti', {exact: true}).click();
   await card.locator('textarea[data-field="feedback"]').fill(payload);
   await page.waitForTimeout(400);
 
   await openTab(page, 'Pernas A');
   const mobilityCard = page.locator('article.section-card').first();
-  await mobilityCard.getByText('Feedback opcional por lado', {exact: true}).click();
+  await mobilityCard.getByText('Como me senti', {exact: true}).click();
   await mobilityCard.locator('textarea[data-action="mobility-note"]').fill(payload);
   await page.waitForTimeout(300);
 
@@ -1871,11 +1883,12 @@ test('larguras móveis, zoom de 200%, texto ampliado e movimento reduzido mantê
     await row.locator('input').nth(0).scrollIntoViewIfNeeded();
     await row.locator('input').nth(0).fill(String(40 + width / 100));
     await row.locator('input').nth(1).fill('12');
-    await row.getByRole('button', {name: /Concluir série|Atualizar série/}).click();
+    await row.getByRole('button', {name: /^(Concluir|Atualizar) série \d+$/}).click();
     await page.waitForTimeout(400);
     await noHorizontalOverflow(width, 'série concluída');
 
-    await row.getByRole('button', {name: 'Iniciar descanso', exact: true}).click();
+    await openSetMore(row);
+    await row.getByRole('button', {name: 'Iniciar descanso desta série', exact: true}).click();
     assert.equal(await page.locator('#timer-bar').isVisible(), true, `cronômetro invisível em ${width}px`);
     await noHorizontalOverflow(width, 'cronômetro visível');
     await page.locator('#timer-bar').getByRole('button', {name: 'Parar', exact: true}).click();
@@ -2066,7 +2079,7 @@ test('offline: recarregar, registrar série, salvar caminhada, fechar e reabrir'
   const row = page.locator('.set-row:not(.is-warmup)').first();
   await row.locator('input').nth(0).fill('48');
   await row.locator('input').nth(1).fill('14');
-  await row.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await row.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.waitForTimeout(400);
   assert.match(await row.getAttribute('class'), /is-complete/);
 
@@ -2128,6 +2141,7 @@ test('atualização da PWA avisa, espera confirmação, troca de cache e preserv
     if (message.type() === 'error') errors.push(`console: ${message.text()}`);
   });
 
+  await page.clock.setFixedTime(SEGUNDA_FIXA);
   await page.goto(baseUrl, {waitUntil: 'domcontentloaded'});
   await waitAppReady(page);
   await page.evaluate(() => navigator.serviceWorker.ready);
@@ -2141,7 +2155,7 @@ test('atualização da PWA avisa, espera confirmação, troca de cache e preserv
   const row = page.locator('.set-row:not(.is-warmup)').first();
   await row.locator('input').nth(0).fill('61');
   await row.locator('input').nth(1).fill('11');
-  await row.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await row.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.waitForTimeout(400);
   await page.evaluate(() => { window.__semRecarga = true; });
 
@@ -2190,6 +2204,7 @@ test('falha de cache do service worker é avisada em vez de silenciada', {timeou
   const context = await browser.newContext({viewport: {width: 1280, height: 800}, serviceWorkers: 'allow'});
   const page = await context.newPage();
 
+  await page.clock.setFixedTime(SEGUNDA_FIXA);
   await page.goto(baseUrl, {waitUntil: 'domcontentloaded'});
   await waitAppReady(page);
   await page.waitForFunction(
@@ -2212,9 +2227,9 @@ const FICHA_NA_TELA = Object.freeze({
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa com halteres', '7. Tríceps na polia com corda'
   ]},
-  'Puxar A': {total: 15, linhas: 17, itens: [
+  'Puxar A': {total: 15, linhas: 15, itens: [
     '1. Puxada frontal com pegada supinada', '2. Remada sentada com triângulo',
-    '3. Remada unilateral na máquina — lado esquerdo', '3. Remada unilateral na máquina — lado direito',
+    '3. Remada unilateral na máquina',
     '4. Crucifixo invertido no aparelho', '5. Rosca direta com barra W', '6. Rosca martelo em pé'
   ]},
   'Pernas A': {total: 14, linhas: 14, itens: [
@@ -2228,9 +2243,9 @@ const FICHA_NA_TELA = Object.freeze({
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa ou extensão acima da cabeça', '7. Tríceps na polia com corda'
   ]},
-  'Puxar B': {total: 14, linhas: 16, itens: [
+  'Puxar B': {total: 14, linhas: 14, itens: [
     '1. Puxada frontal com pegada neutra', '2. Remada sentada ou articulada',
-    '3. Remada unilateral na máquina — lado esquerdo', '3. Remada unilateral na máquina — lado direito',
+    '3. Remada unilateral na máquina',
     '4. Crucifixo invertido no aparelho', '5. Rosca direta com barra W', '6. Rosca martelo em pé'
   ]},
   'Pernas B': {total: 14, linhas: 14, itens: [
@@ -2255,28 +2270,39 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
     assert.doesNotMatch(texto, /stiff|romen/i, `exercício proibido visível em ${aba}`);
   }
 
-  // Remada unilateral: dois cartões, um por lado, com duas séries cada.
+  // Remada unilateral: um único cartão com chips de lado e duas séries por lado.
   await openTab(page, 'Puxar A');
-  const unilaterais = page.locator('#panels article.section-card').filter({hasText: 'Remada unilateral na máquina'});
-  assert.equal(await unilaterais.count(), 2);
-  assert.equal(await unilaterais.nth(0).locator('.set-row:not(.is-warmup)').count(), 2);
-  assert.equal(await unilaterais.nth(1).locator('.set-row:not(.is-warmup)').count(), 2);
+  const unilateral = page.locator('#panels article.section-card').filter({hasText: 'Remada unilateral na máquina'});
+  assert.equal(await unilateral.count(), 1, 'o exercício unilateral não pode duplicar o cartão');
+  const chipsLado = unilateral.locator('button[data-action="side-pick"]');
   assert.deepEqual(
-    (await unilaterais.locator('.badge.is-side').allInnerTexts()).map(item => item.trim().toLocaleLowerCase('pt-BR')),
-    ['esquerdo', 'direito']
+    (await chipsLado.allInnerTexts()).map(item => item.trim()),
+    ['Direito', 'Esquerdo']
   );
+  assert.equal(await chipsLado.nth(0).getAttribute('aria-pressed'), 'true', 'o lado direito abre selecionado');
+  assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 2, 'duas séries por lado');
 
-  // Cargas dos dois lados não se misturam.
-  await unilaterais.nth(0).getByText('Detalhes do exercício', {exact: true}).click();
-  await unilaterais.nth(0).locator('input[data-field="machineId"]').fill('articulada 2');
-  await unilaterais.nth(1).getByText('Detalhes do exercício', {exact: true}).click();
-  await unilaterais.nth(1).locator('input[data-field="machineId"]').fill('articulada 2');
+  // Cada lado guarda a própria máquina e as cargas não se misturam.
+  await unilateral.getByText('Detalhes do exercício', {exact: true}).click();
+  await unilateral.locator('input[data-field="machineId"]').fill('articulada direita');
   await page.waitForTimeout(300);
+  await chipsLado.nth(1).click();
+  await page.waitForTimeout(300);
+  assert.equal(await chipsLado.nth(1).getAttribute('aria-pressed'), 'true');
+  assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 2);
+  await unilateral.getByText('Detalhes do exercício', {exact: true}).click();
+  assert.equal(await unilateral.locator('input[data-field="machineId"]').inputValue(), '', 'o lado esquerdo tem registro próprio');
+  await unilateral.locator('input[data-field="machineId"]').fill('articulada esquerda');
+  await page.keyboard.press('Tab');
+  await page.waitForTimeout(400);
+
   const armazenado = await readStoredDocument(page);
   const registros = armazenado.sessions.find(session => session.workoutId === 'pull_a').exercises
     .filter(log => log.exerciseId === 'unilateral_row_machine');
   assert.deepEqual(registros.map(log => log.side), ['left', 'right']);
   assert.equal(new Set(registros.map(log => log.id)).size, 2);
+  assert.equal(registros.find(log => log.side === 'right').machineId, 'articulada direita');
+  assert.equal(registros.find(log => log.side === 'left').machineId, 'articulada esquerda');
 
   // Tríceps de Empurrar B oferece as duas execuções da ficha.
   await openTab(page, 'Empurrar B');
@@ -2298,13 +2324,13 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
 
   // Periodização visível: semana 1 e semana 7 nas metas dos cartões.
   await openTab(page, 'Empurrar A');
-  assert.match(await page.locator('#panels article.section-card').first().innerText(), /3 × 12–15 · 3 RIR/);
+  assert.match(await page.locator('#panels article.section-card').first().innerText(), /3 × 12–15 reps · RIR 3/);
   await page.locator('button[data-action="cycle-week-set"][data-week="7"]').click();
   await page.waitForTimeout(500);
   await openTab(page, 'Empurrar A');
-  assert.match(await page.locator('#panels article.section-card').first().innerText(), /3 × 6–8 · 1–2 RIR/);
+  assert.match(await page.locator('#panels article.section-card').first().innerText(), /3 × 6–8 reps · RIR 1–2/);
   await openTab(page, 'Pernas B');
-  assert.match(await page.locator('#panels article.section-card').filter({hasText: 'Levantamento terra'}).innerText(), /2 × 4–6 · 2–3 RIR/);
+  assert.match(await page.locator('#panels article.section-card').filter({hasText: 'Levantamento terra'}).innerText(), /2 × 4–6 reps · RIR 2–3/);
 
   assert.deepEqual(errors, []);
 });
@@ -2363,6 +2389,7 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
 
   // 1. Versão antiga instalada, com dados reais do esquema 9.
   const antiga = await context.newPage();
+  await antiga.clock.setFixedTime(SEGUNDA_FIXA);
   await antiga.goto(baseUrl, {waitUntil: 'domcontentloaded'});
   await antiga.evaluate(() => navigator.serviceWorker.ready);
   // A 2.2 recarrega sozinha quando o service worker assume o controle — o
@@ -2388,6 +2415,7 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
   // 3. O usuário fecha o aplicativo e abre de novo: a versão nova assume.
   await antiga.close();
   const nova = await context.newPage();
+  await nova.clock.setFixedTime(SEGUNDA_FIXA);
   const erros = [];
   nova.on('pageerror', error => erros.push(`pageerror: ${error.message}`));
   nova.on('console', message => {

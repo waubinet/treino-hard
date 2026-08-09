@@ -46,6 +46,7 @@
   let deferredInstallPrompt = null;
   let pendingImport = null;
   let pendingEncryptedImport = null;
+  const sideSelection = {};
   let storageInventory = {backups: [], recoveries: [], cacheName: '', loaded: false, error: ''};
   let evolutionSelection = {key: '', metric: 'maxLoad'};
   let timerDeadline = 0;
@@ -546,12 +547,15 @@
     }[video && video.classification] || 'Vídeo de apoio';
   }
 
+  // Bloco do vídeo no formato da referência: chamada, canal com a data da
+  // revisão e, abaixo, a classificação com a cobertura e a duração.
   function renderVideoByKey(videoKey, label) {
     const video = Data.VIDEOS[videoKey];
-    // Ausência de vídeo é uma nota discreta, não um bloco chamativo.
     if (!video || video.status !== 'accepted' || !video.youtubeId) {
       return element('p', {className: 'video-pending', text: navigator.onLine ? 'Vídeo pendente de curadoria.' : 'Vídeo pendente de curadoria · exige internet.'});
     }
+    const revisao = video.reviewedAt ? formatReviewDate(video.reviewedAt) : '';
+    const cobertura = [video.positives ? resumirCobertura(video.positives) : '', video.duration].filter(Boolean).join(' · ');
     return element('button', {
       className: 'vbtn',
       attrs: {type: 'button'},
@@ -559,11 +563,24 @@
     }, [
       element('span', {className: 'vplay', text: '▶'}),
       element('span', {className: 'vcopy'}, [
-        element('strong', {text: label || 'Ver execução'}),
-        element('span', {className: 'vs', text: `${videoClassificationLabel(video)} · ${video.language || 'idioma não informado'}`})
+        element('strong', {text: label || 'Ver demonstração'}),
+        element('span', {className: 'vs', text: `Canal: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
+        element('span', {className: 'vquality', text: videoClassificationLabel(video).toUpperCase()}),
+        cobertura ? element('span', {className: 'vreason', text: `Cobre: ${cobertura}`}) : null
       ]),
-      element('span', {className: 'ext', text: '↗'})
+      element('span', {className: 'ext', text: '▸'})
     ]);
+  }
+
+  function formatReviewDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : String(value);
+  }
+
+  // A cobertura vem da revisão registrada; aqui ela é reduzida ao essencial.
+  function resumirCobertura(texto) {
+    const limpo = String(texto).replace(/\s+/g, ' ').trim().replace(/\.$/, '');
+    return limpo.length > 68 ? `${limpo.slice(0, 65).trimEnd()}…` : limpo;
   }
 
   function renderVideoStatus(exercise, log) {
@@ -573,6 +590,36 @@
     const variant = variants.find(item => item.id === log.variationId);
     const videoKey = variant && variant.videoKey ? variant.videoKey : exercise.videoKey;
     return renderVideoByKey(Data.VIDEOS[videoKey] ? videoKey : exercise.id);
+  }
+
+  function feelingBlock(session, log, exerciseName) {
+    const options = [['good', '🙂', 'Bem'], ['awkward', '😕', 'Desconfortável'], ['pain', '⚠️', 'Senti dor'], ['replace', '🔄', 'Quero substituir']];
+    const flagged = ['awkward', 'pain', 'replace'].includes(log.feeling);
+    const current = options.find(item => item[0] === log.feeling);
+    return element('details', {
+      className: `feedback${flagged ? ' flagged' : ''}${log.feeling === 'pain' ? ' pain' : ''}`,
+      props: {open: flagged}
+    }, [
+      element('summary', {text: `Como me senti${current ? ` · ${current[2]}` : ''}`}),
+      element('div', {className: 'feedbackbody'}, [
+        element('p', {className: 'feedbackhint', text: 'Registre sua experiência. A ficha não troca exercícios automaticamente; o feedback fica pronto para revisarmos juntos.'}),
+        element('div', {className: 'feelbar', attrs: {role: 'group', 'aria-label': `Como me senti em ${exerciseName}`}}, options.map(([value, icon, label]) => element('button', {
+          className: `feelbtn ${value}${log.feeling === value ? ' on' : ''}`,
+          text: `${icon} ${label}`,
+          attrs: {type: 'button', 'aria-pressed': log.feeling === value ? 'true' : 'false'},
+          dataset: {action: 'feeling-pick', sessionId: session.id, exerciseId: log.id, feeling: value}
+        }))),
+        field('Observação opcional', element('textarea', {
+          className: 'feedbacktext',
+          attrs: {rows: '2', maxlength: '300', placeholder: 'Onde incomoda, por que não encaixa ou qual aparelho você prefere?'},
+          props: {value: log.feedback},
+          dataset: {action: 'exercise-field', field: 'feedback', sessionId: session.id, exerciseId: log.id}
+        }), 'field full'),
+        element('div', {className: 'button-row'}, [button('Copiar feedback para revisão', 'copy-feedback', 'quickbtn', {sessionId: session.id, exerciseId: log.id})]),
+        log.feeling === 'pain' ? element('p', {className: 'feedbackmsg danger', text: 'Dor é um sinal para interromper o movimento e buscar avaliação profissional se persistir ou for intensa.'}) : null,
+        log.feeling === 'replace' ? element('p', {className: 'feedbackmsg', text: 'Marcado para conversarmos sobre uma substituição antes de alterar a ficha.'}) : null
+      ])
+    ]);
   }
 
   function renderMobilityExercise(session, workoutExercise, exerciseLog, order) {
@@ -587,124 +634,205 @@
     ]));
     return element('article', {className: `section-card card k-mob${exerciseLog.completed ? ' done' : ''}`}, [
       element('div', {className: 'card-header chead'}, [
-        element('div', {className: 'card-title'}, [element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}`}), element('p', {className: 'cdetail', text: `${workoutExercise.sets} × ${workoutExercise.target}${workoutExercise.effort ? ` · esforço aproximado ${workoutExercise.effort}` : ''}`})]),
-        statusBadge(exerciseLog.completed ? 'Concluído' : exerciseLog.skipped ? 'Não realizado' : 'Mobilidade', exerciseLog.completed ? 'is-success' : '')
+        element('div', {className: 'card-title'}, [
+          element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}`}),
+          element('p', {className: 'cdetail', text: workoutExercise.target}),
+          element('div', {className: 'badges'}, [
+            statusBadge('Aquecimento', 'b-mob'),
+            exerciseLog.skipped ? statusBadge('Não realizada', 'is-deload') : null
+          ])
+        ])
+      ]),
+      element('div', {className: 'target'}, [
+        element('span', {className: 'ico', text: '🎯'}),
+        element('div', {}, [
+          element('div', {className: 't1', text: 'Alvo'}),
+          element('div', {className: 't2', text: `${workoutExercise.sets} × ${workoutExercise.target}${workoutExercise.effort ? ` · esforço ${workoutExercise.effort}` : ''}`})
+        ])
       ]),
       renderVideoStatus(workoutExercise, exerciseLog),
-      element('details', {}, [element('summary', {text: 'Feedback opcional por lado'}), element('div', {className: 'details-body'}, [
-        element('div', {className: 'measurement-groups'}, feedbackFields),
-        field('Observação — inclua panturrilha ou tornozelo direito quando pertinente', element('textarea', {className: 'textarea', props: {value: feedback.note}, attrs: {rows: '2'}, dataset: {action: 'mobility-note', sessionId: session.id, exerciseId: exerciseLog.id}}), 'field full')
-      ])]),
-      element('div', {className: 'button-row'}, [
-        button(exerciseLog.completed ? 'Desmarcar conclusão' : 'Marcar mobilidade concluída', 'mobility-complete', exerciseLog.completed ? 'secondary-button' : 'success-button', {sessionId: session.id, exerciseId: exerciseLog.id}),
-        button(exerciseLog.skipped ? 'Repor na sessão' : 'Marcar não realizada', 'mobility-skip', 'ghost-button', {sessionId: session.id, exerciseId: exerciseLog.id})
+      button(exerciseLog.completed ? '✓ Feito' : 'Marcar feito', 'mobility-complete', `mc${exerciseLog.completed ? ' on' : ''}`,
+        {sessionId: session.id, exerciseId: exerciseLog.id},
+        {'aria-pressed': exerciseLog.completed ? 'true' : 'false', 'aria-label': exerciseLog.completed ? 'Desmarcar mobilidade concluída' : 'Marcar mobilidade concluída'}),
+      element('details', {className: 'feedback'}, [
+        element('summary', {text: 'Como me senti'}),
+        element('div', {className: 'feedbackbody'}, [
+          element('div', {className: 'measurement-groups'}, feedbackFields),
+          field('Observação — inclua panturrilha ou tornozelo direito quando pertinente', element('textarea', {className: 'feedbacktext', props: {value: feedback.note}, attrs: {rows: '2'}, dataset: {action: 'mobility-note', sessionId: session.id, exerciseId: exerciseLog.id}}), 'field full'),
+          element('div', {className: 'button-row'}, [button(exerciseLog.skipped ? 'Repor na sessão' : 'Marcar não realizada', 'mobility-skip', 'quickbtn', {sessionId: session.id, exerciseId: exerciseLog.id})])
+        ])
       ])
     ]);
   }
 
-  function renderSetRow(session, exerciseLog, set, setIndex) {
-    const completed = Core.isSetConfirmed(set);
+  // Campo de série no formato da referência: valor grande e unidade dentro.
+  function setField(label, control, unit, className) {
+    return element('label', {className: `field ${className || ''}`.trim()}, [
+      element('span', {className: 'sr-only', text: label}),
+      element('span', {className: 'fieldwrap'}, [control, unit ? element('span', {className: 'funit', text: unit}) : null])
+    ]);
+  }
+
+  function renderSetRow(session, exerciseLog, set, displayIndex, options) {
+    const settings = options || {};
+    const confirmed = Core.isSetConfirmed(set);
+    const warmup = set.type === 'warmup';
     const idBase = `${session.id}-${exerciseLog.id}-${set.id}`;
     const restValues = [60, 90, 120, 150, 180];
-    const restSelect = element('select', {className: 'select', attrs: {id: `${idBase}-rest`}, dataset: {action: 'set-rest-select', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, [
-      ...restValues.map(value => option(String(value), formatDuration(value), set.nextRestSeconds === value)),
-      option('custom', 'Personalizado', !restValues.includes(set.nextRestSeconds))
-    ]);
-    const warmup = set.type === 'warmup';
-    // Prioridade visual: carga, repetições, RIR e concluir. Status, descanso e
-    // observação continuam registrados, mas recolhidos em "Mais".
-    return element('div', {className: `set-row${warmup ? ' is-warmup' : ''}${completed ? ' is-complete' : ''}`}, [
-      element('div', {className: 'srow'}, [
-        element('div', {className: `stag${warmup ? ' warm' : ''}`, attrs: {'aria-hidden': 'true'}, text: String(setIndex + 1)}),
-        field('Carga', element('input', {className: 'input sin', attrs: {type: 'text', inputmode: 'decimal', id: `${idBase}-load`}, props: {value: set.load}, dataset: {action: 'set-field', field: 'load', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field set-field-load'),
-        field('Reps', element('input', {className: 'input sin', attrs: {type: 'number', min: '0', max: '1000', id: `${idBase}-reps`}, props: {value: set.reps}, dataset: {action: 'set-field', field: 'reps', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field set-field-reps'),
-        field('RIR', element('select', {className: 'select sin', attrs: {id: `${idBase}-rir`}, dataset: {action: 'set-field', field: 'rir', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, RIR_OPTIONS.map(([value, label]) => option(value, label, set.rir === value))), 'field set-field-rir')
-      ]),
-      element('div', {className: 'set-actions'}, [
-        button(completed ? 'Atualizar série' : 'Concluir série', 'set-complete', 'complete-set', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}),
-        set.nextRestSeconds ? button('Iniciar descanso', 'timer-start-set', 'ghost-button', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}) : null,
-        warmup ? statusBadge('Aquecimento', 'b-warm') : null
-      ]),
+    const dataset = {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id};
+    const tag = warmup ? `A${displayIndex}` : String(displayIndex);
+    const name = settings.exerciseName || 'exercício';
+    const row = [
+      element('div', {className: `stag${warmup ? ' warm' : ''}`, attrs: {'aria-hidden': 'true'}, text: tag}),
+      setField(`Carga em quilos — ${name} — série ${tag}`, element('input', {
+        className: 'sin', attrs: {type: 'text', inputmode: 'decimal', maxlength: '7', autocomplete: 'off', id: `${idBase}-load`, placeholder: settings.loadPlaceholder || 'kg'},
+        props: {value: set.load}, dataset: Object.assign({action: 'set-field', field: 'load'}, dataset)
+      }), 'kg', 'set-field-load'),
+      element('span', {className: 'sx', attrs: {'aria-hidden': 'true'}, text: '×'}),
+      setField(`Repetições — ${name} — série ${tag}`, element('input', {
+        className: 'sin', attrs: {type: 'text', inputmode: 'numeric', maxlength: '3', autocomplete: 'off', id: `${idBase}-reps`, placeholder: settings.repsPlaceholder || 'reps'},
+        props: {value: set.reps}, dataset: Object.assign({action: 'set-field', field: 'reps'}, dataset)
+      }), 'reps', 'set-field-reps')
+    ];
+    if (!warmup) {
+      row.push(setField(`RIR — ${name} — série ${tag}`, element('select', {
+        className: 'sin', attrs: {id: `${idBase}-rir`}, dataset: Object.assign({action: 'set-field', field: 'rir'}, dataset)
+      }, RIR_OPTIONS.map(([value]) => option(value, value === '' ? '—' : value, set.rir === value))), 'RIR', 'set-field-rir'));
+      row.push(button(confirmed ? '✓' : '○', 'set-complete', `setok${confirmed ? ' on' : ''}`, dataset,
+        {'aria-label': confirmed ? `Atualizar série ${tag}` : `Concluir série ${tag}`, 'aria-pressed': confirmed ? 'true' : 'false'}));
+    }
+    return element('div', {className: `set-row${warmup ? ' is-warmup' : ''}${confirmed ? ' is-complete' : ''}`}, [
+      element('div', {className: 'srow'}, row),
       element('details', {className: 'setmore'}, [
         element('summary', {text: 'Mais'}),
         element('div', {className: 'details-body'}, [
           element('div', {className: 'field-grid'}, [
-            field('Status', element('select', {className: 'select', attrs: {id: `${idBase}-status`}, dataset: {action: 'set-field', field: 'status', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, SET_STATUS_OPTIONS.map(([value, label]) => option(value, label, set.status === value)))),
-            field('Descanso seguinte', restSelect),
-            field('Segundos personalizados', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1800'}, props: {value: String(set.nextRestSeconds || 0)}, dataset: {action: 'set-field', field: 'nextRestSeconds', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}))
+            field('Status', element('select', {className: 'select', attrs: {id: `${idBase}-status`}, dataset: Object.assign({action: 'set-field', field: 'status'}, dataset)}, SET_STATUS_OPTIONS.map(([value, label]) => option(value, label, set.status === value)))),
+            field('Descanso seguinte', element('select', {className: 'select', attrs: {id: `${idBase}-rest`}, dataset: Object.assign({action: 'set-rest-select'}, dataset)}, [
+              ...restValues.map(value => option(String(value), formatDuration(value), set.nextRestSeconds === value)),
+              option('custom', 'Personalizado', !restValues.includes(set.nextRestSeconds))
+            ])),
+            field('Segundos personalizados', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1800'}, props: {value: String(set.nextRestSeconds || 0)}, dataset: Object.assign({action: 'set-field', field: 'nextRestSeconds'}, dataset)}))
           ]),
-          field('Observação opcional', element('input', {className: 'input', attrs: {type: 'text', maxlength: '200'}, props: {value: set.note}, dataset: {action: 'set-field', field: 'note', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field full')
+          field('Observação opcional', element('input', {className: 'input', attrs: {type: 'text', maxlength: '200'}, props: {value: set.note}, dataset: Object.assign({action: 'set-field', field: 'note'}, dataset)}), 'field full'),
+          set.nextRestSeconds ? element('div', {className: 'button-row'}, [button('Iniciar descanso desta série', 'timer-start-set', 'quickbtn', dataset)]) : null
         ])
       ])
     ]);
   }
 
-  function renderStrengthExercise(session, workoutExercise, exerciseLog, order) {
+  function activeSideLog(session, logs) {
+    if (logs.length === 1) return logs[0];
+    const chosen = sideSelection[`${session.id}:${logs[0].exerciseId}`] || 'right';
+    return logs.find(log => log.side === chosen) || logs[0];
+  }
+
+  function renderStrengthExercise(session, workoutExercise, logs, order) {
+    const exerciseLog = activeSideLog(session, logs);
     const snapshot = exerciseLog.prescriptionSnapshot;
     const recommendation = Core.doubleProgressionRecommendation(workoutExercise, exerciseLog, session.week);
     const previous = previousComparablePerformance(session, exerciseLog);
-    // Poucas opções viram chips; a partir de quatro, seletor.
     const variants = Array.isArray(workoutExercise.variants) ? workoutExercise.variants : [];
-    const variantBox = variants.length ? element('div', {className: 'variantbox'}, [
-      element('span', {className: 'variantlabel', text: 'Variação'}),
-      variants.length <= 3
-        ? element('div', {className: 'variantbar', attrs: {role: 'group', 'aria-label': 'Variação executada'}}, variants.map(item => element('button', {
-            className: `variantbtn${exerciseLog.variationId === item.id ? ' on' : ''}`,
-            text: item.label,
-            attrs: {type: 'button', 'aria-pressed': exerciseLog.variationId === item.id ? 'true' : 'false'},
-            dataset: {action: 'variation-pick', sessionId: session.id, exerciseId: exerciseLog.id, variationId: item.id}
-          })))
-        : element('select', {className: 'select', attrs: {'aria-label': 'Variação executada'}, dataset: {action: 'variation-change', sessionId: session.id, exerciseId: exerciseLog.id}}, variants.map(item => option(item.id, item.label, exerciseLog.variationId === item.id)))
-    ]) : null;
+    const warmupSets = exerciseLog.sets.filter(set => set.type === 'warmup');
+    const workSets = exerciseLog.sets.filter(set => set.type === 'work');
     const kind = workoutExercise.category === 'accessory' ? 'k-fix' : workoutExercise.category === 'deadlift' ? 'k-warm' : 'k-per';
+    const rir = snapshot.rirMin == null ? '' : snapshot.rirMin === snapshot.rirMax ? ` · RIR ${snapshot.rirMin}` : ` · RIR ${snapshot.rirMin}–${snapshot.rirMax}`;
+
+    const chips = (label, note, items) => element('div', {className: 'variantbox'}, [
+      element('span', {className: 'variantlabel', text: label}),
+      element('div', {className: 'variantbar', attrs: {role: 'group', 'aria-label': label}}, items),
+      note ? element('p', {className: 'variantnote', text: note}) : null
+    ]);
+
+    const variantBox = variants.length ? chips('Equipamento desta ocorrência',
+      'O vídeo e as orientações mudam junto com o equipamento. As cargas ficam registradas com a variação escolhida.',
+      variants.map(item => element('button', {
+        className: `variantbtn${exerciseLog.variationId === item.id ? ' on' : ''}`,
+        text: item.label,
+        attrs: {type: 'button', 'aria-pressed': exerciseLog.variationId === item.id ? 'true' : 'false'},
+        dataset: {action: 'variation-pick', sessionId: session.id, exerciseId: exerciseLog.id, variationId: item.id}
+      }))) : null;
+
+    const sideBox = logs.length > 1 ? chips('Lado registrado',
+      'As cargas de cada lado ficam em históricos separados. O volume planejado conta o exercício uma vez.',
+      ['right', 'left'].map(side => {
+        const item = logs.find(entry => entry.side === side);
+        if (!item) return null;
+        return element('button', {
+          className: `variantbtn${item.id === exerciseLog.id ? ' on' : ''}${item.completed ? ' is-done' : ''}`,
+          text: side === 'right' ? 'Direito' : 'Esquerdo',
+          attrs: {type: 'button', 'aria-pressed': item.id === exerciseLog.id ? 'true' : 'false'},
+          dataset: {action: 'side-pick', sessionId: session.id, exerciseId: workoutExercise.id, side}
+        });
+      })) : null;
+
+    const quick = [];
+    if (previous) quick.push(button('↩ Copiar anterior', 'copy-previous-loads', 'quickbtn', {sessionId: session.id, exerciseId: exerciseLog.id}));
+    if (workSets.length > 1) quick.push(button('⧉ Repetir 1ª série', 'repeat-first-set', 'quickbtn', {sessionId: session.id, exerciseId: exerciseLog.id}));
+    if (lastSetUndo && lastSetUndo.sessionId === session.id && lastSetUndo.exerciseId === exerciseLog.id) {
+      quick.push(button('↶ Desfazer', 'timer-undo', 'quickbtn undo'));
+    }
+
+    const previousLoad = previous && previous.workSets[0] ? previous.workSets[0].load : '';
+
     return element('article', {className: `section-card card ${kind}${exerciseLog.completed ? ' done' : ''}`}, [
       element('div', {className: 'card-header chead'}, [
         element('div', {className: 'card-title'}, [
-          element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}${workoutExercise.unilateral ? ` — lado ${exerciseLog.side === 'left' ? 'esquerdo' : 'direito'}` : ''}`}),
-          element('p', {className: 'cdetail', text: workoutExercise.detail || 'Registre apenas a execução realizada.'}),
+          element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}`}),
+          workoutExercise.detail ? element('p', {className: 'cdetail', text: workoutExercise.detail}) : null,
           element('div', {className: 'badges'}, [
-            statusBadge(`${snapshot.sets} séries`, 'b-per'),
-            workoutExercise.unilateral ? statusBadge(exerciseLog.side === 'left' ? 'Esquerdo' : 'Direito', 'is-side') : null,
-            snapshot.deload ? statusBadge('Deload', 'is-deload') : null
+            statusBadge(workoutExercise.category === 'accessory' ? 'Acessório' : 'Periodizado', 'b-per'),
+            snapshot.deload ? statusBadge('Deload', 'is-deload') : null,
+            workoutExercise.unilateral ? statusBadge('Unilateral', 'is-side') : null
           ])
         ]),
-        exerciseLog.completed ? element('span', {className: 'donebtn on', text: 'Feito'}) : null
+        button(exerciseLog.completed ? '✓' : 'Marcar', 'exercise-complete', `donebtn${exerciseLog.completed ? ' on' : ''}`,
+          {sessionId: session.id, exerciseId: exerciseLog.id},
+          {'aria-pressed': exerciseLog.completed ? 'true' : 'false', 'aria-label': exerciseLog.completed ? `Desmarcar ${workoutExercise.name}` : `Marcar ${workoutExercise.name} como concluído`})
       ]),
+      variantBox,
       element('div', {className: `target${snapshot.deload ? ' dl' : ''}`}, [
         element('span', {className: 'ico', text: '🎯'}),
         element('div', {}, [
-          element('div', {className: 't1', text: 'Meta da semana'}),
-          element('div', {className: 't2', text: prescriptionText(snapshot)}),
-          element('div', {className: 't3', text: `Descanso ${formatDuration(snapshot.restSeconds)}`})
+          element('div', {className: 't1', text: snapshot.deload ? 'Alvo · Deload' : `Alvo · S${session.week}`}),
+          element('div', {className: 't2', text: `${snapshot.sets} × ${snapshot.label} reps${rir} · ${formatDuration(snapshot.restSeconds)}`})
         ])
       ]),
-      variantBox,
       renderVideoStatus(workoutExercise, exerciseLog),
-      element('div', {className: 'set-table'}, exerciseLog.sets.map((set, setIndex) => renderSetRow(session, exerciseLog, set, setIndex))),
+      workoutExercise.notes.length ? element('ul', {className: 'notes'}, workoutExercise.notes.map(note => element('li', {text: note}))) : null,
+      sideBox,
+      warmupSets.length ? element('div', {className: 'setshd'}, [element('span', {className: 'lab', text: 'Aquecimento (carga leve)'})]) : null,
+      warmupSets.length ? element('div', {className: 'set-table warmups'}, warmupSets.map((set, index) => renderSetRow(session, exerciseLog, set, index + 1, {exerciseName: workoutExercise.name}))) : null,
+      element('div', {className: 'setshd'}, [
+        element('span', {className: 'lab', text: warmupSets.length ? 'Séries de trabalho' : 'Suas séries'}),
+        element('span', {className: `goal${snapshot.deload ? ' dl' : ''}`, text: `alvo: ${snapshot.label} reps`})
+      ]),
+      previous ? element('div', {className: 'prevref'}, [
+        element('b', {text: `↩ Último treino · ${formatDate(previous.session.actualDate || previous.session.plannedDate)}`}),
+        element('span', {text: `: ${previous.workSets.map(set => `${set.load || '–'}×${set.reps || '–'}`).join(' · ')}`})
+      ]) : null,
+      quick.length ? element('div', {className: 'quickrow'}, quick) : null,
+      element('div', {className: 'set-table'}, workSets.map((set, index) => renderSetRow(session, exerciseLog, set, index + 1, {
+        exerciseName: workoutExercise.name,
+        loadPlaceholder: previousLoad || 'kg',
+        repsPlaceholder: snapshot.label
+      }))),
+      element('div', {className: `recommendation${recommendation.code === 'increase' ? ' is-increase' : recommendation.code === 'review' ? ' is-review' : ''}`}, [
+        element('strong', {text: 'Progressão dupla'}),
+        element('p', {text: recommendation.message})
+      ]),
       element('details', {className: 'exdetails'}, [
         element('summary', {text: 'Detalhes do exercício'}),
         element('div', {className: 'details-body'}, [
           field('Identificação da máquina', element('input', {className: 'input', attrs: {type: 'text', maxlength: '80', placeholder: 'Ex.: articulada 2'}, props: {value: exerciseLog.machineId}, dataset: {action: 'exercise-field', field: 'machineId', sessionId: session.id, exerciseId: exerciseLog.id}}), 'field full', 'Use um nome estável para não misturar máquinas.'),
           workoutExercise.allowHighReps ? element('label', {className: 'check-field'}, [element('input', {attrs: {type: 'checkbox'}, props: {checked: exerciseLog.highRepPreference}, dataset: {action: 'high-rep-toggle', sessionId: session.id, exerciseId: exerciseLog.id}}), element('span', {text: 'Preferir faixa leve de 12–20 repetições quando aplicável'})]) : null,
           workoutExercise.bracing ? element('p', {className: 'notes-p', text: Data.BRACING_TEXT}) : null,
-          workoutExercise.bracing ? element('p', {className: 'notes-p', text: 'Bracing é estabilização por cocontração; vacuum é um controle motor separado. Um breve ensaio pode ser feito no aquecimento, sem substituir o intervalo por contrações fatigantes.'}) : null,
-          ...workoutExercise.notes.map(note => element('p', {className: 'notes-p', text: note})),
-          previous ? element('div', {className: 'prevref'}, [
-            element('b', {text: `Última execução comparável · ${formatDate(previous.session.actualDate || previous.session.plannedDate)}`}),
-            element('p', {text: previous.workSets.map(set => `${set.load || '—'} kg × ${set.reps || '—'}`).join(' · ')}),
-            previous.decision ? element('p', {text: `Recomendação registrada: ${previous.decision.message}`}) : null,
-            button('Copiar somente as cargas anteriores', 'copy-previous-loads', 'secondary-button', {sessionId: session.id, exerciseId: exerciseLog.id})
-          ]) : null
+          previous && previous.decision ? element('p', {className: 'notes-p', text: `Recomendação registrada: ${previous.decision.message}`}) : null
         ])
       ]),
-      element('details', {}, [element('summary', {text: 'Como me senti neste exercício'}), element('div', {className: 'details-body'}, [
-        element('div', {className: 'field-grid'}, [
-          field('Sensação', element('select', {className: 'select', dataset: {action: 'exercise-field', field: 'feeling', sessionId: session.id, exerciseId: exerciseLog.id}}, FEELING_OPTIONS.map(([value, label]) => option(value, label, exerciseLog.feeling === value)))),
-          field('Feedback para conversar antes de substituir', element('textarea', {className: 'textarea', attrs: {rows: '2', maxlength: '300'}, props: {value: exerciseLog.feedback}, dataset: {action: 'exercise-field', field: 'feedback', sessionId: session.id, exerciseId: exerciseLog.id}}))
-        ]),
-        element('p', {className: 'fine-print', text: 'O app registra sua experiência, mas não troca o exercício automaticamente.'})
-      ])]),
-      element('div', {className: `recommendation${recommendation.code === 'increase' ? ' is-increase' : recommendation.code === 'review' ? ' is-review' : ''}`}, [element('strong', {text: 'Progressão dupla'}), element('p', {text: recommendation.message})])
+      feelingBlock(session, exerciseLog, workoutExercise.name),
+      button(`⏱ Descanso ${formatDuration(snapshot.restSeconds)}`, 'timer-start-rest', 'restbtn',
+        {sessionId: session.id, exerciseId: exerciseLog.id, seconds: String(snapshot.restSeconds)})
     ]);
   }
 
@@ -726,17 +854,20 @@
         ]),
         progressBar(progress, 'itens'),
         element('p', {className: 'fine-print', text: `Início: ${formatDateTime(session.startedAt)}. Duração registrada: ${session.durationSeconds ? formatDuration(session.durationSeconds) : 'em aberto'}.`}),
+        ['started', 'paused'].includes(session.status)
+          ? button('Finalizar treino do dia', 'session-complete', `workoutfinish${progress.total && progress.done === progress.total ? ' on' : ''}`, {sessionId: session.id})
+          : null,
         renderSessionActions(session)
       ]),
       element('div', {className: 'info-box'}, [element('strong', {text: 'Faixa, RIR e falha'}), element('p', {text: 'O limite inferior é o mínimo planejado; o superior é o topo da faixa. RIR estima quantas repetições ainda seriam possíveis com técnica aceitável. RIR 0 não é obrigatório e uma série encerrada por dor ou técnica inadequada não deve ser tratada como falha muscular planejada.'})]),
-      // Percorre os registros da sessão, e não o catálogo: um exercício
-      // unilateral produz dois registros e ambos precisam ser exibidos.
-      ...session.exercises.map(log => {
-        const index = workout.exercises.findIndex(exercise => exercise.id === log.exerciseId);
-        const exercise = index >= 0 ? workout.exercises[index] : null;
-        if (!exercise) return element('div', {className: 'warning-box', text: `Registro sem exercício correspondente nesta ficha: ${log.exerciseId}.`});
-        const order = index + 1;
-        return exercise.type === 'mobility' ? renderMobilityExercise(session, exercise, log, order) : renderStrengthExercise(session, exercise, log, order);
+      // Um cartão por exercício da ficha. O exercício unilateral tem dois
+      // registros (um por lado) e ambos vivem no mesmo cartão, atrás dos chips.
+      ...workout.exercises.map((exercise, index) => {
+        const logs = session.exercises.filter(log => log.exerciseId === exercise.id);
+        if (!logs.length) return element('div', {className: 'warning-box', text: `Registro ausente para ${exercise.name}.`});
+        return exercise.type === 'mobility'
+          ? renderMobilityExercise(session, exercise, logs[0], index + 1)
+          : renderStrengthExercise(session, exercise, logs, index + 1);
       })
     ];
     return panelShell(workoutId, workout.label, workout.intro, children);
@@ -1653,6 +1784,21 @@
     }
     if (action === 'mobility-complete') { await toggleMobility(session, target.dataset.exerciseId, 'completed'); return; }
     if (action === 'mobility-skip') { await toggleMobility(session, target.dataset.exerciseId, 'skipped'); return; }
+    if (action === 'side-pick') {
+      sideSelection[`${target.dataset.sessionId}:${target.dataset.exerciseId}`] = target.dataset.side === 'left' ? 'left' : 'right';
+      renderActivePanel();
+      return;
+    }
+    if (action === 'repeat-first-set') { await repeatFirstWorkSet(session, target.dataset.exerciseId); return; }
+    if (action === 'exercise-complete') { await toggleExerciseCompleted(session, target.dataset.exerciseId); return; }
+    if (action === 'feeling-pick') { await pickFeeling(session, target.dataset.exerciseId, target.dataset.feeling); return; }
+    if (action === 'copy-feedback') { await copyFeedbackReport(session, target.dataset.exerciseId); return; }
+    if (action === 'timer-start-rest') {
+      const log = findExerciseLog(session, target.dataset.exerciseId);
+      const name = log && Data.CATALOG[log.exerciseId] ? Data.CATALOG[log.exerciseId].name : 'Exercício';
+      startTimer(Number(target.dataset.seconds) || 90, name, log ? {sessionId: session.id, exerciseId: log.id, setId: ''} : null);
+      return;
+    }
     if (action === 'variation-pick') {
       const log = findExerciseLog(session, target.dataset.exerciseId);
       if (log) await requestVariationChange(session, log, target.dataset.variationId);
@@ -1841,6 +1987,75 @@
     session.durationSeconds = previousDuration;
     session.updatedAt = now.toISOString();
     await persist('Sessão reaberta.', true);
+  }
+
+  // Repete a primeira série de trabalho nas demais, como na versão 2.2.
+  async function repeatFirstWorkSet(session, exerciseId) {
+    const log = findExerciseLog(session, exerciseId);
+    if (!log) return;
+    const workSets = log.sets.filter(set => set.type === 'work');
+    const first = workSets[0];
+    if (!first || (!first.load && !first.reps)) {
+      showNotice('Preencha a primeira série antes de repeti-la nas demais.', 'warning');
+      return;
+    }
+    workSets.slice(1).forEach(set => {
+      set.load = first.load;
+      set.reps = first.reps;
+      if (first.rir) set.rir = first.rir;
+    });
+    await persist('Primeira série repetida nas demais. Confirme cada série individualmente.', true);
+  }
+
+  // Marcar o exercício confirma apenas séries que já têm repetições registradas;
+  // nunca inventa séries concluídas.
+  async function toggleExerciseCompleted(session, exerciseId) {
+    const log = findExerciseLog(session, exerciseId);
+    if (!log) return;
+    const workSets = log.sets.filter(set => set.type === 'work');
+    if (log.completed) {
+      log.completed = false;
+      session.updatedAt = new Date().toISOString();
+      await persist('Marcação do exercício desfeita.', true);
+      return;
+    }
+    const pendentes = workSets.filter(set => !Core.isSetConfirmed(set));
+    if (pendentes.length) {
+      showNotice(`Confirme as ${pendentes.length} série(s) restante(s) antes de marcar o exercício como concluído.`, 'warning');
+      return;
+    }
+    markSessionStarted(session);
+    log.completed = workSets.length > 0;
+    session.updatedAt = new Date().toISOString();
+    await persist('Exercício marcado como concluído.', true);
+  }
+
+  async function pickFeeling(session, exerciseId, feeling) {
+    const log = findExerciseLog(session, exerciseId);
+    if (!log) return;
+    const valid = FEELING_OPTIONS.some(item => item[0] === feeling);
+    log.feeling = valid && log.feeling !== feeling ? feeling : '';
+    await persist('Sensação registrada.', true);
+  }
+
+  async function copyFeedbackReport(session, exerciseId) {
+    const log = findExerciseLog(session, exerciseId);
+    if (!log) return;
+    const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    const labels = Object.fromEntries(FEELING_OPTIONS);
+    const linhas = [
+      `Treino: ${Data.WORKOUT_BY_ID[session.workoutId].label} · ${formatDate(session.actualDate || session.plannedDate)} · Semana ${session.week}`,
+      `Exercício: ${exercise ? exercise.name : log.exerciseId}${log.side !== 'bilateral' ? ` (lado ${log.side === 'left' ? 'esquerdo' : 'direito'})` : ''}`,
+      `Sensação: ${labels[log.feeling] || 'não informada'}`,
+      `Observação: ${log.feedback || 'sem observação'}`,
+      `Séries: ${log.sets.filter(set => set.type === 'work').map(set => `${set.load || '–'}×${set.reps || '–'}${set.rir ? ` RIR ${set.rir}` : ''}`).join(' · ')}`
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(linhas);
+      announce('Feedback copiado para revisão.');
+    } catch (error) {
+      showNotice('Não foi possível copiar automaticamente. O texto continua visível no campo de observação.', 'warning');
+    }
   }
 
   async function toggleMobility(session, exerciseId, fieldName) {

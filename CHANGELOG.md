@@ -2,6 +2,51 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.2.0] — cartão de exercício da referência 2.2 — 2026-08-09
+
+Continuação do trabalho recebido do Codex, preservado integralmente. Esquema de
+dados continua **11**; nenhuma migração foi criada.
+
+### Cartão de exercício reconstruído sobre a referência
+
+- Ordem fixa: nome + botão **Marcar**, subtítulo, selo, bloco **Alvo · S1** com
+  `3 × 12–15 reps · RIR 3 · 1:30`, bloco do vídeo, cabeçalho das séries com o
+  alvo, ações rápidas, linhas de série, "Como me senti" e o descanso.
+- As séries deixaram de ser cartões dentro do cartão: agora são linhas do
+  exercício, separadas por espaço e um filete discreto.
+- Cada série mostra `[n] [carga kg] × [reps] [RIR] [✓]` com carga, repetições e
+  RIR sempre visíveis. Status, descanso e observação continuam registrados em
+  "Mais". A confirmação da série é o botão ✓ e nada mais.
+- Aquecimento em bloco próprio, com selo `A1`/`A2` azul, fora do volume.
+- Ações rápidas de volta no cartão: **Copiar anterior**, **Repetir 1ª série** e
+  **Desfazer**, mais a referência do último treino e o placeholder com a carga
+  anterior.
+- Exercício unilateral em **um único cartão**, com chips Direito/Esquerdo. O
+  histórico continua separado por lado e o volume conta o exercício uma vez.
+- Variações como chips sob "Equipamento desta ocorrência".
+- "Como me senti" recolhido, com 🙂/😕/⚠️/🔄, observação e **Copiar feedback
+  para revisão**.
+- Descanso em largura total ao final do cartão; mobilidade com **Marcar feito**
+  em largura total.
+- "Finalizar treino do dia" em destaque no cabeçalho da sessão.
+- Em 320 px a linha da série quebra em duas sem esconder nenhum campo.
+
+### Vídeos
+
+- Catálogo de 41 entradas com título, canal, duração, idioma, data da revisão,
+  disponibilidade, pontos positivos, limitações e decisão.
+- O cartão mostra `Ver demonstração`, o canal com a data da revisão, a
+  classificação e a cobertura com a duração.
+- Preferência em Ajustes: abrir no YouTube (padrão), assistir dentro do app ou
+  perguntar. A prévia interna continua restrita a `youtube-nocookie.com`.
+
+### Preservado do trabalho anterior
+
+Confirmação explícita da série (`isSetConfirmed`), limites de armazenamento sem
+truncamento silencioso, ciclos arquivados presentes nos gráficos, PBKDF2-SHA-256
+com 600 000 iterações em arquivos novos com leitura dos antigos de 310 000, e o
+cabeçalho do backup criptografado autenticado a partir do próprio arquivo.
+
 ## [3.1.0] — restauração da identidade visual clássica — 2026-08-08
 
 A interface da v3 foi reprojetada sobre a linguagem visual da versão 2.2,

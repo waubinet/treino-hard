@@ -1,34 +1,12 @@
 # Pendências reais
 
-Atualizado em **2026-08-08**. Versão publicada: **3.1.0**, esquema **11**, commit `b877d1f`,
+Atualizado em **2026-08-09**. Versão publicada: **3.2.0**, esquema **11**,
 em `https://waubinet.github.io/treino-hard/`.
 
-Estado de publicação: **realizada e verificada no app real** (42/42 verificações do smoke test).
-
-A identidade visual da 2.2 foi restaurada sobre a arquitetura da v3 na 3.1.0. O PDF
-da ficha **não é e não volta a ser referência de interface**: serviu apenas para
-definir o conteúdo do treino.
+A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
+travada pelos testes de conformidade.
 
 Esta lista contém somente o que ainda **não** foi comprovado.
-
-## Bloqueio de origem: a ficha canônica em PDF
-
-`C:\Users\waubi\iCloudDrive\Ficha_de_Treino_Hipertrofia_Waubin.pdf` é um placeholder
-desidratado do iCloud. O provedor de arquivos da Apple não está em execução, então
-qualquer leitura falha com "O provedor do arquivo de nuvem não está em execução".
-Iniciar o aplicativo iCloud não resolveu.
-
-A ficha foi sincronizada com a especificação canônica escrita pelo usuário, que cobre
-estrutura semanal, exercícios, ordem, séries, totais, periodização, descansos e
-mobilidade. Continuam **sem confronto com o PDF**:
-
-- [ ] aquecimentos por exercício (hoje: supino reto 3, puxada supinada 2, agachamento 3, leg press 1, terra 3);
-- [ ] variações permitidas além das citadas na especificação (remada sentada com triângulo, remada unilateral, flexora, extensora, leg press);
-- [ ] variação padrão do agachamento (hoje: Smith);
-- [ ] orientação técnica por exercício e o esforço "6–7/10" das mobilidades.
-
-Para desbloquear: baixar o PDF pelo iCloud ("Manter sempre neste dispositivo") ou
-copiá-lo para a pasta do projeto.
 
 ## Vídeos
 

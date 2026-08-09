@@ -504,7 +504,7 @@ h1, h2, h3, h4 {
   border: 1px solid var(--border);
   border-left: 3px solid var(--border);
   border-radius: 16px;
-  background: var(--card);
+  background: #181218;
   box-shadow: var(--shadow);
   transition: .2s;
 }
@@ -697,9 +697,18 @@ h1, h2, h3, h4 {
 }
 
 .variantbar {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 7px;
+}
+
+.variantbar .variantbtn {
+  flex: 1 1 40%;
+}
+
+.variantbtn.is-done {
+  border-color: var(--green);
+  color: #bbf7d0;
 }
 
 .variantbtn {
@@ -772,6 +781,28 @@ h1, h2, h3, h4 {
   font-size: 15px;
 }
 
+.vquality {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(94, 200, 120, .12);
+  color: #9be6ad;
+  font-size: 9px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: .35px;
+}
+
+.vreason {
+  display: block;
+  margin-top: 3px;
+  color: var(--dim);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
 .video-pending {
   margin: 10px 2px;
   color: var(--dim);
@@ -781,35 +812,103 @@ h1, h2, h3, h4 {
 
 /* ------------------------------------------------------------ séries */
 
+.setshd {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 14px 2px 6px;
+}
+
+.setshd .lab {
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+}
+
+.setshd .goal {
+  padding: 4px 11px;
+  border: 1px solid var(--purpdim);
+  border-radius: 999px;
+  background: rgba(207, 122, 154, .16);
+  color: #f5cfdd;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.setshd .goal.dl {
+  border-color: var(--orangedim);
+  background: rgba(217, 160, 102, .14);
+  color: #e6c08a;
+}
+
+.prevref {
+  margin: 0 2px 8px;
+  padding: 7px 11px;
+  border: 1px dashed var(--bluedim);
+  border-radius: 9px;
+  background: rgba(207, 122, 154, .08);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.prevref b {
+  color: #e0a3b8;
+  font-weight: 800;
+}
+
+.quickrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 0 2px 9px;
+}
+
+.quickbtn {
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+
+.quickbtn.undo {
+  border-color: var(--purple);
+  color: #f5cfdd;
+}
+
+/* As séries são linhas dentro do cartão do exercício, não cartões aninhados. */
 .set-table {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-top: 6px;
+  gap: 7px;
+  margin-top: 2px;
 }
 
 .set-row {
-  padding: 10px;
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--red);
-  border-radius: 13px;
-  background: var(--elev);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
 }
 
-.set-row.is-warmup {
-  border-left-color: var(--blue);
-  background: rgba(176, 125, 144, .07);
-}
-
-.set-row.is-complete {
-  border-left-color: var(--green);
-  background: linear-gradient(180deg, rgba(34, 197, 94, .09), transparent);
+.set-row + .set-row {
+  padding-top: 7px;
+  border-top: 1px solid rgba(91, 69, 84, .45);
 }
 
 .srow {
   display: flex;
-  align-items: flex-end;
-  gap: 9px;
+  align-items: center;
+  gap: 8px;
 }
 
 .stag {
@@ -835,220 +934,274 @@ h1, h2, h3, h4 {
   color: #06250f;
 }
 
-.srow .field {
-  flex: 1;
-  min-width: 0;
-}
-
-.set-field-rir {
-  flex: 0 0 92px;
-}
-
-.field {
-  display: block;
-}
-
-.field > span {
-  display: block;
-  margin-bottom: 5px;
+.sx {
+  flex: 0 0 auto;
   color: var(--dim);
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: .4px;
 }
 
-.field.full {
-  grid-column: 1 / -1;
+.srow .field {
+  flex: 1 1 0;
+  min-width: 0;
+  margin: 0;
 }
 
-.input,
-.select,
-.textarea {
+.fieldwrap {
+  position: relative;
+  display: block;
+}
+
+.funit {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.sin {
   width: 100%;
-  min-height: 46px;
-  padding: 10px 11px;
+  height: 46px;
+  padding: 0 34px 0 12px;
   border: 1.5px solid var(--control-border);
   border-radius: 11px;
   background: var(--bg);
   color: var(--text);
-  font-size: 16px;
-}
-
-.textarea {
-  min-height: 76px;
-  resize: vertical;
-  line-height: 1.4;
-}
-
-.input:focus,
-.select:focus,
-.textarea:focus {
-  border-color: var(--purple);
-}
-
-.sin {
-  padding: 0 6px;
-  text-align: center;
   font-size: 17px;
   font-weight: 700;
 }
 
 select.sin {
-  padding: 0 4px;
+  padding-right: 32px;
   text-align: center;
+  text-align-last: center;
+  appearance: none;
 }
 
-.set-actions {
+.sin::placeholder {
+  color: #6f5d67;
+  font-weight: 700;
+}
+
+.sin:focus {
+  border-color: var(--purple);
+  background: #16121d;
+  outline: none;
+}
+
+.set-row.is-complete .sin {
+  border-color: #377d50;
+}
+
+.set-field-load { flex: 1.4 1 0; }
+.set-field-reps { flex: 1.15 1 0; }
+.set-field-rir { flex: 0 0 82px; }
+
+.setok {
   display: flex;
-  flex-wrap: wrap;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 7px;
-  margin-top: 10px;
-}
-
-.set-actions .complete-set {
-  flex: 1 1 auto;
-  min-height: 44px;
-  padding: 10px 12px;
-  border: 1px solid var(--green);
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  border: 1.5px solid var(--control-border);
   border-radius: 11px;
-  background: rgba(34, 197, 94, .1);
-  color: #bbf7d0;
-  font-size: 13px;
-  font-weight: 850;
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 16px;
+  font-weight: 900;
 }
 
-.set-row.is-complete .set-actions .complete-set {
+.setok.on {
+  border-color: var(--green);
   background: var(--green);
   color: #06250f;
 }
 
-.set-actions .ghost-button {
-  flex: 0 0 auto;
-  min-height: 44px;
-  padding: 10px 12px;
+.setmore {
+  margin-top: 4px;
+}
+
+.setmore > summary {
+  min-height: 28px;
+  padding: 3px 2px;
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 750;
+}
+
+.setmore > summary::after {
+  font-size: 14px;
+}
+
+.restbtn {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: rgba(207, 122, 154, .14);
+  color: #f0b6cc;
+  font-size: 13.5px;
+  font-weight: 800;
+  text-align: center;
+  transition: .15s;
+}
+
+.restbtn:active {
+  transform: scale(.985);
+  background: rgba(207, 122, 154, .22);
+}
+
+/* Marcar feito da mobilidade: largura total, como na referência. */
+.mc {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 12px;
+  padding: 12px;
   border: 1px solid var(--control-border);
   border-radius: 11px;
   background: var(--card2);
   color: var(--muted);
-  font-size: 12.5px;
+  font-size: 13.5px;
   font-weight: 800;
+  text-align: center;
+  transition: .15s;
 }
 
-.setmore > summary,
-.exdetails > summary,
-details > summary {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 40px;
-  padding: 9px 2px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
+.mc.on {
+  border-color: var(--purple);
+  background: var(--purpdim);
+  color: #f9d8e4;
+}
+
+.workoutfinish {
+  width: 100%;
+  min-height: 48px;
+  margin: 4px 0 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  background: rgba(34, 197, 94, .09);
+  color: #bbf7d0;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.workoutfinish.on {
+  background: var(--green);
+  color: #06250f;
+}
+
+.notes {
+  margin: 8px 0 0;
+  padding: 0 0 0 2px;
   list-style: none;
 }
 
-details > summary::-webkit-details-marker {
-  display: none;
-}
-
-details > summary::after {
-  content: '+';
-  margin-left: auto;
-  color: var(--dim);
-  font-size: 17px;
-}
-
-details[open] > summary::after {
-  content: '−';
-}
-
-.setmore {
-  margin-top: 4px;
-  border-top: 1px solid var(--border);
-}
-
-.exdetails {
-  margin-top: 10px;
-  border: 1px solid var(--control-border);
-  border-radius: 12px;
-  background: #100e13;
-}
-
-.exdetails > summary {
-  padding: 11px 12px;
-}
-
-.details-body {
-  display: grid;
-  gap: 10px;
-  padding: 0 2px 10px;
-}
-
-.exdetails .details-body {
-  padding: 0 12px 12px;
-  border-top: 1px solid var(--border);
-}
-
-.notes-p {
-  margin: 0;
+.notes li {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.55;
 }
 
-.prevref {
-  padding: 9px 11px;
-  border: 1px dashed var(--bluedim);
-  border-radius: 9px;
-  background: rgba(207, 122, 154, .08);
-  color: var(--muted);
-  font-size: 11.5px;
+.notes li::before {
+  content: '• ';
+  color: var(--dim);
 }
 
-.prevref b {
-  color: #e0a3b8;
+.variantnote {
+  margin: 7px 1px 0;
+  color: var(--dim);
+  font-size: 10.5px;
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------- como me senti */
+
+.feedback {
+  margin-top: 12px;
+  overflow: hidden;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: #100e13;
+}
+
+.feedback > summary {
+  min-height: 44px;
+  padding: 11px 12px;
+  color: var(--muted);
+  font-size: 12.5px;
   font-weight: 800;
 }
 
-.prevref p {
-  margin: 5px 0 0;
-  line-height: 1.5;
+.feedback.flagged { border-color: #b45309; }
+.feedback.pain { border-color: #ef4444; }
+
+.feedbackbody {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border);
 }
 
-.recommendation {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
+.feedbackhint {
+  margin: 10px 0 8px;
+  color: var(--dim);
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.feelbar {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.feelbtn {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
   background: var(--card2);
   color: var(--muted);
   font-size: 12px;
-  line-height: 1.5;
+  font-weight: 800;
 }
 
-.recommendation strong {
-  display: block;
-  margin-bottom: 3px;
+.feelbtn.on { border-color: var(--purple); background: #2d1b36; color: #f9d8e4; }
+.feelbtn.pain.on { border-color: #ef4444; background: #351217; color: #fecaca; }
+.feelbtn.replace.on { border-color: #f59e0b; background: #33200c; color: #fde68a; }
+
+.feedbacktext {
+  width: 100%;
+  min-height: 76px;
+  padding: 10px 11px;
+  border: 1px solid var(--control-border);
+  border-radius: 10px;
+  background: var(--bg);
   color: var(--text);
-  font-size: 12.5px;
+  font-size: 16px;
+  line-height: 1.4;
+  resize: vertical;
 }
 
-.recommendation p {
-  margin: 0;
-}
+.feedbacktext:focus { border-color: var(--purple); outline: none; }
 
-.recommendation.is-increase {
-  border-color: var(--green);
-  color: #bbf7d0;
-}
+.feedbackmsg { margin: 8px 0 0; color: #fde68a; font-size: 11.5px; line-height: 1.45; }
+.feedbackmsg.danger { color: #fca5a5; }
 
-.recommendation.is-review {
-  border-color: var(--orange);
-  color: #f0d0a5;
+.feedback .field > span {
+  display: block;
+  margin: 10px 0 5px;
+  color: var(--dim);
+  font-size: 10.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .4px;
 }
 
 /* -------------------------------------------------------------- formulários */
@@ -1601,6 +1754,187 @@ body.large-text { font-size: 18px; }
 .large-text .primary-button,
 .large-text .secondary-button,
 .large-text .donebtn { font-size: 15px; }
+
+
+/* ------------------------------------------------- blocos recolhidos e nota */
+
+details > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+}
+
+details > summary::-webkit-details-marker,
+details > summary::marker {
+  display: none;
+  content: '';
+}
+
+details > summary::after {
+  content: '+';
+  margin-left: auto;
+  color: var(--dim);
+  font-size: 17px;
+  line-height: 1;
+}
+
+details[open] > summary::after {
+  content: '−';
+}
+
+.exdetails {
+  margin-top: 10px;
+  overflow: hidden;
+  border: 1px solid var(--control-border);
+  border-radius: 12px;
+  background: #100e13;
+}
+
+.exdetails > summary {
+  min-height: 44px;
+  padding: 11px 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.exdetails .details-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.details-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 2px 8px;
+}
+
+.notes-p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.recommendation {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card2);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.recommendation strong {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text);
+  font-size: 12.5px;
+}
+
+.recommendation p {
+  margin: 0;
+}
+
+.recommendation.is-increase {
+  border-color: var(--green);
+  color: #bbf7d0;
+}
+
+.recommendation.is-review {
+  border-color: var(--orange);
+  color: #f0d0a5;
+}
+
+/* O campo de repetições precisa caber "12–15" ao lado da unidade. */
+.set-field-load { flex: 1.3 1 0; }
+.set-field-reps { flex: 1.45 1 0; }
+
+.set-field-reps .sin {
+  padding-right: 42px;
+  font-size: 15.5px;
+}
+
+.set-field-rir .sin {
+  padding-right: 30px;
+  padding-left: 6px;
+  font-size: 15.5px;
+}
+
+.set-field-rir .funit {
+  right: 7px;
+  font-size: 9.5px;
+}
+
+
+/* Em telas estreitas a unidade sai de reps e RIR: o rótulo acessível continua
+   no <label>, e a faixa alvo (12–15) precisa caber dentro do campo. */
+@media (max-width: 430px) {
+  .set-field-reps .funit,
+  .set-field-rir .funit {
+    display: none;
+  }
+
+  .set-field-reps .sin,
+  .set-field-rir .sin {
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+
+  .set-field-rir { flex: 0 0 64px; }
+
+  .stag { width: 28px; }
+
+  .setok { width: 42px; }
+
+  .srow { gap: 6px; }
+}
+
+
+/* Em 320 px a linha da série quebra em duas: carga × reps em cima,
+   RIR e confirmação embaixo. Nada some e nada transborda. */
+@media (max-width: 370px) {
+  .srow {
+    flex-wrap: wrap;
+    row-gap: 7px;
+  }
+
+  .set-field-load,
+  .set-field-reps {
+    flex: 1 1 34%;
+  }
+
+  .set-field-rir {
+    flex: 1 1 auto;
+    margin-left: 34px;
+  }
+}
+
+
+/* Selects com opções longas não podem esticar o painel: o item precisa poder
+   encolher abaixo do próprio min-content. */
+.field-grid > *,
+.field,
+.check-field,
+.measurement-group,
+.metric-controls > * {
+  min-width: 0;
+}
+
+.input,
+.select,
+.textarea,
+.sin {
+  max-width: 100%;
+}
+
+.select {
+  text-overflow: ellipsis;
+}
 
 /* --------------------------------------------------------------- responsivo */
 

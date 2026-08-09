@@ -29,9 +29,11 @@ A referência visual canônica é `treino-hard-original-v2.2-2026-08-08/index.ht
 de semana, resumo e estados. Extraia dela apenas o **sistema visual** — a
 arquitetura e o JavaScript continuam sendo os da v3.
 
-O PDF da ficha **nunca** é referência de interface. Ele serviu somente para
-definir o conteúdo do treino. Nada de aparência de ficha impressa, planilha,
-tabela horizontal ou formulário administrativo.
+A referência do **cartão de exercício** é a captura do card da 2.2: nome + botão
+Marcar, subtítulo, selo, bloco Alvo, bloco do vídeo, cabeçalho das séries com o
+alvo, ações rápidas, linhas de série (carga × reps · RIR · confirmar), "Como me
+senti" recolhido e o botão de descanso em largura total. Nada de aparência de
+ficha impressa, planilha, tabela horizontal ou formulário administrativo.
 
 ## Invariantes
 
@@ -55,11 +57,11 @@ tabela horizontal ou formulário administrativo.
 
 ## Ficha canônica
 
-Fonte: `Ficha_de_Treino_Hipertrofia_Waubin.pdf` (hoje um placeholder do iCloud não
-hidratado — ver `PENDENCIAS.md`). A ficha está codificada em `js/workouts.js` e
-travada por 14 testes de conformidade em `tests/app.test.cjs`. **Não altere a ficha
-por preferência própria**; qualquer mudança precisa vir da fonte canônica e da
-tabela desses testes.
+A ficha é **congelada** e vive em três lugares, nesta ordem de autoridade:
+`js/workouts.js`, a especificação abaixo e os testes de conformidade de
+`tests/app.test.cjs`. Não há dependência de nenhum documento externo.
+**Não altere a ficha por preferência própria**; qualquer mudança precisa alterar
+a tabela desses testes junto com o código.
 
 ```
 Segunda  Empurrar A  17 séries
@@ -107,9 +109,11 @@ Chrome e os cenários de concorrência falham por timeout.
 - Chaves `__proto__`, `prototype` e `constructor` são recusadas na importação, junto
   com profundidade acima de 20 e campos inesperados do esquema 11.
 - Fórmulas do CSV são neutralizadas com apóstrofo.
-- Backup criptografado: AES-GCM 256, PBKDF2-SHA-256 com 310 000 iterações, salt e IV
-  aleatórios, cabeçalho autenticado como AAD, formato versionado. A senha nunca é
-  gravada, registrada nem incluída no arquivo. Não escreva criptografia própria.
+- Backup criptografado: AES-GCM 256, PBKDF2-SHA-256 com **600 000** iterações em
+  arquivos novos, salt e IV aleatórios, cabeçalho autenticado como AAD, formato
+  versionado. Backups antigos com 310 000 iterações continuam abrindo: o número de
+  iterações vem do próprio arquivo. A senha nunca é gravada, registrada nem
+  incluída no arquivo. Não escreva criptografia própria.
 
 ## Fluxo de entrega
 
@@ -123,6 +127,6 @@ Um push não é uma publicação. Confirme o build do Pages e a versão exibida 
 
 ## Pendências atuais
 
-Ver `PENDENCIAS.md`. Em resumo: o PDF canônico não pôde ser lido (quatro colunas da
-ficha seguem sem confronto), os 34 vídeos continuam sem curadoria, falta teste com
-leitor de tela real e a instalação pelo prompt do sistema não foi exercitada.
+Ver `PENDENCIAS.md`. Em resumo: parte do catálogo de vídeos segue `pending`, falta
+teste com leitor de tela real e a instalação pelo prompt do sistema não foi
+exercitada.
