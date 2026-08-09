@@ -1,0 +1,5 @@
+"tipo_registro","sessao_id","data","horario","treino","semana","status_sessao","exercicio","variacao","maquina","lado","serie","tipo_serie","carga_kg","repeticoes","rir","status_serie","descanso_segundos","dor","feedback","cardio_minutos","cardio_distancia_km","cardio_esforco","medida","valor_medida","unidade","observacao"
+"musculacao","session-example-push-a","2026-08-03","08:18:00","Empurrar A","1","completed","Supino reto na máquina","","maquina-exemplo-01","bilateral","2","work","40","15","3","completed","120","não","Execução confortável; registro fictício.","","","","","","",""
+"cardio","session-example-push-a","2026-08-03","18:30","","","normal","","","","","","","","","","","","não","","25","1.8","3","","","","Registro fictício."
+"medida","","2026-08-03","06:55:00","","","","","","","","","","","","","","","","","","","","Coxa esquerda","61","cm","Valores inteiramente fictícios."
+"medida","","2026-08-03","06:55:00","","","","","","","","","","","","","","","","","","","","Coxa direita","63","cm","Valores inteiramente fictícios."

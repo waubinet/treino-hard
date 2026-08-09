@@ -1,0 +1,2054 @@
+(function initApp(global) {
+  'use strict';
+
+  const Data = global.THFData;
+  const Core = global.THFCore;
+  const Storage = global.THFStorage;
+  const Measurements = global.THFMeasurements;
+
+  const TAB_DEFINITIONS = Object.freeze([
+    {id: 'today', label: 'Hoje'},
+    ...Data.WORKOUTS.map(workout => ({id: workout.id, label: workout.label})),
+    {id: 'cardio', label: 'Caminhada'},
+    {id: 'home', label: 'Rotina em casa'},
+    {id: 'evolution', label: 'Evolução'},
+    {id: 'measurements', label: 'Medidas'},
+    {id: 'cycles', label: 'Ciclos'},
+    {id: 'settings', label: 'Ajustes'}
+  ]);
+
+  const SESSION_LABELS = Object.freeze({
+    planned: 'Planejado', started: 'Iniciado', paused: 'Pausado', completed: 'Concluído', partial: 'Parcial',
+    skipped: 'Pulado', rescheduled: 'Remarcado', cancelled: 'Cancelado'
+  });
+  const SET_STATUS_OPTIONS = Object.freeze([
+    ['', 'Não informado'], ['completed', 'Concluída'], ['interrupted', 'Interrompida'], ['not_done', 'Não realizada'],
+    ['pain', 'Dor'], ['bad_technique', 'Técnica inadequada'], ['excessive_load', 'Carga excessiva'],
+    ['equipment_unavailable', 'Aparelho indisponível']
+  ]);
+  const FEELING_OPTIONS = Object.freeze([
+    ['', 'Não informado'], ['good', 'Senti-me bem'], ['awkward', 'Execução estranha'], ['pain', 'Dor'], ['replace', 'Quero conversar sobre substituição']
+  ]);
+  const RIR_OPTIONS = Object.freeze([['', 'Não informado'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5+', '5 ou mais']]);
+  const TERMINAL_STATUSES = new Set(['completed', 'partial', 'skipped', 'rescheduled', 'cancelled']);
+
+  const storage = new Storage.AppStorage();
+  let state = null;
+  let currentTab = 'today';
+  let tabFocusIndex = 0;
+  let persistedRevision = 0;
+  let saveQueue = Promise.resolve();
+  let editVersion = 0;
+  let modalReturnFocus = null;
+  let deferredInstallPrompt = null;
+  let pendingImport = null;
+  let pendingEncryptedImport = null;
+  let storageInventory = {backups: [], recoveries: [], cacheName: '', loaded: false, error: ''};
+  let evolutionSelection = {key: '', metric: 'maxLoad'};
+  let timerDeadline = 0;
+  let timerInterval = 0;
+  let timerContext = null;
+  let lastSetUndo = null;
+  let wakeLock = null;
+  let lastBackupState = 'Verificando…';
+  let pwaUpdateConfirmed = false;
+
+  const dom = {};
+
+  function element(tag, options, children) {
+    const config = options || {};
+    const node = document.createElement(tag);
+    if (config.className) node.className = config.className;
+    if (config.text != null) node.textContent = String(config.text);
+    Object.entries(config.attrs || {}).forEach(([name, value]) => {
+      if (value == null || value === false) return;
+      node.setAttribute(name, value === true ? '' : String(value));
+    });
+    Object.entries(config.dataset || {}).forEach(([name, value]) => {
+      if (value != null) node.dataset[name] = String(value);
+    });
+    Object.entries(config.props || {}).forEach(([name, value]) => {
+      node[name] = value;
+    });
+    const list = Array.isArray(children) ? children.flat(Infinity) : (children == null ? [] : [children]);
+    list.forEach(child => {
+      if (child == null || child === false) return;
+      node.appendChild(child instanceof Node ? child : document.createTextNode(String(child)));
+    });
+    return node;
+  }
+
+  function button(label, action, className, dataset, attributes) {
+    return element('button', {
+      className: className || 'secondary-button',
+      text: label,
+      attrs: Object.assign({type: 'button'}, attributes || {}),
+      dataset: Object.assign({action}, dataset || {})
+    });
+  }
+
+  function option(value, label, selected) {
+    return element('option', {text: label, attrs: {value, selected: selected === true}});
+  }
+
+  function field(label, control, className, hint) {
+    const contents = [element('span', {text: label}) , control];
+    if (hint) contents.push(element('small', {className: 'fine-print', text: hint}));
+    return element('label', {className: className || 'field'}, contents);
+  }
+
+  function formatDate(dateKey, long) {
+    if (!Core.validDate(dateKey)) return 'Data não registrada';
+    const date = new Date(`${dateKey}T12:00:00`);
+    return new Intl.DateTimeFormat('pt-BR', long ? {weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'} : {day: '2-digit', month: '2-digit', year: 'numeric'}).format(date);
+  }
+
+  function formatDateTime(value) {
+    const parsed = Core.validIso(value);
+    return parsed ? new Intl.DateTimeFormat('pt-BR', {dateStyle: 'short', timeStyle: 'short'}).format(new Date(parsed)) : 'Não registrado';
+  }
+
+  function formatDuration(seconds) {
+    const total = Math.max(0, Number(seconds) || 0);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    const rest = Math.floor(total % 60);
+    return hours ? `${hours}h ${String(minutes).padStart(2, '0')}min` : `${minutes}:${String(rest).padStart(2, '0')}`;
+  }
+
+  function localDateFromOffset(baseDate, offset) {
+    const date = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + offset, 12);
+    return Core.localDateKey(date);
+  }
+
+  function startOfWeek(reference) {
+    const date = reference instanceof Date ? reference : new Date();
+    const day = date.getDay();
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() - (day === 0 ? 6 : day - 1), 12);
+  }
+
+  function announce(message) {
+    dom.liveRegion.textContent = '';
+    global.setTimeout(() => { dom.liveRegion.textContent = message; }, 20);
+  }
+
+  function setSaveState(message, isError) {
+    dom.saveState.textContent = message;
+    dom.saveState.classList.toggle('is-error', Boolean(isError));
+  }
+
+  function showNotice(message, type, actions) {
+    dom.notice.replaceChildren(element('span', {text: message}));
+    dom.notice.className = `app-notice${type ? ` is-${type}` : ''}`;
+    if (actions && actions.length) {
+      dom.notice.appendChild(element('div', {className: 'app-notice-actions'}, actions));
+    }
+    dom.notice.hidden = false;
+  }
+
+  function hideNotice() {
+    dom.notice.hidden = true;
+    dom.notice.replaceChildren();
+  }
+
+  function applyPreferences() {
+    document.body.classList.toggle('large-text', state.settings.largeText);
+  }
+
+  function ensureCurrentWeekSessions() {
+    const monday = startOfWeek(new Date());
+    let changed = false;
+    Data.WORKOUTS.forEach((workout, index) => {
+      const date = localDateFromOffset(monday, index);
+      const exists = state.sessions.some(session => session.workoutId === workout.id && session.plannedDate === date);
+      if (!exists) {
+        state.sessions.push(Core.createSession(workout.id, date, state.cycle.currentWeek));
+        changed = true;
+      }
+    });
+    return changed;
+  }
+
+  async function persist(reason, rerender) {
+    const requestVersion = ++editVersion;
+    setSaveState('Salvando…', false);
+    saveQueue = saveQueue.catch(() => undefined).then(async () => {
+      const saved = await storage.writeDocument(state, persistedRevision, {});
+      persistedRevision = saved.revision;
+      state.revision = saved.revision;
+      state.updatedAt = saved.updatedAt;
+      if (requestVersion === editVersion) setSaveState('Salvo neste aparelho', false);
+      return saved;
+    }).catch(error => {
+      setSaveState('Falha ao salvar', true);
+      showNotice(error.message || String(error), 'error', error.code === 'REVISION_CONFLICT' ? [button('Recarregar dados', 'reload-external', 'secondary-button')] : []);
+      throw error;
+    });
+    try {
+      await saveQueue;
+      if (reason) announce(reason);
+      if (rerender) renderActivePanel();
+    } catch (error) {
+      return false;
+    }
+    return true;
+  }
+
+  function renderTabs() {
+    dom.tabs.replaceChildren(...TAB_DEFINITIONS.map((tab, index) => {
+      const selected = currentTab === tab.id;
+      return element('button', {
+        className: 'tab',
+        text: tab.label,
+        attrs: {
+          type: 'button', role: 'tab', id: `tab-${tab.id}`,
+          // Apenas o painel selecionado existe no DOM; apontar aria-controls para
+          // painéis ausentes deixaria doze referências ARIA quebradas.
+          'aria-controls': selected ? `panel-${tab.id}` : null,
+          'aria-selected': selected ? 'true' : 'false',
+          tabindex: index === tabFocusIndex ? '0' : '-1'
+        },
+        dataset: {action: 'activate-tab', tab: tab.id, tabIndex: index}
+      });
+    }));
+  }
+
+  function activateTab(tabId, focusPanel) {
+    const index = TAB_DEFINITIONS.findIndex(tab => tab.id === tabId);
+    if (index < 0) return;
+    currentTab = tabId;
+    tabFocusIndex = index;
+    renderTabs();
+    renderActivePanel();
+    if (tabId === 'settings') refreshStorageInventory();
+    if (focusPanel) {
+      const panel = document.getElementById(`panel-${tabId}`);
+      if (panel) panel.focus();
+    }
+  }
+
+  function panelShell(tabId, title, subtitle, children) {
+    return element('section', {
+      className: 'panel',
+      attrs: {role: 'tabpanel', id: `panel-${tabId}`, 'aria-labelledby': `tab-${tabId}`, tabindex: '-1'}
+    }, [
+      element('header', {className: 'panel-header'}, [element('h2', {text: title}), subtitle ? element('p', {text: subtitle}) : null]),
+      children
+    ]);
+  }
+
+  function renderActivePanel() {
+    if (!state) return;
+    let panel;
+    try {
+      if (currentTab === 'today') panel = renderTodayPanel();
+      else if (Data.WORKOUT_BY_ID[currentTab]) panel = renderWorkoutPanel(currentTab);
+      else if (currentTab === 'cardio') panel = renderCardioPanel();
+      else if (currentTab === 'home') panel = renderHomePanel();
+      else if (currentTab === 'evolution') panel = renderEvolutionPanel();
+      else if (currentTab === 'measurements') panel = renderMeasurementsPanel();
+      else if (currentTab === 'cycles') panel = renderCyclesPanel();
+      else panel = renderSettingsPanel();
+    } catch (error) {
+      // Uma falha de montagem nunca pode deixar o painel anterior no lugar,
+      // simulando que a aba pedida foi aberta com sucesso.
+      console.error('Falha ao montar o painel solicitado.', error);
+      panel = panelShell(currentTab, 'Falha ao montar esta aba', null, element('div', {className: 'warning-box'}, [
+        element('strong', {text: 'Esta aba não pôde ser montada.'}),
+        element('p', {text: error && error.message ? error.message : String(error)}),
+        element('p', {text: 'Nenhum registro foi alterado. Exporte um backup em Ajustes antes de continuar.'})
+      ]));
+    }
+    dom.panels.replaceChildren(panel);
+  }
+
+  function bindDom() {
+    dom.tabs = document.getElementById('primary-tabs');
+    dom.panels = document.getElementById('panels');
+    dom.loading = document.getElementById('loading-card');
+    dom.notice = document.getElementById('app-notice');
+    dom.saveState = document.getElementById('save-state');
+    dom.installButton = document.getElementById('install-button');
+    dom.installButton.dataset.action = 'install-app';
+    dom.modal = document.getElementById('app-modal');
+    dom.modalTitle = document.getElementById('modal-title');
+    dom.modalContent = document.getElementById('modal-content');
+    dom.videoModal = document.getElementById('video-modal');
+    dom.videoTitle = document.getElementById('video-title');
+    dom.videoStage = document.getElementById('video-stage');
+    dom.videoExternal = document.getElementById('video-external');
+    dom.importFile = document.getElementById('import-file');
+    dom.liveRegion = document.getElementById('live-region');
+    dom.timerBar = document.getElementById('timer-bar');
+    dom.timerNumber = document.getElementById('timer-number');
+    dom.timerLabel = document.getElementById('timer-label');
+    dom.timerAnnouncement = document.getElementById('timer-announcement');
+    dom.footerVersion = document.getElementById('footer-version');
+    if (dom.footerVersion) dom.footerVersion.textContent = `Treino Hard (Fofo) · versão ${Core.APP_VERSION} · esquema ${Core.SCHEMA_VERSION}`;
+  }
+
+  async function init() {
+    bindDom();
+    attachEventListeners();
+    try {
+      state = await storage.init();
+      persistedRevision = state.revision;
+      applyPreferences();
+      const planned = ensureCurrentWeekSessions();
+      dom.loading.remove();
+      renderTabs();
+      renderActivePanel();
+      if (storage.writeBlocked) {
+        setSaveState('Somente leitura', true);
+        showNotice(storage.lastError, 'error');
+      } else {
+        if (planned) await persist('Sessões desta semana planejadas.', true);
+        const backedUp = await storage.automaticBackup(state, false);
+        lastBackupState = backedUp ? 'Cópia automática criada hoje' : 'Cópia automática diária em dia';
+        setSaveState('Salvo neste aparelho', false);
+        if (currentTab === 'today') renderActivePanel();
+      }
+      storage.onExternalChange = handleExternalChange;
+      registerPwa();
+      updateOnlineStatus();
+    } catch (error) {
+      dom.loading.textContent = 'Não foi possível iniciar o aplicativo.';
+      setSaveState('Falha na inicialização', true);
+      showNotice(error.message || String(error), 'error');
+    }
+  }
+
+  global.addEventListener('DOMContentLoaded', init);
+
+  function pendingSessions() {
+    return state.sessions
+      .filter(session => ['planned', 'started', 'paused'].includes(session.status))
+      .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate) || a.createdAt.localeCompare(b.createdAt));
+  }
+
+  function sessionForToday() {
+    const today = Core.localDateKey();
+    if (new Date().getDay() === 0) return null;
+    if (state.settings.mode === 'sequence') return pendingSessions()[0] || null;
+    return state.sessions.find(session => session.plannedDate === today && !['rescheduled', 'cancelled'].includes(session.status)) || null;
+  }
+
+  function sessionForWorkout(workoutId) {
+    const today = Core.localDateKey();
+    const monday = Core.localDateKey(startOfWeek(new Date()));
+    const sundayAfter = localDateFromOffset(startOfWeek(new Date()), 6);
+    const candidates = state.sessions.filter(session => session.workoutId === workoutId);
+    return candidates.find(session => session.plannedDate === today && !['rescheduled', 'cancelled'].includes(session.status))
+      || candidates.find(session => session.plannedDate >= monday && session.plannedDate <= sundayAfter && !TERMINAL_STATUSES.has(session.status))
+      || candidates.sort((a, b) => b.plannedDate.localeCompare(a.plannedDate))[0]
+      || null;
+  }
+
+  function sessionProgress(session) {
+    if (!session) return {done: 0, total: 0, percent: 0};
+    const sets = session.exercises.flatMap(exercise => exercise.sets.filter(set => set.type === 'work'));
+    const completedSets = sets.filter(set => Boolean(set.status)).length;
+    const mobility = session.exercises.filter(exercise => !exercise.sets.length);
+    const completedMobility = mobility.filter(exercise => exercise.completed || exercise.skipped).length;
+    const total = sets.length + mobility.length;
+    const done = completedSets + completedMobility;
+    return {done, total, percent: total ? Math.round(done * 100 / total) : 0};
+  }
+
+  function nextSessionAfter(session) {
+    return pendingSessions().find(candidate => !session || candidate.id !== session.id) || null;
+  }
+
+  function summaryCard(label, value, detail) {
+    return element('article', {className: 'summary-card'}, [
+      element('span', {text: label}), element('strong', {text: value}), detail ? element('small', {text: detail}) : null
+    ]);
+  }
+
+  function sessionPrimaryPrescription(session) {
+    if (!session) return null;
+    return session.exercises.find(exercise => exercise.prescriptionSnapshot && exercise.prescriptionSnapshot.min) || null;
+  }
+
+  function renderTodayPanel() {
+    const now = new Date();
+    const today = Core.localDateKey(now);
+    const sunday = now.getDay() === 0;
+    const session = sessionForToday();
+    const next = nextSessionAfter(session);
+    const prescription = sessionPrimaryPrescription(session);
+    const progress = sessionProgress(session);
+    const children = [];
+
+    children.push(element('div', {className: 'summary-grid'}, [
+      summaryCard('Data', formatDate(today, false), new Intl.DateTimeFormat('pt-BR', {weekday: 'long'}).format(now)),
+      summaryCard('Semana', `Semana ${state.cycle.currentWeek}`, Data.WEEK_LABELS[state.cycle.currentWeek]),
+      summaryCard('Caminhada', sunday ? 'Sem meta' : 'Leve no fim do dia', sunday ? 'Descanso completo planejado' : 'Registro opcional'),
+      summaryCard('Backup', lastBackupState, storage.mode === 'indexeddb' ? 'IndexedDB local' : storage.mode === 'localstorage' ? 'Fallback local' : 'Memória temporária')
+    ]));
+
+    if (sunday) {
+      children.push(element('article', {className: 'card rest-day-card'}, [
+        element('div', {className: 'card-header'}, [element('div', {className: 'card-title'}, [element('h3', {text: 'Domingo — descanso completo'}), element('p', {text: 'Hoje não há musculação nem meta obrigatória de caminhada.'})])]),
+        next ? element('p', {text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label}, planejada para ${formatDate(next.plannedDate)}.`}) : element('p', {text: 'Não há sessão pendente.'})
+      ]));
+    } else if (!session) {
+      children.push(element('div', {className: 'empty-state'}, [element('h3', {text: 'Nenhuma sessão planejada para hoje'}), element('p', {text: 'Você pode abrir uma ficha e planejar ou remarcar uma sessão explicitamente.'})]));
+    } else {
+      const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      children.push(element('article', {className: 'card today-card'}, [
+        element('div', {className: 'card-header'}, [
+          element('div', {className: 'card-title'}, [element('h3', {text: workout.label}), element('p', {text: state.settings.mode === 'sequence' && session.plannedDate !== today ? `Pendente desde ${formatDate(session.plannedDate)}` : workout.intro})]),
+          element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
+        ]),
+        element('div', {className: 'target-box'}, [
+          element('div', {className: 'target-item'}, [element('span', {text: 'Faixa inicial'}), element('strong', {text: prescription ? `${prescription.prescriptionSnapshot.label} rep.` : 'Por exercício'})]),
+          element('div', {className: 'target-item'}, [element('span', {text: 'RIR inicial'}), element('strong', {text: prescription && prescription.prescriptionSnapshot.rirMin != null ? `${prescription.prescriptionSnapshot.rirMin}–${prescription.prescriptionSnapshot.rirMax}` : 'Por exercício'})]),
+          element('div', {className: 'target-item'}, [element('span', {text: 'Progresso'}), element('strong', {text: `${progress.done}/${progress.total}`})])
+        ]),
+        element('progress', {attrs: {max: '100', value: String(progress.percent), 'aria-label': `Progresso do treino: ${progress.percent}%`}}),
+        element('div', {className: 'button-row'}, [button('Abrir treino do dia', 'open-workout', 'primary-button', {workoutId: session.workoutId})])
+      ]));
+    }
+    if (!sunday && next) children.push(element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label} — ${formatDate(next.plannedDate)}.`}));
+    children.push(element('div', {className: 'info-box'}, [
+      element('strong', {text: 'Como interpretar a faixa'}),
+      element('p', {text: 'Uma faixa de 12–15 repetições significa escolher uma carga que permita terminar cada série entre 12 e 15 repetições com o esforço planejado. Não é obrigatório fazer 15 repetições nas três séries. Resultados como 15, 14 e 12 podem ser válidos.'})
+    ]));
+    return panelShell('today', 'Hoje', 'Planejamento real, sem registrar automaticamente o que não foi feito.', children);
+  }
+
+  function statusBadge(text, modifier) {
+    return element('span', {className: `badge${modifier ? ` ${modifier}` : ''}`, text});
+  }
+
+  function renderSessionActions(session) {
+    const actions = [];
+    if (session.status === 'planned') actions.push(button('Iniciar treino', 'session-start', 'primary-button', {sessionId: session.id}));
+    if (session.status === 'started') actions.push(button('Pausar', 'session-pause', 'secondary-button', {sessionId: session.id}));
+    if (session.status === 'paused') actions.push(button('Retomar', 'session-resume', 'primary-button', {sessionId: session.id}));
+    if (['started', 'paused'].includes(session.status)) {
+      actions.push(button('Finalizar treino', 'session-complete', 'success-button', {sessionId: session.id}));
+      actions.push(button('Encerrar como parcial', 'session-partial', 'secondary-button', {sessionId: session.id}));
+    }
+    if (['planned', 'started', 'paused'].includes(session.status)) {
+      actions.push(button('Remarcar', 'session-reschedule', 'secondary-button', {sessionId: session.id}));
+      actions.push(button('Pular', 'session-skip', 'ghost-button', {sessionId: session.id}));
+      actions.push(button('Cancelar', 'session-cancel', 'danger-button', {sessionId: session.id}));
+    }
+    if (TERMINAL_STATUSES.has(session.status)) actions.push(button('Reabrir sessão', 'session-reopen', 'secondary-button', {sessionId: session.id}));
+    return element('div', {className: 'button-row'}, actions);
+  }
+
+  function prescriptionText(snapshot) {
+    if (!snapshot || !snapshot.min) return snapshot && snapshot.label ? snapshot.label : 'Orientação registrada';
+    const rir = snapshot.rirMin == null ? 'RIR não definido' : snapshot.rirMin === snapshot.rirMax ? `${snapshot.rirMin} RIR` : `${snapshot.rirMin}–${snapshot.rirMax} RIR`;
+    return `${snapshot.sets} × ${snapshot.label} · ${rir}`;
+  }
+
+  function renderVideoStatus(exercise, log) {
+    // Exercícios de mobilidade não declaram variantes; sem esta guarda o painel
+    // inteiro de Pernas A/B deixa de renderizar.
+    const variants = Array.isArray(exercise.variants) ? exercise.variants : [];
+    const variant = variants.find(item => item.id === log.variationId);
+    const videoKey = variant && variant.videoKey ? variant.videoKey : exercise.videoKey;
+    const video = Data.VIDEOS[videoKey] || Data.VIDEOS[exercise.id];
+    if (!video || video.status !== 'accepted' || !video.youtubeId) {
+      return element('div', {className: 'video-status'}, [
+        element('strong', {text: 'Vídeo pendente de curadoria.'}),
+        element('span', {text: navigator.onLine ? 'Nenhum link foi aprovado sem assistir e conferir a execução.' : 'O vídeo exige internet; o registro continua funcionando offline.'})
+      ]);
+    }
+    return element('div', {className: 'video-status'}, [
+      element('strong', {text: video.classification === 'technical' ? 'Guia técnico' : video.classification === 'demonstration' ? 'Demonstração objetiva' : 'Referência visual'}),
+      element('span', {text: 'O selo descreve o conteúdo revisado e não certifica o autor.'}),
+      button('Ver vídeo', 'open-video', 'secondary-button', {videoKey})
+    ]);
+  }
+
+  function renderMobilityExercise(session, workoutExercise, exerciseLog, order) {
+    const feedback = exerciseLog.mobilityFeedback;
+    const sideFlags = [['stiffness', 'Rigidez'], ['pain', 'Dor'], ['range_limit', 'Limitação de amplitude'], ['support_difficulty', 'Dificuldade de apoio']];
+    const feedbackFields = ['left', 'right'].map(side => element('fieldset', {className: 'measurement-group'}, [
+      element('legend', {text: side === 'left' ? 'Lado esquerdo' : 'Lado direito'}),
+      ...sideFlags.map(([key, label]) => element('label', {className: 'check-field'}, [
+        element('input', {attrs: {type: 'checkbox'}, props: {checked: feedback[side][key]}, dataset: {action: 'mobility-flag', sessionId: session.id, exerciseId: exerciseLog.id, side, flag: key}}),
+        element('span', {text: label})
+      ]))
+    ]));
+    return element('article', {className: 'section-card'}, [
+      element('div', {className: 'card-header'}, [
+        element('div', {className: 'card-title'}, [element('h3', {text: `${order}. ${workoutExercise.name}`}), element('p', {text: `${workoutExercise.sets} × ${workoutExercise.target}${workoutExercise.effort ? ` · esforço aproximado ${workoutExercise.effort}` : ''}`})]),
+        statusBadge(exerciseLog.completed ? 'Concluído' : exerciseLog.skipped ? 'Não realizado' : 'Mobilidade', exerciseLog.completed ? 'is-success' : '')
+      ]),
+      renderVideoStatus(workoutExercise, exerciseLog),
+      element('details', {}, [element('summary', {text: 'Feedback opcional por lado'}), element('div', {className: 'details-body'}, [
+        element('div', {className: 'measurement-groups'}, feedbackFields),
+        field('Observação — inclua panturrilha ou tornozelo direito quando pertinente', element('textarea', {className: 'textarea', props: {value: feedback.note}, attrs: {rows: '2'}, dataset: {action: 'mobility-note', sessionId: session.id, exerciseId: exerciseLog.id}}), 'field full')
+      ])]),
+      element('div', {className: 'button-row'}, [
+        button(exerciseLog.completed ? 'Desmarcar conclusão' : 'Marcar mobilidade concluída', 'mobility-complete', exerciseLog.completed ? 'secondary-button' : 'success-button', {sessionId: session.id, exerciseId: exerciseLog.id}),
+        button(exerciseLog.skipped ? 'Repor na sessão' : 'Marcar não realizada', 'mobility-skip', 'ghost-button', {sessionId: session.id, exerciseId: exerciseLog.id})
+      ])
+    ]);
+  }
+
+  function renderSetRow(session, exerciseLog, set, setIndex) {
+    const completed = Boolean(set.status);
+    const idBase = `${session.id}-${exerciseLog.id}-${set.id}`;
+    const restValues = [60, 90, 120, 150, 180];
+    const restSelect = element('select', {className: 'select', attrs: {id: `${idBase}-rest`}, dataset: {action: 'set-rest-select', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, [
+      ...restValues.map(value => option(String(value), formatDuration(value), set.nextRestSeconds === value)),
+      option('custom', 'Personalizado', !restValues.includes(set.nextRestSeconds))
+    ]);
+    return element('div', {className: `set-row${set.type === 'warmup' ? ' is-warmup' : ''}${completed ? ' is-complete' : ''}`}, [
+      element('div', {className: 'set-number'}, [element('strong', {text: String(setIndex + 1)}), element('span', {text: set.type === 'warmup' ? 'Aquec.' : 'Trabalho'})]),
+      field('Carga (kg)', element('input', {className: 'input', attrs: {type: 'text', inputmode: 'decimal', id: `${idBase}-load`}, props: {value: set.load}, dataset: {action: 'set-field', field: 'load', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}})),
+      field('Repetições', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1000', id: `${idBase}-reps`}, props: {value: set.reps}, dataset: {action: 'set-field', field: 'reps', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}})),
+      field('RIR', element('select', {className: 'select', attrs: {id: `${idBase}-rir`}, dataset: {action: 'set-field', field: 'rir', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, RIR_OPTIONS.map(([value, label]) => option(value, label, set.rir === value)))),
+      field('Status', element('select', {className: 'select', attrs: {id: `${idBase}-status`}, dataset: {action: 'set-field', field: 'status', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, SET_STATUS_OPTIONS.map(([value, label]) => option(value, label, set.status === value)))),
+      field('Descanso seguinte', restSelect),
+      field('Segundos personalizados', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1800'}, props: {value: String(set.nextRestSeconds || 0)}, dataset: {action: 'set-field', field: 'nextRestSeconds', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}})),
+      field('Observação opcional', element('input', {className: 'input', attrs: {type: 'text', maxlength: '200'}, props: {value: set.note}, dataset: {action: 'set-field', field: 'note', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field full'),
+      element('div', {className: 'set-actions'}, [
+        button(completed ? 'Atualizar série' : 'Concluir série', 'set-complete', 'complete-set', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}),
+        set.nextRestSeconds ? button('Iniciar descanso', 'timer-start-set', 'ghost-button', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}) : null
+      ])
+    ]);
+  }
+
+  function renderStrengthExercise(session, workoutExercise, exerciseLog, order) {
+    const snapshot = exerciseLog.prescriptionSnapshot;
+    const recommendation = Core.doubleProgressionRecommendation(workoutExercise, exerciseLog, session.week);
+    const previous = previousComparablePerformance(session, exerciseLog);
+    const variantSelect = workoutExercise.variants.length ? field('Variação', element('select', {className: 'select', dataset: {action: 'variation-change', sessionId: session.id, exerciseId: exerciseLog.id}}, workoutExercise.variants.map(item => option(item.id, item.label, exerciseLog.variationId === item.id)))) : null;
+    return element('article', {className: 'section-card'}, [
+      element('div', {className: 'card-header'}, [
+        element('div', {className: 'card-title'}, [
+          element('h3', {text: `${order}. ${workoutExercise.name}${workoutExercise.unilateral ? ` — lado ${exerciseLog.side === 'left' ? 'esquerdo' : 'direito'}` : ''}`}),
+          element('p', {text: workoutExercise.detail || 'Registre apenas a execução realizada.'})
+        ]),
+        element('div', {className: 'badges'}, [
+          statusBadge(`${snapshot.sets} séries`, 'is-work'),
+          workoutExercise.unilateral ? statusBadge(exerciseLog.side === 'left' ? 'Esquerdo' : 'Direito', 'is-side') : null,
+          snapshot.deload ? statusBadge('Deload', 'is-deload') : null
+        ])
+      ]),
+      element('div', {className: 'target-box'}, [
+        element('div', {className: 'target-item'}, [element('span', {text: 'Meta registrada nesta sessão'}), element('strong', {text: prescriptionText(snapshot)})]),
+        element('div', {className: 'target-item'}, [element('span', {text: 'Descanso padrão'}), element('strong', {text: formatDuration(snapshot.restSeconds)})])
+      ]),
+      element('div', {className: 'field-grid is-three'}, [
+        variantSelect,
+        field('Identificação da máquina', element('input', {className: 'input', attrs: {type: 'text', maxlength: '80', placeholder: 'Ex.: articulada 2'}, props: {value: exerciseLog.machineId}, dataset: {action: 'exercise-field', field: 'machineId', sessionId: session.id, exerciseId: exerciseLog.id}}), null, 'Use um nome estável para não misturar máquinas.'),
+        workoutExercise.allowHighReps ? element('label', {className: 'check-field'}, [element('input', {attrs: {type: 'checkbox'}, props: {checked: exerciseLog.highRepPreference}, dataset: {action: 'high-rep-toggle', sessionId: session.id, exerciseId: exerciseLog.id}}), element('span', {text: 'Preferir faixa leve de 15–20 repetições quando aplicável'})]) : null
+      ]),
+      workoutExercise.bracing ? element('details', {}, [element('summary', {text: 'Orientação de bracing integrada'}), element('div', {className: 'details-body'}, [element('p', {text: Data.BRACING_TEXT}), element('p', {text: 'Bracing é estabilização por cocontração; vacuum é um controle motor separado. Um breve ensaio pode ser feito no aquecimento, sem substituir o intervalo por contrações fatigantes.'})])]) : null,
+      workoutExercise.notes.length ? element('details', {}, [element('summary', {text: 'Técnica e contexto'}), element('div', {className: 'details-body'}, workoutExercise.notes.map(note => element('p', {text: note})))]) : null,
+      renderVideoStatus(workoutExercise, exerciseLog),
+      previous ? element('div', {className: 'info-box'}, [
+        element('strong', {text: `Última execução comparável · ${formatDate(previous.session.actualDate || previous.session.plannedDate)}`}),
+        element('p', {text: previous.workSets.map(set => `${set.load || '—'} kg × ${set.reps || '—'}`).join(' · ')}),
+        previous.decision ? element('p', {text: `Recomendação registrada: ${previous.decision.message}`}) : null,
+        button('Copiar somente as cargas anteriores', 'copy-previous-loads', 'secondary-button', {sessionId: session.id, exerciseId: exerciseLog.id})
+      ]) : null,
+      element('div', {className: 'set-table'}, exerciseLog.sets.map((set, setIndex) => renderSetRow(session, exerciseLog, set, setIndex))),
+      element('details', {}, [element('summary', {text: 'Como me senti neste exercício'}), element('div', {className: 'details-body'}, [
+        element('div', {className: 'field-grid'}, [
+          field('Sensação', element('select', {className: 'select', dataset: {action: 'exercise-field', field: 'feeling', sessionId: session.id, exerciseId: exerciseLog.id}}, FEELING_OPTIONS.map(([value, label]) => option(value, label, exerciseLog.feeling === value)))),
+          field('Feedback para conversar antes de substituir', element('textarea', {className: 'textarea', attrs: {rows: '2', maxlength: '300'}, props: {value: exerciseLog.feedback}, dataset: {action: 'exercise-field', field: 'feedback', sessionId: session.id, exerciseId: exerciseLog.id}}))
+        ]),
+        element('p', {className: 'fine-print', text: 'O app registra sua experiência, mas não troca o exercício automaticamente.'})
+      ])]),
+      element('div', {className: `recommendation${recommendation.code === 'increase' ? ' is-increase' : recommendation.code === 'review' ? ' is-review' : ''}`}, [element('strong', {text: 'Progressão dupla'}), element('p', {text: recommendation.message})])
+    ]);
+  }
+
+  function renderWorkoutPanel(workoutId) {
+    const workout = Data.WORKOUT_BY_ID[workoutId];
+    const session = sessionForWorkout(workoutId);
+    if (!session) {
+      return panelShell(workoutId, workout.label, workout.intro, element('div', {className: 'empty-state'}, [
+        element('p', {text: 'Nenhuma sessão foi planejada para esta ficha.'}),
+        button('Planejar para hoje', 'plan-workout-today', 'primary-button', {workoutId})
+      ]));
+    }
+    const progress = sessionProgress(session);
+    const children = [
+      element('article', {className: 'card'}, [
+        element('div', {className: 'card-header'}, [
+          element('div', {className: 'card-title'}, [element('h3', {text: `${formatDate(session.plannedDate, true)} · Semana ${session.week}`}), element('p', {text: `${workout.workSetTotal} séries de trabalho planejadas; aquecimentos não entram no volume${workout.exercises.some(exercise => exercise.unilateral) ? ' e o exercício unilateral conta uma vez, embora seja executado nos dois lados' : ''}.`})]),
+          element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
+        ]),
+        element('progress', {attrs: {max: '100', value: String(progress.percent), 'aria-label': `Progresso: ${progress.percent}%`}}),
+        element('p', {className: 'fine-print', text: `Progresso: ${progress.done} de ${progress.total} itens. Início: ${formatDateTime(session.startedAt)}. Duração registrada: ${session.durationSeconds ? formatDuration(session.durationSeconds) : 'em aberto'}.`}),
+        renderSessionActions(session)
+      ]),
+      element('div', {className: 'info-box'}, [element('strong', {text: 'Faixa, RIR e falha'}), element('p', {text: 'O limite inferior é o mínimo planejado; o superior é o topo da faixa. RIR estima quantas repetições ainda seriam possíveis com técnica aceitável. RIR 0 não é obrigatório e uma série encerrada por dor ou técnica inadequada não deve ser tratada como falha muscular planejada.'})]),
+      // Percorre os registros da sessão, e não o catálogo: um exercício
+      // unilateral produz dois registros e ambos precisam ser exibidos.
+      ...session.exercises.map(log => {
+        const index = workout.exercises.findIndex(exercise => exercise.id === log.exerciseId);
+        const exercise = index >= 0 ? workout.exercises[index] : null;
+        if (!exercise) return element('div', {className: 'warning-box', text: `Registro sem exercício correspondente nesta ficha: ${log.exerciseId}.`});
+        const order = index + 1;
+        return exercise.type === 'mobility' ? renderMobilityExercise(session, exercise, log, order) : renderStrengthExercise(session, exercise, log, order);
+      })
+    ];
+    return panelShell(workoutId, workout.label, workout.intro, children);
+  }
+
+  function recentTimeline(items, renderer, emptyText) {
+    if (!items.length) return element('div', {className: 'empty-state', text: emptyText});
+    return element('div', {className: 'timeline'}, items.slice().reverse().slice(0, 20).map(renderer));
+  }
+
+  function renderCardioPanel() {
+    const today = Core.localDateKey();
+    const sessionOptions = state.sessions.slice().sort((a, b) => b.plannedDate.localeCompare(a.plannedDate)).slice(0, 30);
+    const form = element('form', {className: 'section-card', dataset: {form: 'cardio'}}, [
+      element('h3', {text: 'Registrar caminhada'}),
+      element('p', {text: 'Caminhada leve no fim do dia, sem corrida e sem meta obrigatória de alta intensidade.'}),
+      element('div', {className: 'field-grid is-three'}, [
+        field('Data', element('input', {className: 'input', attrs: {type: 'date', name: 'date', required: true}, props: {value: today}})),
+        field('Horário de início', element('input', {className: 'input', attrs: {type: 'time', name: 'startTime'}})),
+        field('Duração (min)', element('input', {className: 'input', attrs: {type: 'number', name: 'durationMinutes', min: '0', max: '1440'}})),
+        field('Distância (km)', element('input', {className: 'input', attrs: {type: 'text', name: 'distanceKm', inputmode: 'decimal'}})),
+        field('Ritmo médio opcional', element('input', {className: 'input', attrs: {type: 'text', name: 'pace', maxlength: '30', placeholder: 'Ex.: 12:30 min/km'}})),
+        field('Percepção de esforço (0–10)', element('input', {className: 'input', attrs: {type: 'number', name: 'effort', min: '0', max: '10'}})),
+        field('Resultado', element('select', {className: 'select', attrs: {name: 'status'}}, [
+          option('normal', 'Realizada normalmente', true), option('shorter', 'Realizada mais curta'), option('interrupted', 'Interrompida'),
+          option('not_recovery', 'Não realizada por recuperação'), option('not_pain', 'Não realizada por dor'), option('not_unplanned', 'Não realizada por imprevisto')
+        ])),
+        field('Treino da manhã relacionado', element('select', {className: 'select', attrs: {name: 'relatedSessionId'}}, [option('', 'Nenhum'), ...sessionOptions.map(session => option(session.id, `${formatDate(session.plannedDate)} · ${Data.WORKOUT_BY_ID[session.workoutId].label}`))])),
+        field('Dor ou desconforto', element('input', {className: 'input', attrs: {type: 'text', name: 'discomfort', maxlength: '300'}}), 'field full'),
+        field('Observação', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '500'}}), 'field full')
+      ]),
+      element('fieldset', {className: 'measurement-group'}, [
+        element('legend', {text: 'Sinais opcionais nos dias de pernas'}),
+        ...[['fatigue', 'Fadiga'], ['rightCalfPain', 'Dor na panturrilha direita'], ['gaitChange', 'Alteração da marcha'], ['kneePain', 'Dor no joelho'], ['anklePain', 'Dor no tornozelo'], ['performanceDrop', 'Queda de rendimento']].map(([name, label]) => element('label', {className: 'check-field'}, [element('input', {attrs: {type: 'checkbox', name}}), element('span', {text: label})]))
+      ]),
+      element('div', {className: 'button-row'}, [element('button', {className: 'primary-button', text: 'Salvar caminhada', attrs: {type: 'submit'}})])
+    ]);
+    const history = recentTimeline(state.cardio, item => element('article', {className: 'timeline-item'}, [
+      element('strong', {text: `${formatDate(item.date)} · ${item.durationMinutes || 0} min${item.distanceKm ? ` · ${item.distanceKm} km` : ''}`}),
+      element('span', {text: `${item.startTime || 'horário não registrado'} · esforço ${item.effort || 'não informado'}/10 · ${item.discomfort || 'sem desconforto informado'}`})
+    ]), 'Nenhuma caminhada registrada.');
+    return panelShell('cardio', 'Caminhada', 'Módulo separado da musculação; o domingo não cria meta obrigatória.', [
+      element('div', {className: 'info-box'}, [element('p', {text: 'A caminhada leve realizada várias horas depois da musculação tende a ser compatível com a rotina de força e hipertrofia. Ajuste a duração caso prejudique a recuperação ou agrave dor. O app não altera o treino automaticamente.'})]),
+      form,
+      element('section', {className: 'card'}, [element('h3', {text: 'Histórico de caminhada'}), history])
+    ]);
+  }
+
+  function renderHomePanel() {
+    const form = element('form', {className: 'section-card', dataset: {form: 'home'}}, [
+      element('h3', {text: 'Registrar vacuum em casa'}),
+      element('div', {className: 'field-grid is-three'}, [
+        field('Data', element('input', {className: 'input', attrs: {type: 'date', name: 'date', required: true}, props: {value: Core.localDateKey()}})),
+        field('Horário', element('input', {className: 'input', attrs: {type: 'time', name: 'time'}})),
+        field('Posição', element('select', {className: 'select', attrs: {name: 'position'}}, [option('lying', 'Deitado', state.settings.vacuumPosition === 'lying'), option('all_fours', 'Quatro apoios', state.settings.vacuumPosition === 'all_fours'), option('seated', 'Sentado', state.settings.vacuumPosition === 'seated'), option('standing', 'Em pé', state.settings.vacuumPosition === 'standing')])),
+        field('Duração de cada repetição (s)', element('input', {className: 'input', attrs: {type: 'number', name: 'durationSeconds', min: '1', max: '300'}, props: {value: String(state.settings.vacuumDuration)}})),
+        field('Repetições', element('input', {className: 'input', attrs: {type: 'number', name: 'repetitions', min: '1', max: '20'}, props: {value: String(state.settings.vacuumRepetitions)}})),
+        field('Facilidade (0–10)', element('input', {className: 'input', attrs: {type: 'number', name: 'ease', min: '0', max: '10'}})),
+        field('Observações', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '500'}}), 'field full')
+      ]),
+      element('div', {className: 'button-row'}, [element('button', {className: 'primary-button', text: 'Salvar rotina', attrs: {type: 'submit'}})])
+    ]);
+    const history = recentTimeline(state.homeRoutines, item => element('article', {className: 'timeline-item'}, [
+      element('strong', {text: `${formatDate(item.date)} · ${item.repetitions} repetições de ${item.durationSeconds}s`}),
+      element('span', {text: `${item.time || 'horário não registrado'} · ${positionLabel(item.position)} · facilidade ${item.ease || 'não informada'}/10`})
+    ]), 'Nenhuma rotina em casa registrada.');
+    return panelShell('home', 'Rotina em casa', 'Vacuum separado dos seis treinos e dos gráficos de musculação.', [
+      element('div', {className: 'info-box'}, [
+        element('p', {text: `Configuração atual: ${state.settings.vacuumFrequency} dias por semana, ${state.settings.vacuumRepetitions} repetições de ${state.settings.vacuumDuration}s.`}),
+        element('p', {text: 'O vacuum pode ser realizado em casa, preferencialmente quando o estômago não estiver cheio, por conforto. O jejum não é apresentado como requisito nem como método comprovadamente superior. Vacuum não é método de queima localizada de gordura.'})
+      ]),
+      form,
+      element('section', {className: 'card'}, [element('h3', {text: 'Histórico da rotina'}), history])
+    ]);
+  }
+
+  function positionLabel(value) {
+    return {lying: 'Deitado', all_fours: 'Quatro apoios', seated: 'Sentado', standing: 'Em pé'}[value] || 'Posição não registrada';
+  }
+
+  function comparisonRecords() {
+    const groups = new Map();
+    state.sessions.filter(session => ['completed', 'partial'].includes(session.status)).forEach(session => {
+      const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      session.exercises.forEach(log => {
+        const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+        if (!exercise || exercise.type !== 'strength') return;
+        const snapshot = log.prescriptionSnapshot;
+        const range = snapshot && snapshot.min ? `${snapshot.min}-${snapshot.max}` : 'range-unspecified';
+        const key = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
+        if (!groups.has(key)) groups.set(key, {key, exercise, variationId: log.variationId, machineId: log.machineId, side: log.side, range, points: []});
+        const workSets = log.sets.filter(set => set.type === 'work');
+        const completed = workSets.filter(set => set.status === 'completed' && set.reps);
+        if (!workSets.length) return;
+        const loads = completed.map(set => Number(set.load) || 0);
+        const reps = completed.map(set => Number(set.reps) || 0);
+        const rirs = completed.map(set => Core.rirNumber(set.rir)).filter(value => value != null);
+        groups.get(key).points.push({
+          date: session.actualDate || session.plannedDate,
+          sessionId: session.id,
+          workout: workout.label,
+          week: session.week,
+          maxLoad: loads.length ? Math.max(...loads) : 0,
+          volume: completed.reduce((sum, set) => sum + (Number(set.load) || 0) * (Number(set.reps) || 0), 0),
+          reps: reps.length ? Math.max(...reps) : 0,
+          rir: rirs.length ? rirs.reduce((sum, value) => sum + value, 0) / rirs.length : null,
+          pain: workSets.filter(set => set.status === 'pain').length + (log.feeling === 'pain' ? 1 : 0),
+          bestSet: completed.sort((a, b) => (Number(b.load) || 0) - (Number(a.load) || 0) || (Number(b.reps) || 0) - (Number(a.reps) || 0))[0] || null
+        });
+      });
+    });
+    return [...groups.values()].map(group => {
+      const variant = group.exercise.variants.find(item => item.id === group.variationId);
+      group.label = `${group.exercise.name} · ${variant ? variant.label : group.variationId || 'variação padrão'} · ${group.machineId || 'máquina não identificada'} · ${group.side === 'bilateral' ? 'bilateral' : group.side} · ${group.range} rep.`;
+      group.points.sort((a, b) => a.date.localeCompare(b.date));
+      return group;
+    }).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }
+
+  function exerciseSeriesKey(log) {
+    const snapshot = log.prescriptionSnapshot || {};
+    const range = snapshot.min ? `${snapshot.min}-${snapshot.max}` : 'range-unspecified';
+    return Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
+  }
+
+  function previousComparablePerformance(currentSession, currentLog) {
+    const currentKey = exerciseSeriesKey(currentLog);
+    const candidates = state.sessions.filter(session => session.id !== currentSession.id && ['completed', 'partial'].includes(session.status) && (session.actualDate || session.plannedDate) <= (currentSession.actualDate || currentSession.plannedDate)).sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate));
+    for (const session of candidates) {
+      const log = session.exercises.find(item => exerciseSeriesKey(item) === currentKey);
+      if (!log) continue;
+      const workSets = log.sets.filter(set => set.type === 'work' && (set.load || set.reps));
+      if (!workSets.length) continue;
+      const decision = state.progressionDecisions.slice().reverse().find(item => item.sessionId === session.id && item.seriesKey === currentKey) || null;
+      return {session, log, workSets, decision};
+    }
+    return null;
+  }
+
+  function svgNode(name, attributes) {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', name);
+    Object.entries(attributes || {}).forEach(([key, value]) => node.setAttribute(key, String(value)));
+    return node;
+  }
+
+  function lineChart(points, metric, label) {
+    const valid = points.filter(point => Number.isFinite(point[metric]) && point[metric] != null);
+    if (!valid.length) return element('div', {className: 'empty-state', text: 'Ainda não há pontos numéricos para esta métrica.'});
+    const width = 760;
+    const height = 300;
+    const padding = 44;
+    const values = valid.map(point => Number(point[metric]));
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const span = max - min || Math.max(1, max || 1);
+    const svg = svgNode('svg', {viewBox: `0 0 ${width} ${height}`, class: 'chart-svg', role: 'img', 'aria-label': `${label}: ${valid.length} pontos cronológicos`});
+    for (let line = 0; line <= 4; line += 1) {
+      const y = padding + ((height - 2 * padding) * line / 4);
+      svg.appendChild(svgNode('line', {x1: padding, y1: y, x2: width - padding, y2: y, class: 'chart-grid-line'}));
+    }
+    const coords = valid.map((point, index) => ({
+      x: valid.length === 1 ? width / 2 : padding + index * (width - padding * 2) / (valid.length - 1),
+      y: height - padding - ((Number(point[metric]) - min) / span) * (height - padding * 2),
+      point
+    }));
+    if (coords.length > 1) svg.appendChild(svgNode('polyline', {points: coords.map(item => `${item.x},${item.y}`).join(' '), class: 'chart-line', fill: 'none'}));
+    coords.forEach(item => {
+      const circle = svgNode('circle', {cx: item.x, cy: item.y, r: 5, class: 'chart-point', tabindex: '0'});
+      circle.appendChild(svgNode('title'));
+      circle.firstChild.textContent = `${formatDate(item.point.date)}: ${Number(item.point[metric]).toLocaleString('pt-BR', {maximumFractionDigits: 2})}`;
+      svg.appendChild(circle);
+    });
+    const minLabel = svgNode('text', {x: 4, y: height - padding + 4, class: 'chart-label'});
+    minLabel.textContent = min.toLocaleString('pt-BR', {maximumFractionDigits: 1});
+    const maxLabel = svgNode('text', {x: 4, y: padding + 4, class: 'chart-label'});
+    maxLabel.textContent = max.toLocaleString('pt-BR', {maximumFractionDigits: 1});
+    svg.append(minLabel, maxLabel);
+    return svg;
+  }
+
+  function renderEvolutionPanel() {
+    const groups = comparisonRecords();
+    if (!groups.length) return panelShell('evolution', 'Evolução', 'Comparações exigem exercício, variação, máquina, lado e faixa iguais.', element('div', {className: 'empty-state'}, [element('h3', {text: 'Sem sessões concluídas comparáveis'}), element('p', {text: 'Finalize ao menos uma sessão com séries de trabalho registradas.'})]));
+    if (!groups.some(group => group.key === evolutionSelection.key)) evolutionSelection.key = groups[0].key;
+    const group = groups.find(item => item.key === evolutionSelection.key);
+    const metricLabels = {maxLoad: 'Carga máxima (kg)', volume: 'Volume (kg × rep.)', reps: 'Maior número de repetições', rir: 'RIR médio'};
+    const selector = element('div', {className: 'metric-controls'}, [
+      field('Série comparável', element('select', {className: 'select', dataset: {action: 'evolution-key'}}, groups.map(item => option(item.key, item.label, item.key === group.key)))),
+      field('Métrica', element('select', {className: 'select', dataset: {action: 'evolution-metric'}}, Object.entries(metricLabels).map(([value, label]) => option(value, label, evolutionSelection.metric === value))))
+    ]);
+    const painCount = group.points.reduce((sum, point) => sum + point.pain, 0);
+    const rows = group.points.slice().reverse().map(point => element('div', {className: 'split-row'}, [
+      element('strong', {text: `${formatDate(point.date)} · ${point.workout} · S${point.week}`}),
+      element('span', {text: `${metricLabels[evolutionSelection.metric]}: ${point[evolutionSelection.metric] == null ? 'não informado' : Number(point[evolutionSelection.metric]).toLocaleString('pt-BR', {maximumFractionDigits: 2})}${point.bestSet ? ` · melhor série ${point.bestSet.load || '—'} kg × ${point.bestSet.reps}` : ''}`})
+    ]));
+    return panelShell('evolution', 'Evolução', 'Nenhuma linha conecta máquinas ou variações diferentes.', [
+      selector,
+      element('section', {className: 'chart-card'}, [element('h3', {text: metricLabels[evolutionSelection.metric]}), lineChart(group.points, evolutionSelection.metric, metricLabels[evolutionSelection.metric])]),
+      element('div', {className: painCount ? 'warning-box' : 'info-box'}, [element('p', {text: `Frequência registrada de dor/desconforto nesta série comparável: ${painCount} ocorrência(s). Esse número descreve registros; não é diagnóstico.`})]),
+      element('section', {className: 'card'}, [element('h3', {text: 'Sessões desta comparação'}), element('div', {className: 'split-list'}, rows)]),
+      renderProgressionHistory()
+    ]);
+  }
+
+  function renderProgressionHistory() {
+    const decisions = state.progressionDecisions.slice().reverse().slice(0, 30);
+    if (!decisions.length) return element('section', {className: 'card'}, [element('h3', {text: 'Decisões de progressão'}), element('p', {text: 'As recomendações aparecerão aqui ao finalizar sessões completas ou parciais.'})]);
+    return element('section', {className: 'card'}, [
+      element('h3', {text: 'Decisões de progressão'}),
+      element('p', {text: 'A recomendação nunca altera a carga automaticamente. Registre o que decidiu e, depois, a carga realmente usada.'}),
+      element('div', {className: 'timeline'}, decisions.map(item => element('article', {className: 'timeline-item'}, [
+        element('strong', {text: `${formatDate(item.date)} · ${(Data.CATALOG[item.exerciseId] && Data.CATALOG[item.exerciseId].name) || item.exerciseId}`}),
+        element('span', {text: `${item.message} Resultado: ${item.result || 'não registrado'} · RIR: ${item.rir || 'não informado'}.`}),
+        element('div', {className: 'field-grid'}, [
+          field('Sua decisão', element('select', {className: 'select', dataset: {action: 'progression-decision', decisionId: item.id}}, [option('pending', 'Ainda não decidi', item.decision === 'pending'), option('accepted', 'Aceitei aumentar', item.decision === 'accepted'), option('maintained', 'Mantive a carga', item.decision === 'maintained'), option('rejected', 'Não segui a recomendação', item.decision === 'rejected')])),
+          field('Carga usada depois (kg)', element('input', {className: 'input', attrs: {type: 'text', inputmode: 'decimal'}, props: {value: item.nextLoad}, dataset: {action: 'progression-next-load', decisionId: item.id}}))
+        ])
+      ])))
+    ]);
+  }
+
+  function measurementForm() {
+    const groups = {base: 'Dados de base', torso: 'Tronco', limbs: 'Membros — registre cada lado'};
+    return element('form', {className: 'section-card', dataset: {form: 'measurement'}}, [
+      element('h3', {text: 'Nova medição'}),
+      element('div', {className: 'field-grid'}, [
+        field('Data', element('input', {className: 'input', attrs: {type: 'date', name: 'date', required: true}, props: {value: Core.localDateKey()}})),
+        field('Horário opcional', element('input', {className: 'input', attrs: {type: 'datetime-local', name: 'measuredAt'}}))
+      ]),
+      ...Object.entries(groups).map(([group, legend]) => element('fieldset', {className: 'measurement-group'}, [
+        element('legend', {text: legend}),
+        element('div', {className: 'field-grid is-three'}, Object.entries(Measurements.METRICS).filter(([, metric]) => metric.group === group).map(([key, metric]) => field(`${metric.label} (${metric.unit})`, element('input', {className: 'input', attrs: {type: 'text', name: key, inputmode: 'decimal', placeholder: metric.example}}))))
+      ])),
+      field('Observação', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '300'}}), 'field full'),
+      element('div', {className: 'button-row'}, [element('button', {className: 'primary-button', text: 'Salvar medidas', attrs: {type: 'submit'}})])
+    ]);
+  }
+
+  function measurementComparison(latest, previous) {
+    if (!latest) return element('div', {className: 'empty-state', text: 'Nenhuma medição registrada.'});
+    const geometry = Measurements.bodyGeometry(latest);
+    const chips = Object.entries(Measurements.METRICS).filter(([key]) => latest[key]).map(([key, metric]) => {
+      const difference = previous && previous[key] ? Number(latest[key]) - Number(previous[key]) : null;
+      return element('div', {className: 'body-chip'}, [element('strong', {text: `${metric.short}: ${latest[key]} ${metric.unit}`}), difference == null ? element('span', {text: 'Sem comparação'}) : element('span', {text: `${difference > 0 ? '+' : ''}${difference.toLocaleString('pt-BR', {maximumFractionDigits: 2})} desde a medição anterior`})]);
+    });
+    return element('section', {className: 'card'}, [
+      element('h3', {text: 'Silhueta comparativa aproximada'}),
+      element('p', {text: `Medição de ${formatDate(latest.date)}. ${geometry.directCount} medidas dimensionais disponíveis; partes sem medida direta são estimadas visualmente.`}),
+      element('div', {className: 'body-map-stage'}, [Measurements.createSilhouetteSvg(latest, previous)]),
+      element('div', {className: 'body-chip-grid'}, chips),
+      element('p', {className: 'fine-print', text: 'Esta é uma representação geométrica frontal aproximada, não uma reconstrução anatômica, avaliação clínica, inferência de força ou composição corporal. Pequenas diferenças não geram alertas automáticos.'})
+    ]);
+  }
+
+  function renderMeasurementsPanel() {
+    const ordered = state.measurements.slice().sort((a, b) => a.date.localeCompare(b.date) || String(a.measuredAt || a.savedAt || a.id).localeCompare(String(b.measuredAt || b.savedAt || b.id)));
+    const latest = ordered[ordered.length - 1] || null;
+    const previous = ordered[ordered.length - 2] || null;
+    const history = recentTimeline(ordered, item => element('article', {className: 'timeline-item'}, [
+      element('strong', {text: `${formatDate(item.date)}${item.weight ? ` · ${item.weight} kg` : ''}`}),
+      element('span', {text: `${Object.keys(Measurements.METRICS).filter(key => item[key]).length} medidas diretas ou derivadas${item.note ? ` · ${item.note}` : ''}`})
+    ]), 'Nenhuma medição registrada.');
+    return panelShell('measurements', 'Medidas', 'Campos bilaterais separados e representação explicitamente aproximada.', [measurementForm(), measurementComparison(latest, previous), element('section', {className: 'card'}, [element('h3', {text: 'Histórico'}), history])]);
+  }
+
+  function periodizationRows() {
+    const examples = [
+      ['Compostos superiores', Data.CATALOG.chest_press_machine], ['Agachamento e leg press', Data.CATALOG.squat],
+      ['Isoladores e acessórios', Data.CATALOG.lateral_raise_dumbbell], ['Levantamento terra', Data.CATALOG.deadlift_barbell]
+    ];
+    return examples.map(([label, exercise]) => {
+      const prescription = Data.prescriptionFor(exercise, state.cycle.currentWeek, false);
+      return element('div', {className: 'split-row'}, [element('strong', {text: label}), element('span', {text: `${prescription.sets} × ${prescription.label} · ${prescription.rirMin === prescription.rirMax ? prescription.rirMin : `${prescription.rirMin}–${prescription.rirMax}`} RIR${prescription.deload ? ' · deload' : ''}`})]);
+    });
+  }
+
+  function renderCyclesPanel() {
+    const legacyRecords = state.legacyCycles.reduce((sum, cycle) => sum + cycle.records.length, 0);
+    const archivedSessions = state.archives.reduce((sum, archive) => sum + archive.sessions.length, 0);
+    return panelShell('cycles', 'Ciclos', 'Controle explícito da semana e reinício reversível.', [
+      element('section', {className: 'section-card'}, [
+        element('h3', {text: 'Periodização ativa'}),
+        element('div', {className: 'field-grid'}, [field('Semana atual', element('select', {className: 'select', dataset: {action: 'cycle-week'}}, Array.from({length: 8}, (_, index) => option(String(index + 1), `Semana ${index + 1}${index === 7 ? ' — deload' : ''}`, state.cycle.currentWeek === index + 1))))]),
+        element('div', {className: 'split-list'}, periodizationRows()),
+        element('p', {className: 'fine-print', text: 'Alterar a semana atualiza apenas sessões ainda não iniciadas. Sessões antigas preservam a prescrição registrada no dia.'})
+      ]),
+      element('section', {className: 'card'}, [
+        element('h3', {text: 'Zerar periodização'}),
+        element('p', {text: 'Arquiva o ciclo e suas sessões, cria um snapshot para desfazer e começa novamente na semana 1. Medidas, caminhada, rotina em casa e ciclos legados permanecem.'}),
+        element('div', {className: 'button-row'}, [button('Zerar e iniciar novo ciclo', 'cycle-reset-request', 'danger-button'), button('Desfazer última ação por snapshot', 'snapshot-restore-request', 'secondary-button')])
+      ]),
+      element('section', {className: 'card'}, [
+        element('h3', {text: 'Histórico preservado'}),
+        element('div', {className: 'summary-grid'}, [summaryCard('Ciclos novos arquivados', String(state.archives.length), `${archivedSessions} sessões`), summaryCard('Ciclos ABC legados', String(state.legacyCycles.length), `${legacyRecords} registros preservados`)]),
+        state.legacyCycles.length ? element('div', {className: 'split-list'}, state.legacyCycles.map(cycle => element('div', {className: 'split-row'}, [element('strong', {text: cycle.label}), element('span', {text: `schema ${cycle.sourceSchema} · ${cycle.records.length} registros · ${cycle.records.filter(record => record.mappingStatus === 'ambiguous').length} ambíguos`})]))) : null
+      ])
+    ]);
+  }
+
+  function settingToggle(key, label, description) {
+    return element('label', {className: 'check-field'}, [
+      element('input', {attrs: {type: 'checkbox'}, props: {checked: state.settings[key]}, dataset: {action: 'setting-toggle', setting: key}}),
+      element('span', {}, [element('strong', {text: label}), element('small', {text: description})])
+    ]);
+  }
+
+  // Identificação da build em uso. Serve para conferir, no aparelho, se a
+  // publicação nova realmente chegou. O nome do cache nunca é apresentado como
+  // se fosse a versão do aplicativo.
+  function renderAboutCard() {
+    return element('section', {className: 'card', attrs: {id: 'about-card'}}, [
+      element('h3', {text: 'Sobre esta versão'}),
+      element('div', {className: 'split-list'}, [
+        ['Aplicativo', 'Treino Hard (Fofo)'],
+        ['Versão do app', Core.APP_VERSION],
+        ['Esquema de dados', String(Core.SCHEMA_VERSION)],
+        ['Cache do pacote offline', storageInventory.cacheName || 'não identificado']
+      ].map(([label, value]) => element('div', {className: 'split-row'}, [
+        element('strong', {text: label}),
+        element('span', {attrs: {'data-about': label === 'Versão do app' ? 'app-version' : label === 'Esquema de dados' ? 'schema' : ''}, text: value})
+      ]))),
+      element('p', {className: 'fine-print', text: 'A versão do app e o esquema de dados são independentes: o esquema só muda quando o formato gravado muda.'})
+    ]);
+  }
+
+  function renderSettingsPanel() {
+    return panelShell('settings', 'Ajustes', 'Preferências, modo de agenda, backups e privacidade.', [
+      renderAboutCard(),
+      element('section', {className: 'section-card'}, [
+        element('h3', {text: 'Agenda e experiência'}),
+        element('div', {className: 'field-grid'}, [
+          field('Modo da agenda', element('select', {className: 'select', dataset: {action: 'setting-mode'}}, [option('calendar', 'Calendário semanal', state.settings.mode === 'calendar'), option('sequence', 'Sequência de pendências', state.settings.mode === 'sequence')])),
+          settingToggle('autoStartRest', 'Iniciar intervalo ao confirmar série', 'Nunca inicia ao sair de um campo; apenas após o botão “Concluir série”.'),
+          settingToggle('sound', 'Som do cronômetro', 'Toca somente após uma interação que permita áudio.'),
+          settingToggle('vibration', 'Vibração', 'Quando o aparelho e o navegador permitirem.'),
+          settingToggle('largeText', 'Texto ampliado', 'Aumenta o conteúdo principal.'),
+          settingToggle('keepAwake', 'Manter tela ativa durante treino', 'Usa o bloqueio de tela do navegador quando disponível.')
+        ])
+      ]),
+      element('section', {className: 'section-card'}, [
+        element('h3', {text: 'Rotina em casa'}),
+        element('div', {className: 'field-grid is-three'}, [
+          field('Frequência sugerida (dias/semana)', element('input', {className: 'input', attrs: {type: 'number', min: '1', max: '7'}, props: {value: String(state.settings.vacuumFrequency)}, dataset: {action: 'setting-number', setting: 'vacuumFrequency'}})),
+          field('Repetições', element('input', {className: 'input', attrs: {type: 'number', min: '1', max: '10'}, props: {value: String(state.settings.vacuumRepetitions)}, dataset: {action: 'setting-number', setting: 'vacuumRepetitions'}})),
+          field('Duração (s)', element('input', {className: 'input', attrs: {type: 'number', min: '5', max: '120'}, props: {value: String(state.settings.vacuumDuration)}, dataset: {action: 'setting-number', setting: 'vacuumDuration'}}))
+        ])
+      ]),
+      element('section', {className: 'card'}, [
+        element('h3', {text: 'Backup e recuperação'}),
+        element('p', {text: 'O JSON restaura o aplicativo; o CSV serve para análise e não pode ser importado. A importação mostra uma prévia e cria snapshot antes de substituir o estado.'}),
+        element('div', {className: 'button-row'}, [button('Exportar JSON completo', 'export-json', 'primary-button'), button('Exportar JSON criptografado', 'export-encrypted', 'secondary-button'), button('Exportar CSV', 'export-csv', 'secondary-button'), button('Importar JSON com prévia', 'import-open', 'secondary-button'), button('Criar cópia automática agora', 'backup-now', 'secondary-button')]),
+        element('p', {className: 'fine-print', text: 'O backup criptografado usa AES-GCM de 256 bits com chave derivada por PBKDF2-SHA-256, salt e vetor de inicialização aleatórios. A senha não é gravada em lugar nenhum: sem ela o arquivo não pode ser aberto. A importação reconhece os dois formatos.'})
+      ]),
+      renderStorageInventory(),
+      element('section', {className: 'privacy-box'}, [
+        element('strong', {text: 'Privacidade local'}),
+        element('p', {text: 'Os registros ficam neste navegador e podem ser acessados por pessoas com acesso ao mesmo perfil do aparelho. Eles não são criptografados. Mantenha backups em local seguro.'}),
+        element('p', {text: `Armazenamento em uso: ${storage.mode === 'indexeddb' ? 'IndexedDB' : storage.mode === 'localstorage' ? 'localStorage de fallback' : 'memória temporária'}. Revisão do documento: ${state.revision}.`})
+      ])
+    ]);
+  }
+
+  // Lista as cópias automáticas e os itens de recuperação bruta preservados
+  // pelo armazenamento. Sem esta seção não havia como restaurar uma cópia
+  // automática nem exportar o material guardado antes de uma migração.
+  function renderStorageInventory() {
+    const backupRows = storageInventory.backups.map(item => element('div', {className: 'split-row'}, [
+      element('strong', {text: `${formatDateTime(item.savedAt)}${item.legacy ? ' · convertida de versão anterior' : ''}`}),
+      element('span', {text: `${Array.isArray(item.state && item.state.sessions) ? item.state.sessions.length : 0} sessão(ões) guardadas`}),
+      button('Restaurar esta cópia', 'backup-restore-request', 'secondary-button', {backupId: item.id})
+    ]));
+    const recoveryRows = storageInventory.recoveries.map(item => element('div', {className: 'split-row'}, [
+      element('strong', {text: formatDateTime(item.savedAt)}),
+      element('span', {text: item.reason || 'Recuperação local'}),
+      button('Exportar arquivo bruto', 'recovery-export', 'secondary-button', {recoveryId: item.id})
+    ]));
+    return element('section', {className: 'card'}, [
+      element('h3', {text: 'Cópias automáticas e recuperação bruta'}),
+      element('p', {text: 'O aplicativo mantém até três cópias automáticas diárias e preserva o material bruto encontrado antes de uma migração ou importação. Restaurar uma cópia cria antes um snapshot para desfazer.'}),
+      storageInventory.error ? element('div', {className: 'warning-box'}, [element('p', {text: storageInventory.error})]) : null,
+      element('h4', {text: 'Cópias automáticas'}),
+      backupRows.length ? element('div', {className: 'split-list'}, backupRows) : element('div', {className: 'empty-state', text: storageInventory.loaded ? 'Nenhuma cópia automática disponível neste aparelho.' : 'Carregando cópias automáticas…'}),
+      element('h4', {text: 'Recuperação bruta'}),
+      recoveryRows.length ? element('div', {className: 'split-list'}, recoveryRows) : element('div', {className: 'empty-state', text: storageInventory.loaded ? 'Nenhum material bruto preservado.' : 'Carregando recuperações…'})
+    ]);
+  }
+
+  async function activeCacheName() {
+    if (!('caches' in global)) return '';
+    try {
+      return (await caches.keys()).find(name => name.startsWith('treino-hard-')) || '';
+    } catch (error) {
+      return '';
+    }
+  }
+
+  async function refreshStorageInventory() {
+    const cacheName = await activeCacheName();
+    try {
+      const [backups, recoveries] = await Promise.all([storage.listBackups(), storage.getRecoveryItems()]);
+      storageInventory = {backups, recoveries, cacheName, loaded: true, error: ''};
+    } catch (error) {
+      storageInventory = {backups: [], recoveries: [], cacheName, loaded: true, error: `Não foi possível listar as cópias locais: ${error.message || error}`};
+    }
+    if (currentTab === 'settings') renderActivePanel();
+  }
+
+  async function restoreAutomaticBackup(backupId) {
+    try {
+      const restored = await storage.restoreBackup(backupId, state);
+      state = restored;
+      persistedRevision = restored.revision;
+      closeModal();
+      applyPreferences();
+      renderTabs();
+      renderActivePanel();
+      setSaveState('Cópia automática restaurada', false);
+      announce('Cópia automática restaurada; um snapshot anterior foi criado para desfazer.');
+      await refreshStorageInventory();
+    } catch (error) {
+      closeModal();
+      showNotice(`Não foi possível restaurar a cópia automática: ${error.message || error}. Nada foi alterado.`, 'error');
+    }
+  }
+
+  function exportRecoveryItem(recoveryId) {
+    const item = storageInventory.recoveries.find(entry => entry.id === recoveryId);
+    if (!item) { showNotice('Item de recuperação não encontrado.', 'warning'); return; }
+    downloadText(JSON.stringify(item, null, 2), `treino-hard-recuperacao-${fileDateStamp()}.json`, 'application/json');
+    announce('Arquivo bruto de recuperação exportado.');
+  }
+
+  function findSession(id) {
+    return state.sessions.find(session => session.id === id) || null;
+  }
+
+  function findExerciseLog(session, id) {
+    return session ? session.exercises.find(exercise => exercise.id === id) || null : null;
+  }
+
+  function findSet(session, exerciseId, setId) {
+    const exercise = findExerciseLog(session, exerciseId);
+    return {exercise, set: exercise ? exercise.sets.find(item => item.id === setId) || null : null};
+  }
+
+  function markSessionStarted(session) {
+    if (session.status !== 'planned') return;
+    session.status = 'started';
+    session.startedAt = new Date().toISOString();
+    session.actualDate = Core.localDateKey();
+    session.updatedAt = session.startedAt;
+    requestWakeLock();
+  }
+
+  function calculateSessionDuration(session, endTime) {
+    if (!session.startedAt) return 0;
+    const start = Date.parse(session.startedAt);
+    const end = Date.parse(endTime || new Date().toISOString());
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 0;
+    let paused = Number(session.pausedSeconds) || 0;
+    if (session.status === 'paused' && session.pausedAt) paused += Math.max(0, (end - Date.parse(session.pausedAt)) / 1000);
+    return Math.max(0, Math.round((end - start) / 1000 - paused));
+  }
+
+  function sessionFullyRecorded(session) {
+    return session.exercises.every(log => {
+      if (!log.sets.length) return log.completed || log.skipped;
+      return log.sets.filter(set => set.type === 'work').every(set => Boolean(set.status));
+    });
+  }
+
+  function recordProgressionDecisions(session) {
+    // Percorre os registros da sessão para que exercícios unilaterais gerem uma
+    // decisão por lado, sem misturar as cargas dos dois lados.
+    session.exercises.forEach(log => {
+      const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+      if (!exercise || exercise.type !== 'strength') return;
+      const range = `${log.prescriptionSnapshot.min}-${log.prescriptionSnapshot.max}`;
+      const seriesKey = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
+      if (state.progressionDecisions.some(item => item.sessionId === session.id && item.seriesKey === seriesKey)) return;
+      const recommendation = Core.doubleProgressionRecommendation(exercise, log, session.week);
+      const workSets = log.sets.filter(set => set.type === 'work');
+      state.progressionDecisions.push({
+        id: Core.uid('progression'),
+        sessionId: session.id,
+        exerciseId: log.exerciseId,
+        seriesKey,
+        date: session.actualDate || session.plannedDate,
+        recommendation: recommendation.code,
+        message: recommendation.message,
+        load: workSets.map(set => Number(set.load) || 0).sort((a, b) => b - a)[0] || '',
+        result: workSets.map(set => set.reps || '—').join(' / '),
+        rir: workSets.map(set => set.rir || 'não informado').join(' / '),
+        decision: 'pending',
+        nextLoad: '',
+        savedAt: new Date().toISOString()
+      });
+    });
+  }
+
+  async function startSession(session) {
+    markSessionStarted(session);
+    await persist('Treino iniciado.', true);
+  }
+
+  async function pauseSession(session) {
+    if (session.status !== 'started') return;
+    session.status = 'paused';
+    session.pausedAt = new Date().toISOString();
+    session.updatedAt = session.pausedAt;
+    await releaseWakeLock();
+    await persist('Treino pausado.', true);
+  }
+
+  async function resumeSession(session) {
+    if (session.status !== 'paused') return;
+    const now = new Date().toISOString();
+    if (session.pausedAt) session.pausedSeconds += Math.max(0, Math.round((Date.parse(now) - Date.parse(session.pausedAt)) / 1000));
+    session.pausedAt = '';
+    session.status = 'started';
+    session.updatedAt = now;
+    requestWakeLock();
+    await persist('Treino retomado.', true);
+  }
+
+  async function finalizeSession(session, status) {
+    if (status === 'completed' && !sessionFullyRecorded(session)) {
+      showNotice('Ainda há itens sem status. Use “Encerrar como parcial” ou registre todos os itens antes de concluir.', 'warning');
+      return;
+    }
+    const completedAt = new Date().toISOString();
+    session.durationSeconds = calculateSessionDuration(session, completedAt);
+    session.status = status;
+    session.completedAt = completedAt;
+    session.actualDate = session.actualDate || Core.localDateKey();
+    session.pausedAt = '';
+    session.updatedAt = completedAt;
+    recordProgressionDecisions(session);
+    stopTimer();
+    await releaseWakeLock();
+    await persist(status === 'completed' ? 'Treino do dia concluído.' : 'Treino encerrado como parcial.', true);
+    await storage.automaticBackup(state, true);
+    lastBackupState = 'Cópia automática atualizada agora';
+  }
+
+  function refreshExerciseCompletion(log) {
+    const workSets = log.sets.filter(set => set.type === 'work');
+    log.completed = workSets.length > 0 && workSets.every(set => Boolean(set.status));
+  }
+
+  async function completeSet(session, log, set) {
+    const previousSet = Core.deepClone(set);
+    const confirmedStatus = set.status || 'completed';
+    if (confirmedStatus === 'completed' && !set.reps) {
+      showNotice('Informe as repetições ou escolha outro status antes de concluir a série.', 'warning');
+      return;
+    }
+    markSessionStarted(session);
+    lastSetUndo = {
+      sessionId: session.id,
+      exerciseId: log.id,
+      setId: set.id,
+      previous: previousSet,
+      exerciseCompleted: log.completed
+    };
+    set.status = confirmedStatus;
+    set.completedAt = new Date().toISOString();
+    refreshExerciseCompletion(log);
+    session.updatedAt = set.completedAt;
+    await persist('Série confirmada.', true);
+    if (state.settings.autoStartRest && set.nextRestSeconds) startTimer(set.nextRestSeconds, Data.CATALOG[log.exerciseId] ? Data.CATALOG[log.exerciseId].name : 'Exercício', {sessionId: session.id, exerciseId: log.id, setId: set.id});
+  }
+
+  async function undoLastSet() {
+    if (!lastSetUndo) {
+      announce('Não há série recente para desfazer.');
+      return;
+    }
+    const session = findSession(lastSetUndo.sessionId);
+    const found = findSet(session, lastSetUndo.exerciseId, lastSetUndo.setId);
+    if (!found.set) return;
+    Object.assign(found.set, Core.deepClone(lastSetUndo.previous));
+    found.exercise.completed = lastSetUndo.exerciseCompleted;
+    lastSetUndo = null;
+    stopTimer();
+    await persist('Última confirmação de série desfeita.', true);
+  }
+
+  function startTimer(seconds, label, context) {
+    const duration = Math.max(0, Math.min(1800, Number(seconds) || 0));
+    if (!duration) return;
+    timerDeadline = Date.now() + duration * 1000;
+    timerContext = context || null;
+    dom.timerLabel.textContent = `Intervalo · ${label}`;
+    dom.timerBar.hidden = false;
+    updateTimer();
+    global.clearInterval(timerInterval);
+    timerInterval = global.setInterval(updateTimer, 250);
+    if (state.settings.vibration && navigator.vibrate) navigator.vibrate(40);
+  }
+
+  function updateTimer() {
+    const seconds = Math.max(0, Math.ceil((timerDeadline - Date.now()) / 1000));
+    dom.timerNumber.textContent = formatDuration(seconds);
+    dom.timerNumber.setAttribute('aria-label', `${seconds} segundos restantes`);
+    if (seconds > 0) return;
+    global.clearInterval(timerInterval);
+    timerInterval = 0;
+    dom.timerAnnouncement.textContent = 'Intervalo concluído.';
+    if (state.settings.vibration && navigator.vibrate) navigator.vibrate([120, 80, 120]);
+    if (state.settings.sound) playTimerSound();
+  }
+
+  function playTimerSound() {
+    try {
+      const AudioContext = global.AudioContext || global.webkitAudioContext;
+      if (!AudioContext) return;
+      const context = new AudioContext();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = 740;
+      gain.gain.value = 0.08;
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.18);
+      oscillator.addEventListener('ended', () => context.close());
+    } catch (error) {
+      showNotice(`O aviso sonoro não pôde ser tocado: ${error.message || error}`, 'warning');
+    }
+  }
+
+  function stopTimer() {
+    global.clearInterval(timerInterval);
+    timerInterval = 0;
+    timerDeadline = 0;
+    timerContext = null;
+    dom.timerBar.hidden = true;
+    dom.timerAnnouncement.textContent = '';
+  }
+
+  async function requestWakeLock() {
+    if (!state || !state.settings.keepAwake || !('wakeLock' in navigator) || document.visibilityState !== 'visible') return;
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } catch (error) {
+      showNotice(`Não foi possível manter a tela ativa: ${error.message || error}`, 'warning');
+    }
+  }
+
+  async function releaseWakeLock() {
+    if (!wakeLock) return;
+    try { await wakeLock.release(); } catch (error) { console.warn('Falha ao liberar bloqueio de tela.', error); }
+    wakeLock = null;
+  }
+
+  function openModal(title, content) {
+    modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dom.modalTitle.textContent = title;
+    dom.modalContent.replaceChildren(content);
+    dom.modal.hidden = false;
+    dom.modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    const focusable = modalFocusable(dom.modal);
+    if (focusable[0]) focusable[0].focus();
+  }
+
+  function closeModal() {
+    dom.modal.hidden = true;
+    dom.modal.setAttribute('aria-hidden', 'true');
+    dom.modalContent.replaceChildren();
+    document.body.classList.remove('modal-open');
+    if (modalReturnFocus && document.contains(modalReturnFocus)) modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  function confirmationModal(title, message, action, dataset, confirmLabel) {
+    openModal(title, element('div', {}, [
+      element('p', {text: message}),
+      element('div', {className: 'button-row'}, [button(confirmLabel || 'Confirmar', action, 'danger-button', dataset), button('Voltar', 'close-modal', 'secondary-button')])
+    ]));
+  }
+
+  function modalFocusable(container) {
+    return [...container.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]')].filter(node => !node.hidden);
+  }
+
+  function trapModalFocus(event, container) {
+    if (event.key !== 'Tab') return;
+    const items = modalFocusable(container);
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+
+  function openVideo(videoKey) {
+    const video = Data.VIDEOS[videoKey];
+    if (!video || video.status !== 'accepted' || !video.youtubeId) {
+      showNotice('Vídeo pendente de curadoria; nenhum player incorreto será aberto.', 'warning');
+      return;
+    }
+    modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dom.videoTitle.textContent = video.title || 'Vídeo de apoio';
+    const iframe = element('iframe', {attrs: {src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.youtubeId)}`, title: video.title || 'Vídeo de apoio', allow: 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture', allowfullscreen: true}});
+    dom.videoStage.replaceChildren(iframe);
+    dom.videoExternal.href = video.url;
+    dom.videoExternal.hidden = false;
+    dom.videoModal.hidden = false;
+    dom.videoModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    const closeButton = dom.videoModal.querySelector('[data-action="close-video"]');
+    if (closeButton) closeButton.focus();
+  }
+
+  function closeVideo() {
+    dom.videoModal.hidden = true;
+    dom.videoModal.setAttribute('aria-hidden', 'true');
+    dom.videoStage.replaceChildren();
+    dom.videoExternal.hidden = true;
+    document.body.classList.remove('modal-open');
+    if (modalReturnFocus && document.contains(modalReturnFocus)) modalReturnFocus.focus();
+    modalReturnFocus = null;
+  }
+
+  function attachEventListeners() {
+    document.addEventListener('click', handleClick);
+    document.addEventListener('input', handleInput);
+    document.addEventListener('change', handleChange);
+    document.addEventListener('submit', handleSubmit);
+    document.addEventListener('keydown', handleKeyDown);
+    global.addEventListener('online', updateOnlineStatus);
+    global.addEventListener('offline', updateOnlineStatus);
+    global.addEventListener('beforeinstallprompt', event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      dom.installButton.hidden = false;
+    });
+    global.addEventListener('appinstalled', () => {
+      deferredInstallPrompt = null;
+      dom.installButton.hidden = true;
+      announce('Aplicativo instalado.');
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state && state.sessions.some(session => session.status === 'started')) requestWakeLock();
+    });
+  }
+
+  async function handleClick(event) {
+    const target = event.target instanceof Element ? event.target.closest('[data-action]') : null;
+    if (!target) return;
+    const action = target.dataset.action;
+    if (target.tagName === 'A' && action !== 'open-video') return;
+    if (action === 'activate-tab') { activateTab(target.dataset.tab, false); return; }
+    if (action === 'open-workout') { activateTab(target.dataset.workoutId, true); return; }
+    if (action === 'close-modal') { closeModal(); return; }
+    if (action === 'close-video') { closeVideo(); return; }
+    if (action === 'open-video') { openVideo(target.dataset.videoKey); return; }
+    if (action === 'timer-stop') { stopTimer(); return; }
+    if (action === 'timer-add') { if (timerDeadline) { timerDeadline += 30000; updateTimer(); } return; }
+    if (action === 'timer-undo') { await undoLastSet(); return; }
+    if (action === 'install-app') { await installApp(); return; }
+    if (action === 'pwa-update') { applyPwaUpdate(); return; }
+    if (action === 'reload-external') { await reloadExternalState(); return; }
+    if (action === 'export-json') { exportJson(); return; }
+    if (action === 'export-encrypted') { openEncryptedExportModal(); return; }
+    if (action === 'export-encrypted-confirm') { await exportEncryptedJson(); return; }
+    if (action === 'export-csv') { exportCsv(); return; }
+    if (action === 'import-open') { dom.importFile.value = ''; dom.importFile.click(); return; }
+    if (action === 'import-decrypt') { await decryptPendingImport(); return; }
+    if (action === 'import-confirm') { await confirmImport(); return; }
+    if (action === 'backup-now') { await createBackupNow(); return; }
+    if (action === 'backup-restore-request') {
+      confirmationModal('Restaurar cópia automática', 'O documento atual será substituído pela cópia automática escolhida. Um snapshot do estado atual será criado antes da troca.', 'backup-restore-confirm', {backupId: target.dataset.backupId}, 'Restaurar cópia');
+      return;
+    }
+    if (action === 'backup-restore-confirm') { await restoreAutomaticBackup(target.dataset.backupId); return; }
+    if (action === 'recovery-export') { exportRecoveryItem(target.dataset.recoveryId); return; }
+    if (action === 'cycle-reset-request') {
+      confirmationModal('Zerar periodização', 'O ciclo atual e todas as sessões serão arquivados. Um snapshot será criado antes da mudança. Medidas, caminhada, rotina em casa e histórico legado permanecerão.', 'cycle-reset-confirm', {}, 'Arquivar e começar na semana 1');
+      return;
+    }
+    if (action === 'cycle-reset-confirm') { await resetCycle(); return; }
+    if (action === 'snapshot-restore-request') {
+      confirmationModal('Desfazer pelo snapshot', 'O estado atual será substituído pelo snapshot mais recente. Um novo snapshot de segurança será criado antes da restauração.', 'snapshot-restore-confirm', {}, 'Restaurar snapshot');
+      return;
+    }
+    if (action === 'snapshot-restore-confirm') { await restoreSnapshot(); return; }
+    if (action === 'plan-workout-today') { await planWorkoutToday(target.dataset.workoutId); return; }
+    if (action === 'copy-previous-loads') { await copyPreviousLoads(target.dataset.sessionId, target.dataset.exerciseId); return; }
+
+    const session = findSession(target.dataset.sessionId);
+    if (action.startsWith('session-') && !session) return;
+    if (action === 'session-start') { await startSession(session); return; }
+    if (action === 'session-pause') { await pauseSession(session); return; }
+    if (action === 'session-resume') { await resumeSession(session); return; }
+    if (action === 'session-complete') { await finalizeSession(session, 'completed'); return; }
+    if (action === 'session-partial') {
+      confirmationModal('Encerrar treino parcial', 'Os itens registrados serão preservados e os não realizados continuarão explícitos no histórico.', 'session-partial-confirm', {sessionId: session.id}, 'Encerrar como parcial');
+      return;
+    }
+    if (action === 'session-partial-confirm') { closeModal(); await finalizeSession(session, 'partial'); return; }
+    if (action === 'session-skip') {
+      confirmationModal('Pular sessão', 'A sessão ficará registrada como pulada. Ela não será contada como realizada.', 'session-skip-confirm', {sessionId: session.id}, 'Registrar como pulada');
+      return;
+    }
+    if (action === 'session-skip-confirm') { closeModal(); await setTerminalSessionStatus(session, 'skipped'); return; }
+    if (action === 'session-cancel') {
+      confirmationModal('Cancelar sessão', 'A sessão continuará no histórico como cancelada.', 'session-cancel-confirm', {sessionId: session.id}, 'Cancelar sessão');
+      return;
+    }
+    if (action === 'session-cancel-confirm') { closeModal(); await setTerminalSessionStatus(session, 'cancelled'); return; }
+    if (action === 'session-reschedule') { openRescheduleModal(session); return; }
+    if (action === 'session-reschedule-confirm') { await confirmReschedule(session); return; }
+    if (action === 'session-reopen') { await reopenSession(session); return; }
+
+    const found = findSet(session, target.dataset.exerciseId, target.dataset.setId);
+    if (action === 'set-complete' && found.set) { await completeSet(session, found.exercise, found.set); return; }
+    if (action === 'timer-start-set' && found.set) {
+      startTimer(found.set.nextRestSeconds, Data.CATALOG[found.exercise.exerciseId] ? Data.CATALOG[found.exercise.exerciseId].name : 'Exercício', {sessionId: session.id, exerciseId: found.exercise.id, setId: found.set.id});
+      return;
+    }
+    if (action === 'mobility-complete') { await toggleMobility(session, target.dataset.exerciseId, 'completed'); return; }
+    if (action === 'mobility-skip') { await toggleMobility(session, target.dataset.exerciseId, 'skipped'); return; }
+    if (action === 'variation-confirm') { await confirmVariation(target.dataset.sessionId, target.dataset.exerciseId, target.dataset.variationId); }
+  }
+
+  async function handleChange(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
+    if (target === dom.importFile) { await previewImportFile(target.files && target.files[0]); return; }
+    const action = target.dataset.action;
+    if (!action) return;
+    if (action === 'evolution-key') { evolutionSelection.key = target.value; renderActivePanel(); return; }
+    if (action === 'evolution-metric') { evolutionSelection.metric = target.value; renderActivePanel(); return; }
+    if (action === 'setting-mode') { state.settings.mode = target.value === 'sequence' ? 'sequence' : 'calendar'; await persist('Modo de agenda atualizado.', true); return; }
+    if (action === 'setting-toggle') { state.settings[target.dataset.setting] = target.checked; applyPreferences(); await persist('Preferência atualizada.', true); return; }
+    if (action === 'setting-number') {
+      const key = target.dataset.setting;
+      const limits = {vacuumFrequency: [1, 7], vacuumRepetitions: [1, 10], vacuumDuration: [5, 120]};
+      const [min, max] = limits[key];
+      state.settings[key] = Math.max(min, Math.min(max, Number(target.value) || min));
+      await persist('Configuração da rotina atualizada.', true);
+      return;
+    }
+    if (action === 'cycle-week') { await changeCycleWeek(Number(target.value)); return; }
+    if (action === 'progression-decision') {
+      const decision = state.progressionDecisions.find(item => item.id === target.dataset.decisionId);
+      if (decision) { decision.decision = ['pending', 'accepted', 'maintained', 'rejected'].includes(target.value) ? target.value : 'pending'; await persist('Decisão de progressão registrada.', false); }
+      return;
+    }
+    if (action === 'progression-next-load') {
+      const decision = state.progressionDecisions.find(item => item.id === target.dataset.decisionId);
+      if (decision) { decision.nextLoad = Core.numericString(target.value, {max: 5000, decimals: 2}); await persist('Carga posterior registrada.', false); }
+      return;
+    }
+    const session = findSession(target.dataset.sessionId);
+    const log = findExerciseLog(session, target.dataset.exerciseId);
+    if (!session || !log) return;
+    if (action === 'set-field') {
+      const set = log.sets.find(item => item.id === target.dataset.setId);
+      if (!set) return;
+      assignSetField(set, target.dataset.field, target.value);
+      refreshExerciseCompletion(log);
+      await persist('Série atualizada.', false);
+      return;
+    }
+    if (action === 'set-rest-select') {
+      if (target.value !== 'custom') {
+        const set = log.sets.find(item => item.id === target.dataset.setId);
+        if (set) { set.nextRestSeconds = Number(target.value) || 0; await persist('Intervalo da série atualizado.', true); }
+      }
+      return;
+    }
+    if (action === 'exercise-field') {
+      assignExerciseField(log, target.dataset.field, target.value);
+      await persist('Registro do exercício atualizado.', false);
+      return;
+    }
+    if (action === 'mobility-flag') { log.mobilityFeedback[target.dataset.side][target.dataset.flag] = target.checked; await persist('Feedback de mobilidade atualizado.', false); return; }
+    if (action === 'mobility-note') { log.mobilityFeedback.note = Core.cleanText(target.value, 300); await persist('Observação de mobilidade atualizada.', false); return; }
+    if (action === 'variation-change') { requestVariationChange(session, log, target.value); return; }
+    if (action === 'high-rep-toggle') { updateHighRepPreference(session, log, target.checked); await persist('Faixa preferencial atualizada.', true); }
+  }
+
+  function assignSetField(set, fieldName, value) {
+    if (fieldName === 'load') set.load = Core.numericString(value, {max: 5000, decimals: 2});
+    else if (fieldName === 'reps') set.reps = Core.integerString(value, 1000);
+    else if (fieldName === 'rir') set.rir = Core.VALID_RIR.has(value) ? value : '';
+    else if (fieldName === 'status') set.status = Core.SET_STATUSES.has(value) ? value : '';
+    else if (fieldName === 'nextRestSeconds') set.nextRestSeconds = Math.max(0, Math.min(1800, Number(value) || 0));
+    else if (fieldName === 'note') set.note = Core.cleanText(value, 200);
+  }
+
+  function assignExerciseField(log, fieldName, value) {
+    if (fieldName === 'machineId') log.machineId = Core.cleanText(value, 80);
+    else if (fieldName === 'feeling') log.feeling = FEELING_OPTIONS.some(optionItem => optionItem[0] === value) ? value : '';
+    else if (fieldName === 'feedback') log.feedback = Core.cleanText(value, 300);
+  }
+
+  function handleInput(event) {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+    const action = target.dataset.action;
+    if (!['set-field', 'exercise-field', 'mobility-note'].includes(action)) return;
+    const session = findSession(target.dataset.sessionId);
+    const log = findExerciseLog(session, target.dataset.exerciseId);
+    if (!session || !log) return;
+    if (action === 'set-field') {
+      const set = log.sets.find(item => item.id === target.dataset.setId);
+      if (set) assignSetField(set, target.dataset.field, target.value);
+    } else if (action === 'exercise-field') assignExerciseField(log, target.dataset.field, target.value);
+    else log.mobilityFeedback.note = Core.cleanText(target.value, 300);
+  }
+
+  function handleKeyDown(event) {
+    if (!dom.modal.hidden) {
+      if (event.key === 'Escape') { event.preventDefault(); closeModal(); return; }
+      trapModalFocus(event, dom.modal);
+      return;
+    }
+    if (!dom.videoModal.hidden) {
+      if (event.key === 'Escape') { event.preventDefault(); closeVideo(); return; }
+      trapModalFocus(event, dom.videoModal);
+      return;
+    }
+    const tab = event.target instanceof Element ? event.target.closest('[role="tab"]') : null;
+    if (!tab) return;
+    const count = TAB_DEFINITIONS.length;
+    let nextIndex = tabFocusIndex;
+    if (event.key === 'ArrowRight') nextIndex = (tabFocusIndex + 1) % count;
+    else if (event.key === 'ArrowLeft') nextIndex = (tabFocusIndex - 1 + count) % count;
+    else if (event.key === 'Home') nextIndex = 0;
+    else if (event.key === 'End') nextIndex = count - 1;
+    else if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      activateTab(tab.dataset.tab, true);
+      return;
+    } else return;
+    event.preventDefault();
+    tabFocusIndex = nextIndex;
+    renderTabs();
+    const nextTab = document.getElementById(`tab-${TAB_DEFINITIONS[nextIndex].id}`);
+    if (nextTab) nextTab.focus();
+  }
+
+  async function handleSubmit(event) {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.dataset.form) return;
+    event.preventDefault();
+    const data = new FormData(form);
+    if (form.dataset.form === 'cardio') await saveCardio(data, form);
+    else if (form.dataset.form === 'home') await saveHomeRoutine(data, form);
+    else if (form.dataset.form === 'measurement') await saveMeasurement(data, form);
+  }
+
+  async function setTerminalSessionStatus(session, status) {
+    session.status = status;
+    session.completedAt = new Date().toISOString();
+    session.durationSeconds = calculateSessionDuration(session, session.completedAt);
+    session.updatedAt = session.completedAt;
+    await releaseWakeLock();
+    await persist(`Sessão registrada como ${SESSION_LABELS[status].toLowerCase()}.`, true);
+  }
+
+  function openRescheduleModal(session) {
+    const input = element('input', {className: 'input', attrs: {type: 'date', id: 'reschedule-date', min: Core.localDateKey(), required: true}, props: {value: session.plannedDate}});
+    openModal('Remarcar sessão', element('div', {}, [
+      field('Nova data planejada', input),
+      element('p', {className: 'fine-print', text: 'A sessão original ficará como remarcada e uma nova sessão será criada. O app não reorganiza outras sessões automaticamente.'}),
+      element('div', {className: 'button-row'}, [button('Confirmar remarcação', 'session-reschedule-confirm', 'primary-button', {sessionId: session.id}), button('Voltar', 'close-modal', 'secondary-button')])
+    ]));
+  }
+
+  async function confirmReschedule(session) {
+    const input = document.getElementById('reschedule-date');
+    const newDate = input ? Core.validDate(input.value) : '';
+    if (!newDate) { showNotice('Escolha uma data válida para remarcar.', 'warning'); return; }
+    await storage.createSnapshot(state, 'Antes de remarcar sessão');
+    const replacement = Core.createSession(session.workoutId, newDate, session.week);
+    replacement.rescheduledFrom = session.plannedDate;
+    session.status = 'rescheduled';
+    session.completedAt = new Date().toISOString();
+    session.updatedAt = session.completedAt;
+    state.sessions.push(replacement);
+    closeModal();
+    await persist(`Sessão remarcada para ${formatDate(newDate)}.`, true);
+  }
+
+  async function reopenSession(session) {
+    await storage.createSnapshot(state, 'Antes de reabrir sessão');
+    session.status = session.startedAt ? 'started' : 'planned';
+    session.completedAt = '';
+    session.durationSeconds = 0;
+    session.updatedAt = new Date().toISOString();
+    if (session.status === 'started') requestWakeLock();
+    await persist('Sessão reaberta.', true);
+  }
+
+  async function toggleMobility(session, exerciseId, fieldName) {
+    const log = findExerciseLog(session, exerciseId);
+    if (!log) return;
+    markSessionStarted(session);
+    log[fieldName] = !log[fieldName];
+    if (fieldName === 'completed' && log.completed) log.skipped = false;
+    if (fieldName === 'skipped' && log.skipped) log.completed = false;
+    session.updatedAt = new Date().toISOString();
+    await persist('Mobilidade atualizada.', true);
+  }
+
+  function hasExerciseData(log) {
+    return Boolean(log.feedback || log.feeling || log.machineId || log.sets.some(set => set.load || set.reps || set.rir || set.status || set.note));
+  }
+
+  function requestVariationChange(session, log, nextVariation) {
+    const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    if (!exercise || !exercise.variants.some(item => item.id === nextVariation) || nextVariation === log.variationId) return;
+    if (!hasExerciseData(log)) {
+      log.variationId = nextVariation;
+      persist('Variação atualizada; o histórico comparável permanecerá separado.', true);
+      return;
+    }
+    renderActivePanel();
+    confirmationModal('Trocar variação', 'Os registros já digitados serão preservados nesta sessão, mas a comparação futura usará uma chave diferente. Confirme somente se esta foi realmente a variação executada.', 'variation-confirm', {sessionId: session.id, exerciseId: log.id, variationId: nextVariation}, 'Confirmar variação executada');
+  }
+
+  async function confirmVariation(sessionId, exerciseId, variationId) {
+    const session = findSession(sessionId);
+    const log = findExerciseLog(session, exerciseId);
+    const exercise = log ? Data.findExercise(session.workoutId, log.exerciseId) : null;
+    if (!exercise || !exercise.variants.some(item => item.id === variationId)) return;
+    log.variationId = variationId;
+    closeModal();
+    await persist('Variação confirmada; cargas de variações diferentes não serão misturadas.', true);
+  }
+
+  function updateHighRepPreference(session, log, enabled) {
+    const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    if (!exercise || !exercise.allowHighReps) return;
+    log.highRepPreference = Boolean(enabled);
+    const prescription = Data.prescriptionFor(exercise, session.week, log.highRepPreference);
+    Object.assign(log.prescriptionSnapshot, {min: prescription.min, max: prescription.max, label: prescription.label, rirMin: prescription.rirMin, rirMax: prescription.rirMax, deload: prescription.deload});
+  }
+
+  async function planWorkoutToday(workoutId) {
+    if (!Data.WORKOUT_BY_ID[workoutId]) return;
+    const date = Core.localDateKey();
+    const existing = state.sessions.find(session => session.workoutId === workoutId && session.plannedDate === date && !['cancelled', 'rescheduled'].includes(session.status));
+    if (existing) { renderActivePanel(); return; }
+    state.sessions.push(Core.createSession(workoutId, date, state.cycle.currentWeek));
+    await persist('Sessão planejada para hoje.', true);
+  }
+
+  async function copyPreviousLoads(sessionId, exerciseId) {
+    const session = findSession(sessionId);
+    const log = findExerciseLog(session, exerciseId);
+    if (!session || !log) return;
+    const previous = previousComparablePerformance(session, log);
+    if (!previous) { showNotice('Nenhuma execução anterior exatamente comparável foi encontrada.', 'warning'); return; }
+    const source = previous.workSets;
+    const target = log.sets.filter(set => set.type === 'work');
+    target.forEach((set, index) => { if (source[index] && source[index].load) set.load = source[index].load; });
+    await persist('Cargas anteriores copiadas; repetições, RIR e status permaneceram vazios.', true);
+  }
+
+  async function saveCardio(formData, form) {
+    const raw = {
+      id: Core.uid('cardio'),
+      date: formData.get('date'),
+      startTime: formData.get('startTime'),
+      durationMinutes: formData.get('durationMinutes'),
+      distanceKm: formData.get('distanceKm'),
+      pace: formData.get('pace'),
+      effort: formData.get('effort'),
+      status: formData.get('status'),
+      discomfort: formData.get('discomfort'),
+      note: formData.get('note'),
+      relatedSessionId: formData.get('relatedSessionId'),
+      legDayFlags: Object.fromEntries(['fatigue', 'rightCalfPain', 'gaitChange', 'kneePain', 'anklePain', 'performanceDrop'].map(key => [key, formData.has(key)])),
+      savedAt: new Date().toISOString()
+    };
+    const normalized = Core.normalizeCardio(raw, state.cardio.length);
+    if (!normalized) { showNotice('A data da caminhada não é válida.', 'warning'); return; }
+    state.cardio.push(normalized);
+    const related = findSession(normalized.relatedSessionId);
+    if (related) related.cardioId = normalized.id;
+    await persist('Caminhada registrada.', true);
+    form.reset();
+  }
+
+  async function saveHomeRoutine(formData, form) {
+    const raw = {
+      id: Core.uid('home'),
+      date: formData.get('date'), time: formData.get('time'), position: formData.get('position'),
+      durationSeconds: formData.get('durationSeconds'), repetitions: formData.get('repetitions'), ease: formData.get('ease'),
+      note: formData.get('note'), savedAt: new Date().toISOString()
+    };
+    const normalized = Core.normalizeHomeRoutine(raw, state.homeRoutines.length);
+    if (!normalized) { showNotice('A data da rotina em casa não é válida.', 'warning'); return; }
+    state.homeRoutines.push(normalized);
+    await persist('Rotina em casa registrada.', true);
+    form.reset();
+  }
+
+  async function saveMeasurement(formData, form) {
+    const measuredInput = String(formData.get('measuredAt') || '');
+    let measuredAt = '';
+    if (measuredInput) {
+      const parsed = new Date(measuredInput);
+      if (!Number.isNaN(parsed.getTime())) measuredAt = parsed.toISOString();
+    }
+    const raw = {id: Core.uid('measurement'), date: formData.get('date'), measuredAt, note: formData.get('note'), savedAt: new Date().toISOString()};
+    Object.keys(Measurements.METRICS).forEach(key => { raw[key] = formData.get(key); });
+    const normalized = Core.normalizeMeasurement(raw, state.measurements.length);
+    if (!normalized) { showNotice('Informe uma data e ao menos uma medida numérica válida.', 'warning'); return; }
+    state.measurements.push(normalized);
+    await persist('Medidas corporais registradas.', true);
+    form.reset();
+  }
+
+  function replacePlannedSessionPrescription(session, week) {
+    if (session.status !== 'planned' || hasSessionInput(session)) return false;
+    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    session.week = week;
+    session.exercises = workout.exercises.flatMap(exercise => Core.createExerciseLogs(exercise, week));
+    session.updatedAt = new Date().toISOString();
+    return true;
+  }
+
+  function hasSessionInput(session) {
+    return session.exercises.some(log => log.completed || log.skipped || hasExerciseData(log));
+  }
+
+  async function changeCycleWeek(week) {
+    const nextWeek = Math.max(1, Math.min(8, Number(week) || 1));
+    if (nextWeek === state.cycle.currentWeek) return;
+    await storage.createSnapshot(state, `Antes de alterar para semana ${nextWeek}`);
+    state.cycle.currentWeek = nextWeek;
+    let updated = 0;
+    state.sessions.forEach(session => { if (replacePlannedSessionPrescription(session, nextWeek)) updated += 1; });
+    await persist(`Semana alterada para ${nextWeek}; ${updated} sessão(ões) ainda vazia(s) foram atualizadas.`, true);
+  }
+
+  async function resetCycle() {
+    await storage.createSnapshot(state, 'Antes de zerar a periodização');
+    const archivedAt = new Date().toISOString();
+    state.archives.push({
+      id: Core.uid('archive'),
+      archivedAt,
+      cycle: Object.assign({}, state.cycle, {status: 'archived'}),
+      sessions: Core.deepClone(state.sessions)
+    });
+    state.sessions = [];
+    state.cycle = {id: Core.uid('cycle'), startedAt: archivedAt, currentWeek: 1, status: 'active'};
+    ensureCurrentWeekSessions();
+    closeModal();
+    stopTimer();
+    await releaseWakeLock();
+    await persist('Periodização zerada; o ciclo anterior foi arquivado e a semana 1 foi iniciada.', true);
+  }
+
+  async function restoreSnapshot() {
+    const snapshot = await storage.latestSnapshot();
+    if (!snapshot || !snapshot.state) { closeModal(); showNotice('Nenhum snapshot válido está disponível.', 'warning'); return; }
+    await storage.createSnapshot(state, 'Antes de restaurar snapshot anterior');
+    const restored = Core.normalizeState(snapshot.state);
+    restored.revision = persistedRevision;
+    state = await storage.writeDocument(restored, persistedRevision, {});
+    persistedRevision = state.revision;
+    closeModal();
+    applyPreferences();
+    renderActivePanel();
+    setSaveState('Snapshot restaurado', false);
+    announce('Snapshot restaurado com sucesso.');
+  }
+
+  function downloadText(text, filename, mimeType) {
+    const blob = new Blob([text], {type: `${mimeType};charset=utf-8`});
+    const url = URL.createObjectURL(blob);
+    const anchor = element('a', {attrs: {href: url, download: filename}});
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    global.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function fileDateStamp() {
+    return Core.localDateKey().replace(/-/g, '');
+  }
+
+  function exportJson() {
+    const backup = Core.buildBackup(state);
+    downloadText(JSON.stringify(backup, null, 2), `treino-hard-backup-${fileDateStamp()}.json`, 'application/json');
+    lastBackupState = 'JSON exportado agora';
+    announce('Backup JSON exportado.');
+    if (currentTab === 'today') renderActivePanel();
+  }
+
+  function buildCsv() {
+    const headers = ['tipo_registro', 'sessao_id', 'data', 'horario', 'treino', 'semana', 'status_sessao', 'exercicio', 'variacao', 'maquina', 'lado', 'serie', 'tipo_serie', 'carga_kg', 'repeticoes', 'rir', 'status_serie', 'descanso_segundos', 'dor', 'feedback', 'cardio_minutos', 'cardio_distancia_km', 'cardio_esforco', 'medida', 'valor_medida', 'unidade', 'observacao'];
+    const rows = [headers];
+    state.sessions.forEach(session => {
+      const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      session.exercises.forEach(log => {
+        const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+        if (!exercise) return;
+        if (!log.sets.length) {
+          rows.push(['mobilidade', session.id, session.actualDate || session.plannedDate, session.startedAt ? new Date(session.startedAt).toLocaleTimeString('pt-BR') : '', workout.label, session.week, session.status, exercise.name, log.variationId, log.machineId, log.side, '', 'mobilidade', '', '', '', log.completed ? 'completed' : log.skipped ? 'not_done' : '', '', log.mobilityFeedback.left.pain || log.mobilityFeedback.right.pain ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', log.mobilityFeedback.note]);
+          return;
+        }
+        log.sets.forEach((set, index) => rows.push(['musculacao', session.id, session.actualDate || session.plannedDate, set.completedAt ? new Date(set.completedAt).toLocaleTimeString('pt-BR') : '', workout.label, session.week, session.status, exercise.name, log.variationId, log.machineId, log.side, index + 1, set.type, set.load, set.reps, set.rir, set.status, set.nextRestSeconds, set.status === 'pain' || log.feeling === 'pain' ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', set.note]));
+      });
+    });
+    state.cardio.forEach(item => rows.push(['cardio', item.relatedSessionId, item.date, item.startTime, '', '', item.status, '', '', '', '', '', '', '', '', '', '', '', item.status === 'not_pain' || item.legDayFlags.rightCalfPain || item.legDayFlags.kneePain || item.legDayFlags.anklePain ? 'sim' : 'não', item.discomfort, item.durationMinutes, item.distanceKm, item.effort, '', '', '', item.note]));
+    state.measurements.forEach(item => Object.entries(Measurements.METRICS).forEach(([key, metric]) => {
+      if (!item[key]) return;
+      rows.push(['medida', '', item.date, item.measuredAt ? new Date(item.measuredAt).toLocaleTimeString('pt-BR') : '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', metric.label, item[key], metric.unit, item.note]);
+    }));
+    return rows.map(row => row.map(Core.csvCell).join(',')).join('\r\n');
+  }
+
+  function exportCsv() {
+    downloadText(`\uFEFF${buildCsv()}`, `treino-hard-registros-${fileDateStamp()}.csv`, 'text/csv');
+    announce('CSV exportado.');
+  }
+
+  function showImportPreview(parsed, raw, filename, encrypted) {
+    const preview = Core.importPreview(parsed);
+    pendingImport = {raw, preview, filename};
+    openModal('Prévia da importação', element('div', {}, [
+      element('p', {text: `Arquivo: ${filename}${encrypted ? ' (criptografado, já autenticado)' : ''}. Nada foi alterado ainda.`}),
+      element('div', {className: 'split-list'}, [
+        ['Versão de origem', preview.version], ['Sessões novas', preview.sessions], ['Exercícios em sessões', preview.exercises],
+        ['Registros legados', preview.legacyRecords], ['Legados reconhecidos', preview.recognizedLegacy], ['Legados ambíguos/incompatíveis', preview.incompatible],
+        ['Medições', preview.measurements], ['Ciclos', preview.cycles], ['Configurações reconhecidas', preview.settings]
+      ].map(([label, value]) => element('div', {className: 'split-row'}, [element('strong', {text: label}), element('span', {text: String(value)})]))),
+      element('div', {className: 'warning-box'}, [element('p', {text: 'Confirmar substituirá o documento atual pelo importado. Antes disso, o app preservará o arquivo bruto e criará um snapshot para desfazer.'})]),
+      element('div', {className: 'button-row'}, [button('Confirmar importação', 'import-confirm', 'danger-button'), button('Cancelar', 'close-modal', 'secondary-button')])
+    ]));
+  }
+
+  function openEncryptedImportModal(filename, message) {
+    openModal('Backup criptografado', element('div', {}, [
+      element('p', {text: `Arquivo: ${filename}. Informe a senha usada na exportação. Nada foi alterado ainda.`}),
+      field('Senha do backup', element('input', {className: 'input', attrs: {type: 'password', id: 'import-password', autocomplete: 'current-password'}})),
+      message ? element('div', {className: 'warning-box'}, [element('p', {text: message})]) : null,
+      element('p', {className: 'fine-print', text: 'A senha não é salva e não sai deste aparelho. Se estiver incorreta ou o arquivo tiver sido adulterado, a leitura falha e nada é importado.'}),
+      element('div', {className: 'button-row'}, [button('Descriptografar e ver prévia', 'import-decrypt', 'primary-button'), button('Cancelar', 'close-modal', 'secondary-button')])
+    ]));
+  }
+
+  async function decryptPendingImport() {
+    if (!pendingEncryptedImport) return;
+    const input = document.getElementById('import-password');
+    if (!input) return;
+    const password = input.value;
+    input.value = '';
+    try {
+      const parsed = await Core.decryptBackup(pendingEncryptedImport.document, password);
+      showImportPreview(parsed, pendingEncryptedImport.raw, pendingEncryptedImport.filename, true);
+      pendingEncryptedImport = null;
+    } catch (error) {
+      openEncryptedImportModal(pendingEncryptedImport.filename, error.message || String(error));
+    }
+  }
+
+  function openEncryptedExportModal() {
+    openModal('Exportar backup criptografado', element('div', {}, [
+      element('p', {text: 'O arquivo será cifrado com AES-GCM de 256 bits e chave derivada da sua senha por PBKDF2-SHA-256, com salt e vetor de inicialização aleatórios.'}),
+      field('Senha', element('input', {className: 'input', attrs: {type: 'password', id: 'backup-password', autocomplete: 'new-password'}})),
+      field('Confirmar senha', element('input', {className: 'input', attrs: {type: 'password', id: 'backup-password-confirm', autocomplete: 'new-password'}})),
+      element('div', {className: 'warning-box'}, [element('p', {text: `Use ao menos ${Core.MIN_PASSWORD_LENGTH} caracteres. A senha não é gravada em lugar nenhum: sem ela o backup não pode ser aberto por ninguém, inclusive por você.`})]),
+      element('div', {className: 'button-row'}, [button('Criptografar e baixar', 'export-encrypted-confirm', 'primary-button'), button('Cancelar', 'close-modal', 'secondary-button')])
+    ]));
+  }
+
+  async function exportEncryptedJson() {
+    const passwordInput = document.getElementById('backup-password');
+    const confirmInput = document.getElementById('backup-password-confirm');
+    if (!passwordInput || !confirmInput) return;
+    const password = passwordInput.value;
+    const matches = password === confirmInput.value;
+    passwordInput.value = '';
+    confirmInput.value = '';
+    if (!matches) { showNotice('As senhas não coincidem. Nada foi exportado.', 'warning'); return; }
+    try {
+      const encrypted = await Core.encryptBackup(state, password);
+      downloadText(JSON.stringify(encrypted, null, 2), `treino-hard-backup-cifrado-${fileDateStamp()}.json`, 'application/json');
+      closeModal();
+      lastBackupState = 'Backup criptografado exportado agora';
+      announce('Backup criptografado exportado. Guarde a senha: ela não é salva.');
+    } catch (error) {
+      showNotice(`Não foi possível criptografar o backup: ${error.message || error}. Nada foi exportado.`, 'error');
+    }
+  }
+
+  async function previewImportFile(file) {
+    if (!file) return;
+    if (file.size > Core.MAX_IMPORT_BYTES) { showNotice(`O arquivo excede o limite de ${Math.round(Core.MAX_IMPORT_BYTES / 1024 / 1024)} MB. Nada foi alterado.`, 'error'); return; }
+    pendingImport = null;
+    pendingEncryptedImport = null;
+    try {
+      const raw = await file.text();
+      if (new Blob([raw]).size > Core.MAX_IMPORT_BYTES) throw new Error('O conteúdo excede o limite de importação.');
+      const parsed = JSON.parse(raw);
+      const filename = Core.cleanText(file.name, 120);
+      if (Core.isEncryptedBackup(parsed)) {
+        // O arquivo bruto preservado continua sendo o cifrado, não o conteúdo aberto.
+        pendingEncryptedImport = {document: parsed, raw, filename};
+        openEncryptedImportModal(filename, '');
+        return;
+      }
+      Core.assertSafeParsed(parsed);
+      showImportPreview(parsed, raw, filename, false);
+    } catch (error) {
+      pendingImport = null;
+      pendingEncryptedImport = null;
+      showNotice(`Importação rejeitada: ${error.message || error}. Nada foi alterado.`, 'error');
+    }
+  }
+
+  async function confirmImport() {
+    if (!pendingImport) return;
+    try {
+      await storage.saveRecovery({id: Core.uid('import-source'), savedAt: new Date().toISOString(), reason: `Arquivo bruto antes da importação: ${pendingImport.filename}`, raw: pendingImport.raw});
+      await storage.createSnapshot(state, `Antes de importar ${pendingImport.filename}`);
+      const imported = Core.normalizeState(pendingImport.preview.state);
+      imported.revision = persistedRevision;
+      state = await storage.writeDocument(imported, persistedRevision, {});
+      persistedRevision = state.revision;
+      pendingImport = null;
+      closeModal();
+      applyPreferences();
+      const planned = ensureCurrentWeekSessions();
+      if (planned) await persist('Sessões da semana incluídas após a importação.', false);
+      renderTabs();
+      renderActivePanel();
+      setSaveState('Importação concluída', false);
+      announce('Backup importado e validado.');
+    } catch (error) {
+      showNotice(`Não foi possível concluir a importação: ${error.message || error}.`, 'error');
+    }
+  }
+
+  async function createBackupNow() {
+    try {
+      await storage.automaticBackup(state, true);
+      lastBackupState = 'Cópia automática atualizada agora';
+      announce('Cópia automática local criada.');
+      await refreshStorageInventory();
+      renderActivePanel();
+    } catch (error) {
+      showNotice(`Falha ao criar cópia automática: ${error.message || error}`, 'error');
+    }
+  }
+
+  async function handleExternalChange(message) {
+    if (!state || Number(message.revision) <= Number(persistedRevision)) return;
+    showNotice('Outra aba alterou os registros. Recarregue antes de continuar para evitar conflito.', 'warning', [button('Recarregar dados', 'reload-external', 'secondary-button')]);
+  }
+
+  async function reloadExternalState() {
+    const latest = await storage.readDocument();
+    if (!latest) { showNotice('Não foi possível reler o documento local.', 'error'); return; }
+    state = latest;
+    persistedRevision = latest.revision;
+    applyPreferences();
+    hideNotice();
+    renderActivePanel();
+    setSaveState('Dados recarregados', false);
+    announce('Dados atualizados a partir da outra aba.');
+  }
+
+  async function updateOnlineStatus() {
+    const online = navigator.onLine;
+    if (!online) {
+      showNotice('Você está offline. Registros, histórico e orientações locais continuam disponíveis; vídeos exigem internet.', 'warning');
+      dom.notice.dataset.source = 'offline';
+    } else if (dom.notice.dataset.source === 'offline') {
+      hideNotice();
+      delete dom.notice.dataset.source;
+      announce('Conexão restabelecida.');
+    }
+  }
+
+  async function installApp() {
+    if (!deferredInstallPrompt) return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    dom.installButton.hidden = true;
+  }
+
+  function showPwaUpdate(registration) {
+    showNotice('Uma nova versão do aplicativo está pronta. Atualize somente quando não estiver preenchendo uma série.', 'warning', [button('Atualizar agora', 'pwa-update', 'secondary-button')]);
+    dom.notice.dataset.source = 'pwa-update';
+    dom.notice.dataset.registration = 'waiting';
+    global.__treinoHardWaitingRegistration = registration;
+  }
+
+  function applyPwaUpdate() {
+    const registration = global.__treinoHardWaitingRegistration;
+    if (registration && registration.waiting) {
+      pwaUpdateConfirmed = true;
+      announce('Atualização confirmada; o aplicativo será recarregado em instantes.');
+      registration.waiting.postMessage({type: 'SKIP_WAITING'});
+    } else showNotice('A atualização ainda não está pronta. Tente novamente em instantes.', 'warning');
+  }
+
+  async function registerPwa() {
+    if (!('serviceWorker' in navigator) || location.protocol === 'file:') {
+      showNotice('Este navegador ou modo de abertura não permite instalar o pacote offline. Use HTTPS ou localhost.', 'warning');
+      return;
+    }
+    try {
+      const registration = await navigator.serviceWorker.register('./sw.js');
+      if (registration.waiting) showPwaUpdate(registration);
+      registration.addEventListener('updatefound', () => {
+        const worker = registration.installing;
+        if (!worker) return;
+        worker.addEventListener('statechange', () => {
+          if (worker.state === 'installed' && navigator.serviceWorker.controller) showPwaUpdate(registration);
+        });
+      });
+      navigator.serviceWorker.addEventListener('message', event => {
+        const message = event.data || {};
+        if (message.source !== 'treino-hard-service-worker') return;
+        if (message.type === 'SW_UPDATE_READY') showPwaUpdate(registration);
+        else if (message.type === 'SW_OFFLINE_READY') announce('Aplicativo pronto para uso offline.');
+        else if (message.type === 'SW_CONNECTION_STATE' && message.offline) {
+          showNotice('Você está offline. Registros, histórico e orientações locais continuam disponíveis; vídeos exigem internet.', 'warning');
+          dom.notice.dataset.source = 'offline';
+        }
+        else if (['SW_CACHE_ERROR', 'SW_UPDATE_ERROR', 'SW_ACTIVATION_ERROR'].includes(message.type)) showNotice(`Falha da PWA: ${message.message || 'erro não detalhado'}`, 'error');
+      });
+      const ready = await navigator.serviceWorker.ready;
+      const controller = navigator.serviceWorker.controller || ready.active;
+      if (controller) controller.postMessage({type: 'GET_CONNECTION_STATE'});
+      let reloading = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        // A primeira ativação apenas assume o controle da página já carregada.
+        // Recarregar sem confirmação interromperia um treino em andamento e
+        // descartaria campos preenchidos e ainda não confirmados.
+        if (!pwaUpdateConfirmed) {
+          announce('Pacote offline ativado. Nada foi interrompido.');
+          return;
+        }
+        if (reloading) return;
+        reloading = true;
+        global.location.reload();
+      });
+    } catch (error) {
+      showNotice(`Não foi possível registrar o modo offline: ${error.message || error}`, 'error');
+    }
+  }
+
+})(globalThis);

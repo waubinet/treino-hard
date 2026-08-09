@@ -1,471 +1,882 @@
-const test=require('node:test');
-const assert=require('node:assert/strict');
-const fs=require('node:fs');
-const path=require('node:path');
-const vm=require('node:vm');
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
-const html=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
-const source=html.match(/<script>([\s\S]*)<\/script>/)[1];
+const ROOT = path.resolve(__dirname, '..');
+const MODULES = [
+  'js/workouts.js',
+  'js/core.js',
+  'js/storage.js',
+  'js/measurements.js'
+];
 
-function todayKey(){
-  const d=new Date();
-  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+function plain(value) {
+  return JSON.parse(JSON.stringify(value));
 }
 
-function createElement(){
-  const attrs={};
+function createSvgNode(name) {
+  const attributes = new Map();
+  const classes = new Set();
   return {
-    innerHTML:'',textContent:'',className:'',hidden:false,style:{},dataset:{},isConnected:true,
-    classList:{add(){},remove(){},toggle(){},contains(){return false;}},
-    setAttribute(k,v){attrs[k]=String(v);},removeAttribute(k){delete attrs[k];},
-    getAttribute(k){return attrs[k]??null;},focus(){},click(){},remove(){},appendChild(){},
-    querySelector(){return null;},querySelectorAll(){return [];}
+    nodeName: name,
+    children: [],
+    attributes,
+    classList: {
+      add(...names) {
+        names.forEach(item => classes.add(item));
+      },
+      contains(item) {
+        return classes.has(item);
+      }
+    },
+    appendChild(child) {
+      this.children.push(child);
+      return child;
+    },
+    setAttribute(key, value) {
+      attributes.set(key, String(value));
+      if (key === 'class') {
+        String(value).split(/\s+/).filter(Boolean).forEach(item => classes.add(item));
+      }
+    },
+    getAttribute(key) {
+      return attributes.has(key) ? attributes.get(key) : null;
+    }
   };
 }
 
-function boot(initial={}){
-  const store=new Map(Object.entries(initial));
-  const elements=new Map();
-  const element=key=>{ if(!elements.has(key)) elements.set(key,createElement()); return elements.get(key); };
-  const document={
-    hidden:false,activeElement:createElement(),body:createElement(),
-    getElementById:id=>element('#'+id),querySelector:sel=>element(sel),querySelectorAll:()=>[],
-    createElement:()=>createElement(),addEventListener(){}
+function boot(initialStorage = {}) {
+  const store = new Map(Object.entries(initialStorage));
+  let uuid = 0;
+  const localStorage = {
+    getItem(key) {
+      return store.has(key) ? store.get(key) : null;
+    },
+    setItem(key, value) {
+      store.set(key, String(value));
+    },
+    removeItem(key) {
+      store.delete(key);
+    }
   };
-  const localStorage={
-    getItem:key=>store.has(key)?store.get(key):null,
-    setItem:(key,value)=>store.set(key,String(value)),removeItem:key=>store.delete(key)
+  const document = {
+    createElementNS(_namespace, name) {
+      return createSvgNode(name);
+    }
   };
-  class MockFileReader{
-    readAsText(file){ this.result=file.content; if(this.onload) this.onload(); }
-  }
-  const context=vm.createContext({
-    console,document,localStorage,navigator:{},location:{href:'http://localhost/',origin:'http://localhost'},
-    window:{addEventListener(){},scrollTo(){},open(){return null;}},
-    requestAnimationFrame:fn=>fn(),setInterval:()=>1,clearInterval(){},setTimeout:()=>1,clearTimeout(){},
-    Blob:global.Blob,URL:global.URL,Date,Math,JSON,Number,String,Object,Array,Set,RegExp,
-    confirm:()=>true,alert(){},FileReader:MockFileReader
+  const context = vm.createContext({
+    console,
+    localStorage,
+    document,
+    crypto: {randomUUID: () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, '0')}`}
   });
-  vm.runInContext(source,context);
-  return {context,store,run:code=>vm.runInContext(code,context)};
+  MODULES.forEach(file => {
+    const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
+    vm.runInContext(source, context, {filename: file});
+  });
+  return {
+    context,
+    store,
+    Data: context.THFData,
+    Core: context.THFCore,
+    Storage: context.THFStorage,
+    Measurements: context.THFMeasurements,
+    run(source) {
+      return vm.runInContext(source, context);
+    }
+  };
 }
 
-test('preserva seleção manual do primeiro treino no mesmo dia',()=>{
-  const app=boot({jovilite_session:'1',jovilite_lastopen:todayKey()});
-  assert.equal(app.run('state.session'),1);
+function completedLog(app, exerciseId, week, reps, rir, status = 'completed') {
+  app.context.__exerciseId = exerciseId;
+  app.context.__week = week;
+  app.context.__reps = reps;
+  app.context.__rir = rir;
+  app.context.__status = status;
+  return app.run(`(() => {
+    const exercise = THFData.CATALOG[__exerciseId];
+    const log = THFCore.createExerciseLog(exercise, __week);
+    log.sets.filter(set => set.type === 'work').forEach(set => {
+      set.reps = String(__reps);
+      set.rir = __rir;
+      set.status = __status;
+    });
+    return THFCore.doubleProgressionRecommendation(exercise, log, __week);
+  })()`);
+}
+
+test('catálogo contém seis treinos com os volumes declarados', () => {
+  const app = boot();
+  const summary = plain(app.Data.WORKOUTS.map(workout => ({
+    id: workout.id,
+    weekday: workout.weekday,
+    declared: workout.workSetTotal,
+    calculated: app.Core.workoutVolume(workout)
+  })));
+  assert.deepEqual(summary, [
+    {id: 'push_a', weekday: 1, declared: 17, calculated: 17},
+    {id: 'pull_a', weekday: 2, declared: 15, calculated: 15},
+    {id: 'legs_a', weekday: 3, declared: 14, calculated: 14},
+    {id: 'push_b', weekday: 4, declared: 15, calculated: 15},
+    {id: 'pull_b', weekday: 5, declared: 14, calculated: 14},
+    {id: 'legs_b', weekday: 6, declared: 14, calculated: 14}
+  ]);
+  assert.equal(new Set(summary.map(item => item.id)).size, 6);
 });
 
-test('recalcula treino e ocorrência ao retomar em um novo dia',()=>{
-  const app=boot({jovilite_session:'1',jovilite_tab:'a',jovilite_lastopen:todayKey()});
-  app.store.set('jovilite_lastopen','2000-01-01');
-  app.run('syncTodayWorkout()');
-  const day=new Date().getDay();
-  const expectedTab=['','b','a','c','b','a','c'][day];
-  if(expectedTab) assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.tab,state.session]'))),[expectedTab,day>=4?2:1]);
+test('calendário distribui segunda a sábado e deixa domingo sem treino', () => {
+  const app = boot();
+  const dates = [
+    ['2026-08-03', 'push_a'],
+    ['2026-08-04', 'pull_a'],
+    ['2026-08-05', 'legs_a'],
+    ['2026-08-06', 'push_b'],
+    ['2026-08-07', 'pull_b'],
+    ['2026-08-08', 'legs_b'],
+    ['2026-08-09', '']
+  ];
+  dates.forEach(([date, expected]) => assert.equal(app.Data.workoutForDate(date), expected));
+  assert.equal(Object.prototype.hasOwnProperty.call(app.Data.DAY_WORKOUT, 0), false);
 });
 
-test('migra integralmente dados legados mantendo a convenção da v1.2',()=>{
-  const legacy={1:{c_agach_smith:{sets:[{kg:'50',reps:'10'}],done:false}}};
-  const app=boot({jovilite_data:JSON.stringify(legacy),jovilite_lastopen:todayKey()});
-  assert.equal(app.run("readEntry(1,'c_agach_smith',1).sets[0].kg"),'50');
-  assert.equal(app.run("readEntry(1,'c_agach_smith',2).sets.length"),0);
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,9);
+test('Pernas A e B começam com a mesma mobilidade e não contêm stiff', () => {
+  const app = boot();
+  const mobility = plain(app.Data.MOBILITY_SEQUENCE.map(exercise => exercise.id));
+  const legsA = app.Data.WORKOUT_BY_ID.legs_a;
+  const legsB = app.Data.WORKOUT_BY_ID.legs_b;
+  assert.deepEqual(plain(legsA.exercises.slice(0, mobility.length).map(item => item.id)), mobility);
+  assert.deepEqual(plain(legsB.exercises.slice(0, mobility.length).map(item => item.id)), mobility);
+  assert.deepEqual(
+    plain(legsA.exercises.slice(0, mobility.length)),
+    plain(legsB.exercises.slice(0, mobility.length))
+  );
+  const strengthText = app.Data.WORKOUTS
+    .flatMap(workout => workout.exercises)
+    .filter(exercise => exercise.type === 'strength')
+    .map(exercise => `${exercise.id} ${exercise.name}`)
+    .join(' ');
+  assert.doesNotMatch(strengthText, /\bstiff\b/i);
 });
 
-test('rejeita campos maliciosos e escapa referências em HTML',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  assert.equal(app.run("normalizeData({qualquer:'coisa'}).valid"),false);
-  assert.equal(app.run("normalizeStoredField('kg','.5')"),'0.5');
-  assert.equal(app.run("normalizeStoredField('kg','50.')"),'50');
-  assert.equal(app.run("normalizeStoredField('kg','<img src=x onerror=1>')"),'');
-  app.run(`state.week=2;state.session=2;state.data={2:{1:{c_agach_smith:{sets:[{kg:'',reps:''},{kg:'',reps:''},{kg:'<img src=x onerror=1>',reps:'5'}],done:false}},2:{}}}`);
-  const card=app.run('exerciseCard(WORKOUTS[2].exercises[4])');
-  assert.equal(card.includes('<img src=x'),false);
-  assert.equal(card.includes('&lt;img src=x onerror=1&gt;'),true);
+test('as duas exposições de empurrar usam supinos em máquina', () => {
+  const app = boot();
+  ['push_a', 'push_b'].forEach(workoutId => {
+    const workout = app.Data.WORKOUT_BY_ID[workoutId];
+    assert.deepEqual(
+      plain(workout.exercises.slice(0, 2).map(exercise => exercise.id)),
+      ['chest_press_machine', 'incline_press_machine']
+    );
+    workout.exercises.slice(0, 2).forEach(exercise => assert.match(exercise.name, /máquina/i));
+  });
+  const pressIds = app.Data.WORKOUTS
+    .flatMap(workout => workout.exercises)
+    .filter(exercise => /supino/i.test(exercise.name))
+    .map(exercise => exercise.id);
+  assert.equal(pressIds.every(id => id.endsWith('_machine')), true);
 });
 
-test('todos os vídeos identificam o canal de origem',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  assert.equal(app.run("[...Object.values(YT),...STRETCHES.map(s=>s.vid)].every(url=>videoSource(url)!=='YouTube')"),true);
+test('periodização aplica faixas e RIR por semana aos exercícios principais', () => {
+  const app = boot();
+  const exercise = app.Data.CATALOG.chest_press_machine;
+  const expected = [
+    [1, 12, 15, 3, 3],
+    [2, 12, 15, 2, 2],
+    [3, 10, 12, 2, 2],
+    [4, 10, 12, 1, 2],
+    [5, 8, 10, 2, 2],
+    [6, 8, 10, 1, 2],
+    [7, 6, 8, 1, 2],
+    [8, 8, 12, 4, 5]
+  ];
+  const actual = expected.map(([week]) => {
+    const value = app.Data.prescriptionFor(exercise, week, false);
+    return [week, value.min, value.max, value.rirMin, value.rirMax];
+  });
+  assert.deepEqual(actual, expected);
+  // Faixa alta opcional da ficha canônica: 12–20 repetições.
+  const highRep = app.Data.prescriptionFor(app.Data.CATALOG.lateral_raise_dumbbell, 7, true);
+  assert.deepEqual([highRep.min, highRep.max, highRep.rirMin, highRep.rirMax], [12, 20, 1, 2]);
 });
 
-test('todos os vídeos têm curadoria e justificativa visível',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  assert.equal(app.run("[...Object.values(YT),...STRETCHES.map(s=>s.vid)].every(url=>VIDEO_REVIEW[ytId(url)])"),true);
-  assert.equal(app.run("Object.values(VIDEO_REVIEW).every(r=>['guiado','objetivo','visual'].includes(r.l)&&r.s>0)"),true);
-  const card=app.run('exerciseCard(WORKOUTS[2].exercises[4])');
-  assert.equal(card.includes('Cobre:'),true);
-  assert.equal(card.includes('revisado 26/07/2026'),true);
+test('terra tem progressão própria e deload reduz séries e esforço', () => {
+  const app = boot();
+  const deadlift = app.Data.CATALOG.deadlift_barbell;
+  const expected = [
+    [1, 2, 6, 8, 3, 3],
+    [2, 2, 6, 8, 2, 3],
+    [3, 2, 6, 8, 2, 2],
+    [4, 2, 6, 8, 2, 2],
+    [5, 2, 5, 7, 2, 2],
+    [6, 2, 5, 7, 2, 2],
+    [7, 2, 4, 6, 2, 3],
+    [8, 1, 6, 8, 4, 5]
+  ];
+  const actual = expected.map(([week]) => {
+    const value = app.Data.prescriptionFor(deadlift, week, false);
+    return [week, value.sets, value.min, value.max, value.rirMin, value.rirMax];
+  });
+  assert.deepEqual(actual, expected);
+  const deloadDeadlift = app.Data.prescriptionFor(deadlift, 8, false);
+  assert.equal(deloadDeadlift.deload, true);
+  assert.equal(deloadDeadlift.optionalDeloadRemoval, true);
+  app.Data.WORKOUTS.flatMap(workout => workout.exercises)
+    .filter(exercise => exercise.type === 'strength')
+    .forEach(exercise => {
+      const deload = app.Data.prescriptionFor(exercise, 8, true);
+      assert.equal(deload.deload, true, exercise.id);
+      assert.ok(deload.sets <= 2, exercise.id);
+      assert.ok(deload.rirMin >= 4, exercise.id);
+    });
 });
 
-test('aplica a sequência pessoal de costas, remove redundâncias e corrige os vídeos',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const ids=JSON.parse(JSON.stringify(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.filter(e=>e.kind==='per').map(e=>e.id)")));
-  assert.deepEqual(ids.slice(0,5),['a_puxada_supinada','a_puxada_neutra','a_remada_sentada','a_remada_unilateral','a_pulldown']);
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').label"),'B');
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral').detail.includes('Máquina')"),true);
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.some(e=>e.id==='a_abs_curto'||e.id==='a_remada_smith')"),false);
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='b').exercises.some(e=>e.id==='b_rot_ombro')"),false);
-  assert.equal(app.run("ytId(YT.a_puxada_supinada)"),'zg1MSZR-y4Y');
-  assert.equal(app.run("ytId(YT.a_puxada_neutra)"),'vUu_4jBxM1c');
-  assert.equal(app.run("ytId(YT.a_pulldown)"),'QTQABcLosXk');
-  assert.equal(app.run("ytId(YT.a_remada_unilateral)"),'Prevu525iYQ');
+test('cada série de trabalho recebe o descanso específico do exercício', () => {
+  const app = boot();
+  const session = app.Core.createSession('legs_b', '2026-08-08', 3);
+  const expectedRest = {
+    deadlift_barbell: 180,
+    leg_press_45: 150,
+    leg_curl: 90,
+    leg_extension: 90,
+    calf_seated: 90
+  };
+  Object.entries(expectedRest).forEach(([exerciseId, seconds]) => {
+    const log = session.exercises.find(item => item.exerciseId === exerciseId);
+    assert.ok(log, exerciseId);
+    const workSets = log.sets.filter(set => set.type === 'work');
+    assert.ok(workSets.length > 0, exerciseId);
+    assert.equal(workSets.every(set => set.nextRestSeconds === seconds), true, exerciseId);
+    assert.equal(log.sets.filter(set => set.type === 'warmup').every(set => set.nextRestSeconds === 0), true, exerciseId);
+  });
 });
 
-test('mantém crossover, troca o supino inclinado por máquina ou Smith e remove aquecimento final de pernas',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const incline="WORKOUTS.find(w=>w.tid==='b').exercises.find(e=>e.id==='b_supino_inclinado')";
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='b').exercises.some(e=>e.id==='b_crossover')"),true);
-  assert.equal(app.run(`selectedVariant(${incline},readEntry(1,'b_supino_inclinado')).id`),'machine');
-  assert.equal(app.run(`exerciseCard(${incline}).includes('lTDvD97_e3g')`),true);
-  assert.equal(app.run("ensureEntry(1,'b_supino_inclinado').variant"),'machine');
-  app.run("setExerciseVariant('b_supino_inclinado','smith')");
-  assert.equal(app.run("readEntry(1,'b_supino_inclinado').variant"),'smith');
-  assert.equal(app.run(`exerciseCard(${incline}).includes('WP1VLAt8hbM')`),true);
-  assert.equal(app.run("normalizeEntry({sets:[{kg:'20',reps:'8'}],done:true},'b_supino_inclinado').variant"),'dumbbells');
-  assert.equal(app.run("['c_panturrilha_pe','c_panturrilha_sentado'].every(id=>WORKOUTS.find(w=>w.tid==='c').exercises.find(e=>e.id===id).warm===0)"),true);
+test('progressão dupla aumenta, mantém ou pede revisão conforme repetições, RIR e segurança', () => {
+  const app = boot();
+  assert.equal(completedLog(app, 'chest_press_machine', 3, 12, '2').code, 'increase');
+  assert.equal(completedLog(app, 'chest_press_machine', 3, 10, '2').code, 'maintain');
+  assert.equal(completedLog(app, 'chest_press_machine', 3, 9, '2').code, 'review');
+  assert.equal(completedLog(app, 'chest_press_machine', 3, 12, '2', 'pain').code, 'review');
+  assert.equal(completedLog(app, 'chest_press_machine', 3, 12, '').code, 'review');
+  assert.equal(completedLog(app, 'chest_press_machine', 8, 12, '5').code, 'none');
+  assert.equal(app.Core.rirNumber(''), null);
+  assert.equal(app.Core.rirNumber('5+'), 5);
 });
 
-test('salva feedback por exercício e gera relatório seguro para revisão',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("state.week=1;state.session=1;setExerciseFeeling('a_remada_unilateral','replace')");
-  app.run("setExerciseFeedback('a_remada_unilateral','  prefiro máquina <img src=x onerror=1>  ')");
-  assert.equal(app.run("readEntry(1,'a_remada_unilateral').feeling"),'replace');
-  assert.equal(app.run("readEntry(1,'a_remada_unilateral').feedback"),'prefiro máquina <img src=x onerror=1>');
-  assert.equal(JSON.parse(app.store.get('jovilite_data')).schemaVersion,9);
-  const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='a').exercises.find(e=>e.id==='a_remada_unilateral'))");
-  assert.equal(card.includes('<img src=x'),false);
-  assert.equal(card.includes('&lt;img src=x onerror=1&gt;'),true);
-  assert.equal(app.run("feedbackReportText().includes('Quero substituir')"),true);
-  assert.equal(app.run("renderFeedbackReview().includes('Treino B · Remada Unilateral')"),true);
+test('chave de comparação separa variação, máquina, lado e faixa', () => {
+  const app = boot();
+  const base = app.Core.comparableSeriesKey('leg_curl', 'seated', 'Flexora 1', 'bilateral', '10–12');
+  const keys = [
+    base,
+    app.Core.comparableSeriesKey('leg_curl', 'lying', 'Flexora 1', 'bilateral', '10–12'),
+    app.Core.comparableSeriesKey('leg_curl', 'seated', 'Flexora 2', 'bilateral', '10–12'),
+    app.Core.comparableSeriesKey('leg_curl', 'seated', 'Flexora 1', 'left', '10–12'),
+    app.Core.comparableSeriesKey('leg_curl', 'seated', 'Flexora 1', 'bilateral', '8–10')
+  ];
+  assert.equal(new Set(keys).size, keys.length);
+  assert.equal(base, 'leg_curl|seated|flexora 1|bilateral|10–12');
+  assert.equal(
+    app.Core.comparableSeriesKey('squat', '', '', 'invalid', ''),
+    'squat|default|machine-unspecified|bilateral|range-unspecified'
+  );
 });
 
-test('usa a ocorrência imediatamente anterior como referência',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'40',reps:'10'}],done:false}},2:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:false}}},2:{1:{c_terra_barra:{sets:[{kg:'70',reps:'8'}],done:false}},2:{}}}`);
-  app.run('state.session=1');
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run("prevReference('c_terra_barra',2,0)"))),{week:1,session:2,sets:[{kg:'60',reps:'8'}]});
-  app.run('state.session=2');
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run("prevReference('c_terra_barra',2,0)"))),{week:2,session:1,sets:[{kg:'70',reps:'8'}]});
+test('migração 9 para 10 preserva duas ocorrências, ambiguidades e medidas legadas', () => {
+  const app = boot();
+  const migrated = app.run(`THFCore.migrate9To10({
+    schemaVersion: 9,
+    cycleStartedAt: '2026-01-01T12:00:00.000Z',
+    data: {
+      1: {
+        1: {
+          a_puxada_supinada: {sets: [{kg: '70', reps: '10'}], done: true},
+          b_supino_inclinado: {variant: 'smith', sets: [{kg: '50', reps: '8'}]}
+        },
+        2: {a_puxada_supinada: {sets: [{kg: '75', reps: '8'}]}}
+      }
+    },
+    measurements: [{date: '2026-01-02', weight: '110', arm: '40', thigh: '65'}],
+    settings: {mode: 'sequence'}
+  })`);
+  assert.equal(migrated.schemaVersion, 10);
+  assert.equal(migrated.legacyCycles.length, 1);
+  const records = migrated.legacyCycles[0].records;
+  assert.equal(records.length, 3);
+  const recognized = records.filter(record => record.legacyExerciseId === 'a_puxada_supinada');
+  assert.deepEqual(plain(recognized.map(record => record.occurrence)), [1, 2]);
+  assert.equal(recognized[0].canonicalId, 'pulldown_supinated');
+  assert.equal(recognized[0].sets[0].load, '70');
+  const ambiguous = records.find(record => record.legacyExerciseId === 'b_supino_inclinado');
+  assert.equal(ambiguous.canonicalId, '');
+  assert.equal(ambiguous.variationId, 'smith');
+  assert.equal(ambiguous.equipmentKey, 'legacy:b_supino_inclinado:smith');
+  assert.deepEqual(
+    plain(['armLeft', 'armRight', 'thighLeft', 'thighRight'].map(key => migrated.measurements[0][key])),
+    ['40', '40', '65', '65']
+  );
+  assert.equal(migrated.settings.mode, 'sequence');
+  assert.equal(migrated.migrationLog.some(item => item.from === 9 && item.to === 10), true);
 });
 
-test('calcula evolução somente com séries de trabalho',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_agach_smith:{sets:[
-    {kg:'100',reps:'5'},{kg:'110',reps:'3'},
-    {kg:'50',reps:'10'},{kg:'60',reps:'8'},{kg:'55',reps:'9'}
-  ],done:true}},2:{}}}`);
-  const point=JSON.parse(JSON.stringify(app.run("evolutionPoints(WORKOUTS[2].exercises[4],'maxKg')[0]")));
-  assert.equal(point.maxKg,60);
-  assert.equal(point.volume,1475);
-  assert.equal(point.totalReps,27);
-  assert.equal(point.value,60);
+test('migração preserva metadados, arquivos, IDs desconhecidos e IDs estáveis', () => {
+  const app = boot();
+  const payload = {
+    schemaVersion: 9,
+    cycleStartedAt: '2026-01-01T12:00:00.000Z',
+    data: {1: {1: {
+      a_remada_unilateral: {sets: [{kg: '45', reps: '10'}]},
+      exercicio_desconhecido: {sets: [{kg: '10', reps: '15'}], extra: 'preservado na fonte bruta'}
+    }}},
+    meta: {1: {1: {a: {startedAt: '2026-01-03T10:00:00.000Z', completedAt: '2026-01-03T11:00:00.000Z', manualCompleted: true}}}},
+    archives: [{id: 'ciclo-antigo', startedAt: '2025-10-01T12:00:00.000Z', data: {2: {1: {c_leg_press: {sets: [{kg: '120', reps: '12'}]}}}}, meta: {}}]
+  };
+  app.context.__migrationPayloadJson = JSON.stringify(payload);
+  const first = app.run('THFCore.migrate9To10(JSON.parse(__migrationPayloadJson))');
+  const second = app.run('THFCore.migrate9To10(JSON.parse(__migrationPayloadJson))');
+  assert.equal(first.legacyCycles.length, 2);
+  assert.equal(first.legacyCycles[0].sessionMeta.length, 1);
+  assert.equal(first.legacyCycles[0].sessionMeta[0].manualCompleted, true);
+  assert.equal(first.legacyCycles[1].records[0].canonicalId, 'leg_press_45');
+  const ambiguous = first.legacyCycles[0].records.find(item => item.legacyExerciseId === 'a_remada_unilateral');
+  const unknown = first.legacyCycles[0].records.find(item => item.legacyExerciseId === 'exercicio_desconhecido');
+  assert.equal(ambiguous.mappingStatus, 'ambiguous');
+  assert.equal(ambiguous.canonicalId, '');
+  assert.equal(unknown.mappingStatus, 'unmapped');
+  assert.equal(unknown.canonicalId, '');
+  assert.deepEqual(
+    plain(first.legacyCycles.flatMap(cycle => cycle.records.map(record => record.id))),
+    plain(second.legacyCycles.flatMap(cycle => cycle.records.map(record => record.id)))
+  );
 });
 
-test('mantém lacunas e duas ocorrências por semana no histórico',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={2:{1:{c_terra_barra:{sets:[{kg:'70',reps:'8'}],done:false}},2:{c_terra_barra:{sets:[{kg:'75',reps:'8'}],done:false}}}}`);
-  const points=JSON.parse(JSON.stringify(app.run("evolutionPoints(WORKOUTS[2].exercises[5],'volume')")));
-  assert.equal(points.length,16);
-  assert.equal(points[0].value,null);
-  assert.equal(points[2].label,'S2 · 1º');
-  assert.equal(points[2].value,560);
-  assert.equal(points[3].value,600);
-  app.run("state.tab='evol';evolutionExerciseId='c_terra_barra';evolutionMetric='volume'");
-  assert.equal(app.run("renderEvolutionPanel().includes('+40 kg·rep')"),true);
+test('inicialização migra cópias automáticas antigas sem apagar a fonte', async () => {
+  const legacyData = JSON.stringify({schemaVersion: 9, data: {1: {1: {a_puxada_neutra: {sets: [{kg: '60', reps: '12'}]}}}}});
+  const autoBackups = JSON.stringify([{app: 'treino-hard-fofo', schemaVersion: 9, id: 'auto-2026-01-02', day: '2026-01-02', savedAt: '2026-01-02T20:00:00.000Z', data: {1: {1: {b_crossover: {sets: [{kg: '15', reps: '15'}]}}}}}]);
+  const app = boot({jovilite_data: legacyData, jovilite_auto_backups: autoBackups});
+  const storage = new app.Storage.AppStorage();
+  const migrated = await storage.init();
+  assert.equal(migrated.legacyCycles[0].records[0].canonicalId, 'pulldown_neutral');
+  assert.equal(app.store.get('jovilite_data'), legacyData);
+  assert.equal(app.store.get('jovilite_auto_backups'), autoBackups);
+  const converted = JSON.parse(app.store.get('treinohard_auto_backups_v11'));
+  assert.equal(converted.length, 1);
+  assert.equal(converted[0].legacy, true);
+  assert.equal(converted[0].state.schemaVersion, 11);
+  assert.ok(app.store.get('treinohard_recovery_v11'));
 });
 
-test('painel de evolução trata histórico vazio sem erro',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("state.tab='evol'");
-  const panel=app.run('renderEvolutionPanel()');
-  assert.equal(panel.includes('Ainda não há dados suficientes'),true);
-  assert.equal(panel.includes('role="tabpanel"'),true);
+test('migração 10 para 11 e fluxo completo produzem estado normalizado', () => {
+  const app = boot();
+  const result = app.run(`(() => {
+    const v10 = THFCore.migrate9To10({
+      schemaVersion: 9,
+      data: {1: {a_puxada_neutra: {sets: [{kg: '60', reps: '12'}]}}}
+    });
+    const direct = THFCore.migrate10To11(v10);
+    const wrapped = THFCore.migratePayload({app: THFCore.APP_ID, schemaVersion: 10, state: v10});
+    const complete = THFCore.migratePayload({schemaVersion: 9, data: {1: {a_puxada_neutra: {sets: [{kg: '60', reps: '12'}]}}}});
+    return {direct, wrapped, complete};
+  })()`);
+  ['direct', 'wrapped', 'complete'].forEach(key => {
+    const state = result[key];
+    assert.equal(state.schemaVersion, 11, key);
+    assert.equal(state.app, app.Core.APP_ID, key);
+    assert.equal(Array.isArray(state.progressionDecisions), true, key);
+    assert.equal(Array.isArray(state.quarantine), true, key);
+    assert.equal(state.legacyCycles[0].records[0].canonicalId, 'pulldown_neutral', key);
+    assert.equal(state.migrationLog.some(item => item.from === 10 && item.to === 11), true, key);
+  });
 });
 
-test('salva peso e medidas por data, atualiza duplicata e gera gráfico seguro',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  assert.equal(app.run("normalizeMeasureValue('110,55')"),'110.55');
-  assert.equal(app.run("normalizeMeasureValue('<img src=x>')"),'');
-  assert.equal(app.run("validMeasureDate('2026-02-30')"),'');
-  app.run("upsertMeasurement({date:'2026-07-01',weight:'112,5',waist:'118',note:'início <img src=x onerror=1>'})");
-  app.run("upsertMeasurement({date:'2026-07-01',weight:'111',waist:'117'})");
-  app.run("upsertMeasurement({date:'2026-07-15',weight:'109.5',waist:'114',abdomen:'121'})");
-  assert.equal(app.run('state.measurements.length'),2);
-  assert.equal(app.run("state.measurements[0].weight"),'111');
-  assert.equal(JSON.parse(app.store.get('jovilite_body_measurements')).length,2);
-  app.run("state.tab='medidas';bodyMetric='weight'");
-  const panel=app.run('renderMeasurementsPanel()');
-  assert.equal(panel.includes('<svg'),true);
-  assert.equal(panel.includes('NASA HIDH'),true);
-  assert.equal(panel.includes('+'),false);
+test('schemas futuros são rejeitados sem sobrescrever o documento local', async () => {
+  const future = JSON.stringify({app: 'treino-hard-fofo', schemaVersion: 99, revision: 7, sessions: []});
+  const app = boot({treinohard_document_v11: future});
+  assert.throws(
+    () => app.run(`THFCore.migratePayload(${JSON.stringify(JSON.parse(future))})`),
+    /versão mais nova/
+  );
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const value = await storage.readDocument();
+  assert.equal(value, null);
+  assert.match(storage.lastError, /versão futura/);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), future);
+  assert.equal(app.store.has('treinohard_recovery_v11'), false, 'schema futuro não deve causar nenhuma escrita');
 });
 
-test('normaliza observação de medida e escapa HTML no histórico',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("upsertMeasurement({date:'2026-07-01',weight:'110',note:'medida <img src=x onerror=1>'})");
-  const history=app.run('measurementHistory()');
-  assert.equal(history.includes('<img src=x'),false);
-  assert.equal(history.includes('&lt;img src=x onerror=1&gt;'),true);
+test('bloqueia prototype pollution no núcleo e no parser do armazenamento', () => {
+  const app = boot();
+  const malicious = app.run(`JSON.parse('{"safe":1,"nested":{"__proto__":{"polluted":true}}}')`);
+  assert.equal(app.Core.hasForbiddenKey(malicious), true);
+  assert.throws(() => app.Core.assertSafeParsed(malicious), /propriedades proibidas/);
+  app.context.__maliciousText = '{"constructor":{"prototype":{"polluted":true}}}';
+  assert.equal(app.run(`THFStorage.parseJson(__maliciousText, 'fallback')`), 'fallback');
+  assert.equal({}.polluted, undefined);
+  const tooDeep = app.run(`(() => {
+    const root = {};
+    let cursor = root;
+    for (let index = 0; index < 22; index += 1) cursor = cursor.next = {};
+    return root;
+  })()`);
+  assert.equal(app.Core.hasForbiddenKey(tooDeep), true);
 });
 
-test('migra medidas antigas para os dois lados e compara medidas bilaterais',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const legacy=JSON.parse(JSON.stringify(app.run("normalizeMeasurement({date:'2026-06-01',weight:'110',arm:'40',thigh:'65'})")));
-  assert.deepEqual([legacy.armLeft,legacy.armRight,legacy.thighLeft,legacy.thighRight],['40','40','65','65']);
-  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',height:'175',chest:'112',waist:'105',armLeft:'39',armRight:'41',thighLeft:'62',thighRight:'64',calfLeft:'39',calfRight:'40'})");
-  const map=app.run('bodyMap()');
-  assert.equal(map.includes('Silhueta anatômica proporcional'),true);
-  assert.equal(map.includes('Diferença 2 cm'),true);
-  assert.equal(map.includes('não mede força'),true);
-  assert.equal(map.includes('Escala ajustada pela altura'),true);
-  assert.equal(map.includes('<svg'),true);
+test('armazenamento local usa staging e detecta conflito de revisão', async () => {
+  const app = boot();
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const original = app.Core.defaultState('2026-08-08T12:00:00.000Z');
+  const first = await storage.writeDocument(original, null, {skipConflict: true});
+  assert.equal(first.revision, 1);
+  assert.equal(app.store.has('treinohard_document_v11_staging'), false);
+  const persisted = JSON.parse(app.store.get(app.Storage.FALLBACK_KEY));
+  assert.equal(persisted.revision, 1);
+  await assert.rejects(
+    storage.writeDocument(first, 0, {}),
+    error => error && error.code === 'REVISION_CONFLICT'
+  );
+  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).revision, 1);
 });
 
-test('modelo corporal varia os lados e sobrepõe a medição anterior',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("upsertMeasurement({date:'2026-07-01',height:'175',inseam:'82',neck:'42',shoulderWidth:'46',chest:'110',waist:'104',abdomen:'108',hip:'112',armLeft:'38',armRight:'38',forearmLeft:'31',forearmRight:'31',thighLeft:'61',thighRight:'61',calfLeft:'39',calfRight:'39'})");
-  app.run("upsertMeasurement({date:'2026-07-20',height:'175',inseam:'82',neck:'41',shoulderWidth:'46',chest:'108',waist:'100',abdomen:'105',hip:'110',armLeft:'37',armRight:'41',forearmLeft:'30',forearmRight:'33',thighLeft:'60',thighRight:'65',calfLeft:'38',calfRight:'42'})");
-  const map=app.run('bodyMap()');
-  assert.equal(map.includes('bodyprevious'),true);
-  assert.equal(map.includes('Anterior'),true);
-  assert.equal(map.includes('Altura</span><b>175 cm'),true);
-  assert.equal(map.includes('16 de 16 medidas antropométricas'),true);
-  assert.equal(map.includes('undefined'),false);
-  assert.equal(map.includes('NaN'),false);
-  const geometry=JSON.parse(JSON.stringify(app.run("bodyGeometry(state.measurements[1])")));
-  assert.equal(geometry.armRight>geometry.armLeft,true);
-  assert.equal(geometry.forearmRight>geometry.forearmLeft,true);
-  assert.equal(geometry.thighRight>geometry.thighLeft,true);
-  assert.equal(geometry.calfRight>geometry.calfLeft,true);
-  const proportions=JSON.parse(JSON.stringify(app.run("bodyGeometry({height:'175',chest:'108',waist:'90',abdomen:'125',hip:'110'})")));
-  assert.equal(proportions.abdomen>proportions.waist,true);
-  assert.equal(app.run("bodyGeometry({height:'160',chest:'108'}).chest>bodyGeometry({height:'190',chest:'108'}).chest"),true);
+test('células CSV neutralizam fórmulas, quebras e aspas', () => {
+  const app = boot();
+  assert.equal(app.Core.csvCell('normal'), '"normal"');
+  assert.equal(app.Core.csvCell('=2+2'), '"\'=2+2"');
+  assert.equal(app.Core.csvCell('+SUM(A1:A2)'), '"\'+SUM(A1:A2)"');
+  assert.equal(app.Core.csvCell('＠malicioso'), '"\'＠malicioso"');
+  assert.equal(app.Core.csvCell('linha\ncom\ttab'), '"linha com tab"');
+  assert.equal(app.Core.csvCell('ele disse "oi"'), '"ele disse ""oi"""');
 });
 
-test('não inventa comparação corporal a partir de registro anterior sem circunferências',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("upsertMeasurement({date:'2026-07-01',weight:'110',height:'175'})");
-  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',height:'175',chest:'108',waist:'100'})");
-  const map=app.run('bodyMap()');
-  assert.equal(map.includes('bodyprevious'),false);
-  assert.equal(map.includes('Anterior'),false);
-  assert.equal(map.includes('3DBODY.TECH'),true);
+test('medidas normalizam datas, lados, registros repetidos e valores inválidos', () => {
+  const app = boot();
+  const legacy = app.run(`THFCore.normalizeMeasurement({
+    date: '2026-08-01', weight: '110,55', arm: '40', thigh: '65',
+    calfLeft: '41', calfRight: '39', note: '  começo  '
+  }, 0)`);
+  assert.deepEqual(
+    plain({
+      weight: legacy.weight,
+      armLeft: legacy.armLeft,
+      armRight: legacy.armRight,
+      thighLeft: legacy.thighLeft,
+      thighRight: legacy.thighRight,
+      calfLeft: legacy.calfLeft,
+      calfRight: legacy.calfRight,
+      note: legacy.note
+    }),
+    {weight: '110.55', armLeft: '40', armRight: '40', thighLeft: '65', thighRight: '65', calfLeft: '41', calfRight: '39', note: 'começo'}
+  );
+  assert.equal(app.run(`THFCore.normalizeMeasurement({date:'2026-02-30', weight:'100'}, 0)`), null);
+  assert.equal(app.run(`THFCore.normalizeMeasurement({date:'2026-08-01', weight:'0'}, 0)`), null);
+  const state = app.run(`THFCore.normalizeState({measurements: [
+    {id:'morning', date:'2026-08-01', measuredAt:'2026-08-01T08:00:00.000Z', weight:'110'},
+    {id:'next-day', date:'2026-08-02', measuredAt:'2026-08-02T08:00:00.000Z', weight:'109'},
+    {id:'evening', date:'2026-08-01', measuredAt:'2026-08-01T20:00:00.000Z', weight:'108'}
+  ]})`);
+  assert.deepEqual(plain(state.measurements.map(item => [item.date, item.weight])), [
+    ['2026-08-01', '110'],
+    ['2026-08-01', '108'],
+    ['2026-08-02', '109']
+  ]);
+  assert.deepEqual(
+    plain(app.Core.MEASUREMENT_FIELDS),
+    plain(Object.keys(app.Measurements.METRICS))
+  );
 });
 
-test('converte circunferências por seção elíptica e usa entrepernas nos marcos verticais',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  assert.equal(app.run("ellipseBreadth(110,.72)>ellipseBreadth(110,1)"),true);
-  const shortLeg=JSON.parse(JSON.stringify(app.run("bodyGeometry({height:'175',inseam:'75',chest:'110'})")));
-  const longLeg=JSON.parse(JSON.stringify(app.run("bodyGeometry({height:'175',inseam:'90',chest:'110'})")));
-  assert.equal(longLeg.crotch<shortLeg.crotch,true);
-  assert.equal(longLeg.kneeY<shortLeg.kneeY,true);
-  assert.equal(shortLeg.chest>0,true);
+test('geometria corporal reage proporcionalmente às medidas e preserva assimetria', () => {
+  const app = boot();
+  const compact = app.Measurements.bodyGeometry({
+    height: '175', inseam: '82', neck: '40', shoulderWidth: '45', chest: '100',
+    waist: '80', abdomen: '90', hip: '100', armLeft: '34', armRight: '44',
+    forearmLeft: '28', forearmRight: '34', thighLeft: '55', thighRight: '65',
+    calfLeft: '36', calfRight: '42'
+  });
+  const wider = app.Measurements.bodyGeometry({
+    height: '175', waist: '140', abdomen: '150', hip: '145',
+    armLeft: '34', armRight: '44', thighLeft: '55', thighRight: '65'
+  });
+  assert.equal(compact.scaleMode, 'height');
+  assert.equal(compact.directCount, 16);
+  assert.ok(wider.waist > compact.waist);
+  assert.ok(wider.abdomen > compact.abdomen);
+  assert.ok(wider.hip > compact.hip);
+  assert.ok(compact.armRight > compact.armLeft);
+  assert.ok(compact.forearmRight > compact.forearmLeft);
+  assert.ok(compact.thighRight > compact.thighLeft);
+  assert.ok(compact.calfRight > compact.calfLeft);
+  assert.ok(compact.crotch > compact.hipY && compact.crotch < compact.kneeY);
+  assert.ok(app.Measurements.ellipseBreadth(120, 0.8) > app.Measurements.ellipseBreadth(80, 0.8));
 });
 
-test('reinicia toda a periodização e permite desfazer',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};state.week=4;state.session=2;state.tab='ciclo';upsertMeasurement({date:'2026-07-01',weight:'110'});saveData()`);
-  app.run('resetPeriodization()');
-  assert.equal(app.run('Object.keys(state.data).length'),0);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.week,state.session,state.tab]'))),[1,1,'b']);
-  assert.equal(app.run('state.archives.length'),1);
-  assert.equal(app.run("state.archives[0].data[1][1].c_terra_barra.sets[0].kg"),'60');
-  assert.equal(app.run("state.measurements[0].weight"),'110');
-  assert.ok(app.store.has('jovilite_snapshot'));
-  app.run('undoLastChange()');
-  assert.equal(app.run("readEntry(1,'c_terra_barra',1).sets[0].kg"),'60');
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('[state.week,state.session,state.tab]'))),[4,2,'ciclo']);
-  assert.equal(app.run('state.archives.length'),0);
+test('silhueta produz anatomia vetorial finita e SVG comparativo acessível', () => {
+  const app = boot();
+  const current = {
+    date: '2026-08-08', height: '175', inseam: '82', neck: '41', shoulderWidth: '47',
+    chest: '112', waist: '105', abdomen: '115', hip: '111', armLeft: '39', armRight: '41',
+    forearmLeft: '31', forearmRight: '32', thighLeft: '61', thighRight: '64',
+    calfLeft: '39', calfRight: '41'
+  };
+  const previous = Object.assign({}, current, {date: '2026-07-08', waist: '110', abdomen: '120'});
+  const paths = app.Measurements.silhouettePaths(current);
+  assert.equal(paths.mass.length, 3);
+  assert.equal(paths.limbs.length, 6);
+  paths.mass.concat(paths.limbs).forEach(pathData => {
+    assert.match(pathData, /^M\s/);
+    assert.doesNotMatch(pathData, /NaN|Infinity|undefined/);
+  });
+  const svg = app.Measurements.createSilhouetteSvg(current, previous);
+  assert.equal(svg.nodeName, 'svg');
+  assert.equal(svg.getAttribute('viewBox'), '0 0 400 640');
+  assert.equal(svg.getAttribute('role'), 'img');
+  assert.match(svg.getAttribute('aria-label'), /2026-08-08/);
+  assert.equal(svg.classList.contains('body-map-svg'), true);
+  assert.equal(svg.children.length, 3);
+  assert.equal(svg.children[1].classList.contains('body-previous'), true);
+  assert.equal(svg.children[2].classList.contains('body-current'), true);
+  assert.equal(svg.children[1].children.length, 9);
+  assert.equal(svg.children[2].children.length, 9);
 });
 
-test('nomeia e exibe a rotina na ordem A, B, C sem trocar os IDs históricos',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  assert.equal(app.run('state.tab'),'b');
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('DAY_TID'))),['','b','a','c','b','a','c']);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.tid)'))),['b','a','c']);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.label)'))),['A','B','C']);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('orderedWorkouts().map(w=>w.name)'))),['Peito + Ombros + Tríceps','Costas + Bíceps','Perna']);
-  app.run('renderTabs()');
-  const tabs=app.run("document.getElementById('tabs').innerHTML");
-  assert.ok(tabs.indexOf('Treino A')<tabs.indexOf('Treino B'));
+// ---------------------------------------------------------------------------
+// Conformidade com a ficha canônica aprovada.
+//
+// Estas asserções descrevem a prescrição inteira, exercício por exercício. Se
+// qualquer nome, ordem, número de séries, categoria, descanso ou faixa semanal
+// divergir da ficha, o teste falha. Não altere a tabela abaixo para acomodar o
+// código: ela é a ficha.
+// ---------------------------------------------------------------------------
+
+const MOBILIDADE_CANONICA = Object.freeze([
+  ['mob_adductor_butterfly', 'Alongamento de adutores em borboleta', 2, '20–30 segundos'],
+  ['mob_hip_butterfly', 'Mobilidade de quadril em borboleta', 2, '15 repetições'],
+  ['mob_hamstring_seated', 'Alongamento de posterior da coxa sentado', 2, '20–30 segundos'],
+  ['mob_ankle', 'Mobilidade de tornozelo', 2, '10 repetições']
+]);
+
+// [id, nome, séries, categoria, descanso em segundos, unilateral]
+const FICHA_CANONICA = Object.freeze({
+  push_a: {
+    label: 'Empurrar A', weekday: 1, total: 17, mobilidade: [],
+    exercicios: [
+      ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
+      ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
+      ['cable_crossover', 'Crossover na polia', 2, 'accessory', 90, false],
+      ['shoulder_press_machine', 'Desenvolvimento na máquina', 2, 'upper_compound', 120, false],
+      ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
+      ['triceps_skull_dumbbell', 'Tríceps testa com halteres', 2, 'accessory', 90, false],
+      ['triceps_rope', 'Tríceps na polia com corda', 2, 'accessory', 90, false]
+    ]
+  },
+  pull_a: {
+    label: 'Puxar A', weekday: 2, total: 15, mobilidade: [],
+    exercicios: [
+      ['pulldown_supinated', 'Puxada frontal com pegada supinada', 3, 'upper_compound', 120, false],
+      ['seated_row_triangle', 'Remada sentada com triângulo', 3, 'upper_compound', 120, false],
+      ['unilateral_row_machine', 'Remada unilateral na máquina', 2, 'upper_compound', 120, true],
+      ['reverse_fly_machine', 'Crucifixo invertido no aparelho', 3, 'accessory', 90, false],
+      ['ez_bar_curl', 'Rosca direta com barra W', 2, 'accessory', 90, false],
+      ['hammer_curl_standing', 'Rosca martelo em pé', 2, 'accessory', 90, false]
+    ]
+  },
+  legs_a: {
+    label: 'Pernas A', weekday: 3, total: 14, mobilidade: MOBILIDADE_CANONICA,
+    exercicios: [
+      ['squat', 'Agachamento', 3, 'squat_press', 150, false],
+      ['leg_press_45', 'Leg press 45°', 3, 'squat_press', 150, false],
+      ['leg_extension', 'Cadeira extensora', 2, 'accessory', 90, false],
+      ['leg_curl', 'Flexora', 3, 'accessory', 90, false],
+      ['calf_standing_or_leg_press', 'Panturrilha em pé ou no leg press', 3, 'accessory', 90, false]
+    ]
+  },
+  push_b: {
+    label: 'Empurrar B', weekday: 4, total: 15, mobilidade: [],
+    exercicios: [
+      ['chest_press_machine', 'Supino reto na máquina', 2, 'upper_compound', 120, false],
+      ['incline_press_machine', 'Supino inclinado na máquina', 2, 'upper_compound', 120, false],
+      ['machine_fly', 'Crucifixo no aparelho', 2, 'accessory', 90, false],
+      ['shoulder_press_machine', 'Desenvolvimento na máquina', 2, 'upper_compound', 120, false],
+      ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
+      ['triceps_overhead', 'Tríceps testa ou extensão acima da cabeça', 2, 'accessory', 90, false],
+      ['triceps_rope', 'Tríceps na polia com corda', 2, 'accessory', 90, false]
+    ]
+  },
+  pull_b: {
+    label: 'Puxar B', weekday: 5, total: 14, mobilidade: [],
+    exercicios: [
+      ['pulldown_neutral', 'Puxada frontal com pegada neutra', 3, 'upper_compound', 120, false],
+      ['row_machine_choice', 'Remada sentada ou articulada', 3, 'upper_compound', 120, false],
+      ['unilateral_row_machine', 'Remada unilateral na máquina', 2, 'upper_compound', 120, true],
+      ['reverse_fly_machine', 'Crucifixo invertido no aparelho', 2, 'accessory', 90, false],
+      ['ez_bar_curl', 'Rosca direta com barra W', 2, 'accessory', 90, false],
+      ['hammer_curl_standing', 'Rosca martelo em pé', 2, 'accessory', 90, false]
+    ]
+  },
+  legs_b: {
+    label: 'Pernas B', weekday: 6, total: 14, mobilidade: MOBILIDADE_CANONICA,
+    exercicios: [
+      ['deadlift_barbell', 'Levantamento terra com barra', 2, 'deadlift', 180, false],
+      ['leg_press_45', 'Leg press 45°', 3, 'squat_press', 150, false],
+      ['leg_curl', 'Flexora', 4, 'accessory', 90, false],
+      ['leg_extension', 'Cadeira extensora', 2, 'accessory', 90, false],
+      ['calf_seated', 'Panturrilha sentada', 3, 'accessory', 90, false]
+    ]
+  }
 });
 
-test('registra data real e distingue conclusão completa, parcial e sem registro',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("state.week=1;state.session=1;setVal(1,'c_terra_barra',0,'kg','60')");
-  assert.ok(app.run("workoutMeta(1,1,'c',false).startedAt"));
-  app.run("toggleDone(1,'c_terra_barra')");
-  assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'unlogged');
-  app.run("toggleDone(1,'c_terra_barra');setVal(1,'c_terra_barra',0,'reps','8');toggleDone(1,'c_terra_barra')");
-  assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'partial');
-  app.run("toggleDone(1,'c_terra_barra');setVal(1,'c_terra_barra',1,'kg','60');setVal(1,'c_terra_barra',1,'reps','8');setVal(1,'c_terra_barra',2,'kg','60');setVal(1,'c_terra_barra',2,'reps','8');toggleDone(1,'c_terra_barra')");
-  assert.equal(app.run("workLogStatus(WORKOUTS[2].exercises[5],readEntry(1,'c_terra_barra'))"),'full');
+// [semana, min, max, rirMin, rirMax]
+const PERIODIZACAO_CANONICA = Object.freeze({
+  upper_compound: [[1, 12, 15, 3, 3], [2, 12, 15, 2, 2], [3, 10, 12, 2, 2], [4, 10, 12, 1, 2], [5, 8, 10, 2, 2], [6, 8, 10, 1, 2], [7, 6, 8, 1, 2], [8, 8, 12, 4, 5]],
+  squat_press: [[1, 12, 15, 3, 3], [2, 12, 15, 2, 2], [3, 10, 12, 2, 2], [4, 10, 12, 1, 2], [5, 8, 10, 2, 2], [6, 8, 10, 1, 2], [7, 8, 10, 1, 2], [8, 10, 12, 4, 5]],
+  accessory: [[1, 12, 15, 3, 3], [2, 12, 15, 2, 2], [3, 10, 12, 2, 2], [4, 10, 12, 1, 2], [5, 10, 12, 2, 2], [6, 10, 12, 1, 2], [7, 8, 12, 1, 2], [8, 10, 15, 4, 5]],
+  deadlift: [[1, 6, 8, 3, 3], [2, 6, 8, 2, 3], [3, 6, 8, 2, 2], [4, 6, 8, 2, 2], [5, 5, 7, 2, 2], [6, 5, 7, 2, 2], [7, 4, 6, 2, 3], [8, 6, 8, 4, 5]]
 });
 
-test('finaliza e reabre o treino do dia sem alterar os exercícios individuais',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("state.week=1;state.session=1;finishWorkout('a')");
-  assert.ok(app.run("workoutMeta(1,1,'a',false).completedAt"));
-  assert.equal(app.run("workoutMeta(1,1,'a',false).manualCompleted"),true);
-  assert.equal(app.run("WORKOUTS.find(w=>w.tid==='a').exercises.some(ex=>readEntry(1,ex.id).done)"),false);
-  app.run('renderPanels()');
-  assert.equal(app.run("document.getElementById('panels').innerHTML.includes('✓ Treino do dia finalizado · Reabrir')"),true);
-  app.run("finishWorkout('a')");
-  assert.equal(app.run("Boolean(workoutMeta(1,1,'a',false).completedAt)"),false);
+test('conformidade: cada treino traz exatamente os exercícios, a ordem e as séries da ficha', () => {
+  const app = boot();
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => workout.id)), Object.keys(FICHA_CANONICA));
+
+  for (const [workoutId, esperado] of Object.entries(FICHA_CANONICA)) {
+    const workout = app.Data.WORKOUT_BY_ID[workoutId];
+    assert.ok(workout, `treino ausente: ${workoutId}`);
+    assert.equal(workout.label, esperado.label);
+    assert.equal(workout.weekday, esperado.weekday);
+
+    const mobilidade = workout.exercises.filter(exercise => exercise.type === 'mobility');
+    assert.deepEqual(
+      plain(mobilidade.map(exercise => [exercise.id, exercise.name, exercise.sets, exercise.target])),
+      esperado.mobilidade.map(item => item.slice()),
+      `mobilidade divergente em ${workoutId}`
+    );
+
+    const forca = workout.exercises.filter(exercise => exercise.type === 'strength');
+    assert.deepEqual(
+      plain(forca.map(exercise => [exercise.id, exercise.name, exercise.workSets, exercise.category, exercise.restSeconds, Boolean(exercise.unilateral)])),
+      esperado.exercicios.map(item => item.slice()),
+      `exercícios divergentes em ${workoutId}`
+    );
+
+    const soma = forca.reduce((total, exercise) => total + exercise.workSets, 0);
+    assert.equal(soma, esperado.total, `volume somado divergente em ${workoutId}`);
+    assert.equal(workout.workSetTotal, esperado.total, `volume declarado divergente em ${workoutId}`);
+  }
 });
 
-test('preserva exercícios retirados em backups antigos',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const normalized=JSON.parse(JSON.stringify(app.run("normalizeData({1:{1:{a_abs_curto:{sets:[],done:true},a_remada_smith:{sets:[{kg:'50',reps:'10'}],done:true}},2:{}}}).data")));
-  assert.equal(normalized[1][1].a_abs_curto.done,true);
-  assert.equal(normalized[1][1].a_remada_smith.sets[0].kg,'50');
+test('conformidade: totais planejados são 17, 15, 14, 15, 14 e 14', () => {
+  const app = boot();
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => workout.workSetTotal)), [17, 15, 14, 15, 14, 14]);
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => app.Core.workoutVolume(workout))), [17, 15, 14, 15, 14, 14]);
 });
 
-test('troca Smith por barra livre, mantém registro e muda o vídeo',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const squat="WORKOUTS.find(w=>w.tid==='c').exercises.find(e=>e.id==='c_agach_smith')";
-  assert.equal(app.run(`selectedVariant(${squat},readEntry(1,'c_agach_smith')).id`),'smith');
-  assert.equal(app.run(`exerciseCard(${squat}).includes('uDBQtlCLQ0Y')`),true);
-  app.run("setVal(1,'c_agach_smith',0,'kg','20');setExerciseVariant('c_agach_smith','barbell')");
-  assert.equal(app.run("readEntry(1,'c_agach_smith').variant"),'barbell');
-  assert.equal(app.run("readEntry(1,'c_agach_smith').sets[0].kg"),'20');
-  assert.equal(app.run(`exerciseCard(${squat}).includes('4L5nBs8Eq7g')`),true);
-  assert.equal(app.run("normalizeEntry({sets:[],variant:'invalida'},'c_agach_smith').variant||''"),'');
+test('conformidade: periodização das oito semanas por categoria', () => {
+  const app = boot();
+  const amostra = {
+    upper_compound: app.Data.CATALOG.chest_press_machine,
+    squat_press: app.Data.CATALOG.squat,
+    accessory: app.Data.CATALOG.lateral_raise_dumbbell,
+    deadlift: app.Data.CATALOG.deadlift_barbell
+  };
+  for (const [categoria, esperado] of Object.entries(PERIODIZACAO_CANONICA)) {
+    const observado = esperado.map(([week]) => {
+      const prescricao = app.Data.prescriptionFor(amostra[categoria], week, false);
+      return [week, prescricao.min, prescricao.max, prescricao.rirMin, prescricao.rirMax];
+    });
+    assert.deepEqual(plain(observado), esperado.map(item => item.slice()), `periodização divergente em ${categoria}`);
+  }
+
+  // Deload: no máximo duas séries, e uma única no levantamento terra.
+  for (const exercise of Object.values(app.Data.CATALOG)) {
+    const deload = app.Data.prescriptionFor(exercise, 8, false);
+    assert.equal(deload.deload, true, `semana 8 precisa ser deload em ${exercise.id}`);
+    assert.ok(deload.sets <= 2, `deload com mais de duas séries em ${exercise.id}`);
+    assert.ok(deload.rirMin >= 4, `deload com esforço alto demais em ${exercise.id}`);
+  }
+  assert.equal(app.Data.prescriptionFor(app.Data.CATALOG.deadlift_barbell, 8, false).sets, 1);
 });
 
-test('importação inválida não altera os dados atuais',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:false}},2:{}}};saveData()`);
-  app.context.importEvent={target:{files:[{size:100,content:JSON.stringify({app:'outro-app',data:{}})}],value:'arquivo'}};
-  app.run('importData(importEvent)');
-  assert.equal(app.run("readEntry(1,'c_terra_barra',1).sets[0].kg"),'60');
-  assert.equal(app.store.has('jovilite_snapshot'),false);
+test('conformidade: faixa alta opcional é 12–20 e vale só para os exercícios previstos', () => {
+  const app = boot();
+  const permitidos = plain(Object.values(app.Data.CATALOG).filter(exercise => exercise.allowHighReps).map(exercise => exercise.id).sort());
+  assert.deepEqual(permitidos, ['calf_seated', 'calf_standing_or_leg_press', 'lateral_raise_dumbbell', 'reverse_fly_machine']);
+
+  for (const id of permitidos) {
+    for (let week = 1; week <= 7; week += 1) {
+      const alta = app.Data.prescriptionFor(app.Data.CATALOG[id], week, true);
+      assert.deepEqual([alta.min, alta.max], [12, 20], `faixa alta divergente em ${id} na semana ${week}`);
+    }
+    assert.equal(app.Data.prescriptionFor(app.Data.CATALOG[id], 8, true).deload, true);
+  }
+
+  // Exercícios sem a permissão ignoram a preferência.
+  const semPermissao = app.Data.prescriptionFor(app.Data.CATALOG.chest_press_machine, 3, true);
+  assert.deepEqual([semPermissao.min, semPermissao.max], [10, 12]);
 });
 
-test('importação válida normaliza antes de substituir e cria desfazer',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const backup={app:'treino-hard-fofo',schemaVersion:1,data:{1:{c_leg_press:{sets:[{kg:'100',reps:'10'}],done:true}}}};
-  app.context.importEvent={target:{files:[{size:100,content:JSON.stringify(backup)}],value:'arquivo'}};
-  app.run('importData(importEvent)');
-  assert.equal(app.run("readEntry(1,'c_leg_press',1).sets[0].kg"),'100');
-  assert.equal(app.run("readEntry(1,'c_leg_press',1).done"),true);
-  assert.ok(app.store.has('jovilite_snapshot'));
+test('conformidade: descansos por categoria seguem 2:00, 2:30, 3:00 e 1:30', () => {
+  const app = boot();
+  const esperado = {upper_compound: 120, squat_press: 150, deadlift: 180, accessory: 90};
+  for (const exercise of Object.values(app.Data.CATALOG)) {
+    assert.equal(exercise.restSeconds, esperado[exercise.category], `descanso divergente em ${exercise.id}`);
+  }
+  // O descanso chega a cada série de trabalho materializada.
+  for (const workout of app.Data.WORKOUTS) {
+    const session = app.Core.createSession(workout.id, '2026-08-10', 1);
+    session.exercises.forEach(log => {
+      const exercise = app.Data.findExercise(workout.id, log.exerciseId);
+      if (!exercise || exercise.type !== 'strength') return;
+      log.sets.filter(set => set.type === 'work').forEach(set => {
+        assert.equal(set.nextRestSeconds, exercise.restSeconds, `descanso da série divergente em ${exercise.id}`);
+      });
+    });
+  }
 });
 
-test('importa medidas do backup e backup antigo preserva o histórico atual',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("upsertMeasurement({date:'2026-06-01',weight:'115'})");
-  let backup={app:'treino-hard-fofo',schemaVersion:5,data:{},measurements:[{date:'2026-07-01',weight:'110',waist:'118'}]};
-  app.context.importEvent={target:{files:[{size:200,content:JSON.stringify(backup)}],value:'arquivo'}};
-  app.run('importData(importEvent)');
-  assert.equal(app.run("state.measurements[0].weight"),'110');
-  backup={app:'treino-hard-fofo',schemaVersion:1,data:{1:{c_leg_press:{sets:[{kg:'100',reps:'10'}],done:true}}}};
-  app.context.importEvent={target:{files:[{size:200,content:JSON.stringify(backup)}],value:'arquivo'}};
-  app.run('importData(importEvent)');
-  assert.equal(app.run("state.measurements[0].weight"),'110');
+test('conformidade: aquecimentos previstos aparecem como séries que não contam volume', () => {
+  const app = boot();
+  const esperado = {chest_press_machine: 3, pulldown_supinated: 2, squat: 3, leg_press_45: 1, deadlift_barbell: 3};
+  for (const exercise of Object.values(app.Data.CATALOG)) {
+    assert.equal(exercise.warmupSets, esperado[exercise.id] || 0, `aquecimento divergente em ${exercise.id}`);
+  }
+  // Em Empurrar B o supino reto entra sem aquecimento, porque já foi aquecido em A.
+  const supinoB = app.Data.WORKOUT_BY_ID.push_b.exercises.find(exercise => exercise.id === 'chest_press_machine');
+  assert.equal(supinoB.warmupSets, 0);
+
+  const session = app.Core.createSession('push_a', '2026-08-10', 1);
+  const supino = session.exercises.find(log => log.exerciseId === 'chest_press_machine');
+  assert.equal(supino.sets.filter(set => set.type === 'warmup').length, 3);
+  assert.equal(supino.sets.filter(set => set.type === 'work').length, 3);
+  assert.equal(supino.sets.filter(set => set.type === 'warmup').every(set => set.nextRestSeconds === 0), true);
 });
 
-test('invalida desfazer ao registrar dados novos após uma limpeza',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'60',reps:'8'}],done:true}},2:{}}};saveData();resetPeriodization()`);
-  assert.ok(app.store.has('jovilite_snapshot'));
-  app.run("state.week=1;state.session=1;setVal(1,'c_terra_barra',0,'kg','70')");
-  assert.equal(app.store.has('jovilite_snapshot'),false);
+test('conformidade: remada unilateral gera registro separado para cada lado', () => {
+  const app = boot();
+  for (const workoutId of ['pull_a', 'pull_b']) {
+    const session = app.Core.createSession(workoutId, '2026-08-10', 1);
+    const lados = session.exercises.filter(log => log.exerciseId === 'unilateral_row_machine');
+    assert.equal(lados.length, 2, `${workoutId} precisa registrar os dois lados`);
+    assert.deepEqual(plain(lados.map(log => log.side).sort()), ['left', 'right']);
+    lados.forEach(log => {
+      assert.equal(log.sets.filter(set => set.type === 'work').length, 2, 'duas séries por lado');
+    });
+    // As chaves comparáveis dos dois lados nunca coincidem.
+    const chaves = lados.map(log => app.Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, '12-15'));
+    assert.notEqual(chaves[0], chaves[1]);
+
+    // Nenhum outro exercício da ficha é duplicado.
+    const contagem = new Map();
+    session.exercises.forEach(log => contagem.set(log.exerciseId, (contagem.get(log.exerciseId) || 0) + 1));
+    for (const [exerciseId, vezes] of contagem) {
+      assert.equal(vezes, exerciseId === 'unilateral_row_machine' ? 2 : 1, `${exerciseId} duplicado indevidamente`);
+    }
+  }
 });
 
-test('preserva conteúdo local corrompido para recuperação',()=>{
-  const app=boot({jovilite_data:'{',jovilite_lastopen:todayKey()});
-  const recovery=JSON.parse(app.store.get('jovilite_recovery'));
-  assert.equal(recovery.raw,'{');
-  assert.equal(app.run('Object.keys(state.data).length'),0);
+test('conformidade: tríceps de Empurrar B oferece testa e extensão acima da cabeça', () => {
+  const app = boot();
+  const triceps = app.Data.WORKOUT_BY_ID.push_b.exercises.find(exercise => exercise.id === 'triceps_overhead');
+  assert.deepEqual(plain(triceps.variants.map(variant => variant.id)), ['overhead', 'skull_crusher']);
+  assert.deepEqual(plain(triceps.variants.map(variant => variant.label)), ['Extensão acima da cabeça', 'Tríceps testa com halteres']);
+  assert.equal(triceps.defaultVariant, 'overhead');
+  // Cada opção aponta para o próprio vídeo e não mistura cargas.
+  assert.deepEqual(plain(triceps.variants.map(variant => variant.videoKey)), ['triceps_overhead', 'triceps_skull_dumbbell']);
+  const session = app.Core.createSession('push_b', '2026-08-10', 1);
+  const log = session.exercises.find(item => item.exerciseId === 'triceps_overhead');
+  assert.equal(log.variationId, 'overhead');
+  assert.notEqual(
+    app.Core.comparableSeriesKey('triceps_overhead', 'overhead', '', 'bilateral', '10-12'),
+    app.Core.comparableSeriesKey('triceps_overhead', 'skull_crusher', '', 'bilateral', '10-12')
+  );
 });
 
-test('mescla a gravação mais recente de outra aba antes de editar',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const external={schemaVersion:2,data:{1:{1:{c_terra_barra:{sets:[{kg:'70',reps:'8'}],done:false}},2:{}}}};
-  app.store.set('jovilite_data',JSON.stringify(external));
-  app.run("state.week=1;state.session=1;setVal(1,'c_leg_press',0,'kg','100')");
-  assert.equal(app.run("readEntry(1,'c_terra_barra',1).sets[0].kg"),'70');
-  assert.equal(app.run("readEntry(1,'c_leg_press',1).sets[0].kg"),'100');
+test('conformidade: variações permitidas por exercício', () => {
+  const app = boot();
+  const esperado = {
+    seated_row_triangle: ['cable_triangle', 'machine_supported'],
+    unilateral_row_machine: ['machine_left_right', 'plate_loaded'],
+    row_machine_choice: ['seated_cable_triangle', 'articulated_supported', 'articulated_unsupported'],
+    squat: ['free_barbell', 'smith'],
+    leg_press_45: ['machine_unspecified'],
+    leg_extension: ['machine_unspecified'],
+    leg_curl: ['seated', 'lying', 'standing_unilateral'],
+    calf_standing_or_leg_press: ['standing_machine', 'leg_press_45'],
+    calf_seated: ['seated_machine'],
+    triceps_overhead: ['overhead', 'skull_crusher']
+  };
+  for (const exercise of Object.values(app.Data.CATALOG)) {
+    assert.deepEqual(
+      plain(exercise.variants.map(variant => variant.id)),
+      esperado[exercise.id] || [],
+      `variações divergentes em ${exercise.id}`
+    );
+  }
 });
 
-test('não descarta dados em memória depois de uma falha de armazenamento',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.data={1:{1:{c_terra_barra:{sets:[{kg:'70',reps:'8'}],done:false}},2:{}}};state.week=1;state.session=1;storageHealthy=false`);
-  app.store.set('jovilite_data',JSON.stringify({schemaVersion:2,data:{}}));
-  app.run("setVal(1,'c_leg_press',0,'kg','100')");
-  assert.equal(app.run("readEntry(1,'c_terra_barra',1).sets[0].kg"),'70');
-  assert.equal(app.run("readEntry(1,'c_leg_press',1).sets[0].kg"),'100');
+test('conformidade: stiff e terra romeno estão ausentes e o terra fica só em Pernas B', () => {
+  const app = boot();
+  const proibidos = /stiff|romen|rdl/i;
+  for (const exercise of Object.values(app.Data.CATALOG)) {
+    assert.doesNotMatch(exercise.name, proibidos, `exercício proibido no catálogo: ${exercise.id}`);
+    assert.doesNotMatch(exercise.id, proibidos, `identificador proibido no catálogo: ${exercise.id}`);
+  }
+  for (const workout of app.Data.WORKOUTS) {
+    workout.exercises.forEach(exercise => assert.doesNotMatch(exercise.name, proibidos, `exercício proibido em ${workout.id}`));
+  }
+  const comTerra = app.Data.WORKOUTS.filter(workout => workout.exercises.some(exercise => exercise.id === 'deadlift_barbell'));
+  assert.deepEqual(plain(comTerra.map(workout => workout.id)), ['legs_b']);
+  // O terra nunca recomenda falha.
+  for (let week = 1; week <= 8; week += 1) {
+    const prescricao = app.Data.prescriptionFor(app.Data.CATALOG.deadlift_barbell, week, false);
+    assert.ok(prescricao.rirMin >= 2, `terra com RIR mínimo abaixo de 2 na semana ${week}`);
+  }
 });
 
-test('timer usa prazo absoluto e conclui após suspensão',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("startTimer(90,'Descanso');tDeadline=Date.now()-1;tickTimer()");
-  assert.equal(app.run('tRem'),0);
-  assert.equal(app.run('tFinished'),true);
+test('conformidade: semana canônica de segunda a sábado, domingo sem sessão', () => {
+  const app = boot();
+  assert.deepEqual(plain(app.Data.DAY_WORKOUT), {1: 'push_a', 2: 'pull_a', 3: 'legs_a', 4: 'push_b', 5: 'pull_b', 6: 'legs_b'});
+  assert.equal(app.Data.DAY_WORKOUT[0], undefined);
+  assert.equal(app.Data.workoutForDate('2026-08-16'), '', 'domingo não pode ter treino');
+  const dias = ['2026-08-10', '2026-08-11', '2026-08-12', '2026-08-13', '2026-08-14', '2026-08-15'];
+  assert.deepEqual(plain(dias.map(day => app.Data.workoutForDate(day))), ['push_a', 'pull_a', 'legs_a', 'push_b', 'pull_b', 'legs_b']);
 });
 
-test('normaliza e persiste preferências sem aceitar chaves desconhecidas',()=>{
-  const app=boot({jovilite_settings:JSON.stringify({sound:false,largeText:true,extra:'não'}),jovilite_lastopen:todayKey()});
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run('state.settings'))),{sound:false,vibration:true,largeText:true,keepAwake:true});
-  app.run("toggleSetting('sound')");
-  assert.equal(JSON.parse(app.store.get('jovilite_settings')).sound,true);
-  assert.equal(app.run("Object.prototype.hasOwnProperty.call(state.settings,'extra')"),false);
+test('conformidade: supinos em máquina nas duas exposições e mobilidade idêntica nas pernas', () => {
+  const app = boot();
+  for (const workoutId of ['push_a', 'push_b']) {
+    const ids = app.Data.WORKOUT_BY_ID[workoutId].exercises.map(exercise => exercise.id);
+    assert.ok(ids.includes('chest_press_machine'), `supino reto na máquina ausente em ${workoutId}`);
+    assert.ok(ids.includes('incline_press_machine'), `supino inclinado na máquina ausente em ${workoutId}`);
+    assert.equal(ids.some(id => /barbell/.test(id) && id !== 'deadlift_barbell'), false, `barra livre indevida em ${workoutId}`);
+  }
+  const mobilidade = workoutId => plain(app.Data.WORKOUT_BY_ID[workoutId].exercises
+    .filter(exercise => exercise.type === 'mobility')
+    .map(exercise => [exercise.id, exercise.sets, exercise.target, exercise.effort || '']));
+  assert.deepEqual(mobilidade('legs_a'), mobilidade('legs_b'));
+  assert.equal(mobilidade('legs_a').length, 4);
 });
 
-test('copia séries anteriores, repete a primeira e permite desfazer o lote',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run(`state.week=2;state.session=1;state.data={1:{1:{},2:{c_terra_barra:{sets:[{kg:'60',reps:'10'},{kg:'65',reps:'8'},{kg:'65',reps:'8'}],done:true}}},2:{1:{},2:{}}};saveData()`);
-  app.run("copyPreviousSets('c_terra_barra',0,3)");
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run("readEntry(2,'c_terra_barra').sets"))),[{kg:'60',reps:'10'},{kg:'65',reps:'8'},{kg:'65',reps:'8'}]);
-  app.run("setVal(2,'c_terra_barra',0,'kg','70');repeatFirstWorkSet('c_terra_barra',0,3)");
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run("readEntry(2,'c_terra_barra').sets.map(s=>s.kg)"))),['70','70','70']);
-  app.run('undoQuickEdit()');
-  assert.deepEqual(JSON.parse(JSON.stringify(app.run("readEntry(2,'c_terra_barra').sets.map(s=>s.kg)"))),['70','65','65']);
+test('conformidade: bracing é orientação e vacuum fica fora do volume da musculação', () => {
+  const app = boot();
+  assert.equal(typeof app.Data.BRACING_TEXT, 'string');
+  assert.ok(app.Data.BRACING_TEXT.length > 40);
+  for (const workout of app.Data.WORKOUTS) {
+    workout.exercises.forEach(exercise => {
+      assert.doesNotMatch(exercise.name, /bracing|vacuum/i, `${exercise.id} não pode ser exercício da ficha`);
+    });
+  }
+  // O vacuum vive no módulo separado de rotina em casa.
+  const rotina = plain(app.run(`THFCore.normalizeHomeRoutine({date: '2026-08-12', position: 'lying', durationSeconds: 15, repetitions: 2}, 0)`));
+  assert.equal(rotina.date, '2026-08-12');
+  assert.equal(rotina.position, 'lying');
+  const session = app.Core.createSession('legs_a', '2026-08-12', 1);
+  assert.equal(session.exercises.some(log => /vacuum/i.test(log.exerciseId)), false);
 });
 
-test('backup completo inclui ajustes e CSV neutraliza fórmulas',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const payload=JSON.parse(JSON.stringify(app.run('buildBackupPayload()')));
-  assert.equal(payload.schemaVersion,9);
-  assert.equal(payload.settings.keepAwake,true);
-  assert.equal(app.run("csvCell('=2+2')"),'"\'=2+2"');
-  assert.equal(app.run("csvCell('@comando')"),'"\'@comando"');
-  app.run("upsertMeasurement({date:'2026-07-20',weight:'108',height:'175',inseam:'82',neck:'42',shoulderWidth:'46',waist:'100',forearmLeft:'31',forearmRight:'32'});downloadText=(text,name,type)=>globalThis.csvCapture={text,name,type};exportCsv()");
-  assert.equal(app.run("csvCapture.text.includes('\"altura_cm\"')"),true);
-  assert.equal(app.run("csvCapture.text.includes('\"entrepernas_cm\"')"),true);
-  assert.equal(app.run("csvCapture.text.includes('\"antebraco_dir_cm\"')"),true);
-  assert.equal(app.run("csvCapture.text.includes('\"108\";\"175\";\"82\";\"42\";\"46\";\"100\"')"),true);
-});
-
-test('cria e restaura cópia automática local validada',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.run("state.week=1;state.session=1;setVal(1,'c_terra_barra',0,'kg','60');autoBackupIfDue(true)");
-  const stored=JSON.parse(app.store.get('jovilite_auto_backups'));
-  assert.equal(stored.length,1);
-  assert.equal(stored[0].schemaVersion,9);
-  app.run("setVal(1,'c_terra_barra',0,'kg','90');restoreAutoBackup('auto-'+localDateStamp())");
-  assert.equal(app.run("readEntry(1,'c_terra_barra').sets[0].kg"),'60');
-  assert.ok(app.store.has('jovilite_snapshot'));
-});
-
-test('aviso de atualização só instala após confirmação explícita',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  app.context.messages=[];
-  app.run("waitingWorker={postMessage:m=>messages.push(m)};refreshAppNotice();applyAppUpdate()");
-  assert.equal(app.run("document.getElementById('appnotice').innerHTML.includes('Atualizar agora')"),true);
-  assert.deepEqual(JSON.parse(JSON.stringify(app.context.messages)),[{type:'SKIP_WAITING'}]);
-});
-
-test('campo de repetições salva no blur e só inicia descanso quando mudou',()=>{
-  const app=boot({jovilite_lastopen:todayKey()});
-  const card=app.run("exerciseCard(WORKOUTS.find(w=>w.tid==='b').exercises.find(e=>e.id==='b_supino_barra'))");
-  assert.equal(card.includes('onchange="commitFieldEdit'),false);
-  assert.equal(card.includes('onblur="if(commitFieldEdit'),true);
-  assert.equal(card.includes("finishSetReps(this.value,90,'Supino Reto')"),true);
-  app.run("state.week=1;state.session=1;beginFieldEdit('b_supino_barra',2,'reps');upd('b_supino_barra',2,'reps','12')");
-  assert.equal(app.run("commitFieldEdit('b_supino_barra',2,'reps','12')"),true);
-  app.run("beginFieldEdit('b_supino_barra',2,'reps')");
-  assert.equal(app.run("commitFieldEdit('b_supino_barra',2,'reps','12')"),false);
+test('conformidade: versão do app e esquema de dados são independentes', () => {
+  const app = boot();
+  assert.match(app.Core.APP_VERSION, /^\d+\.\d+\.\d+$/);
+  assert.equal(app.Core.SCHEMA_VERSION, 11);
+  const backup = app.Core.buildBackup(app.Core.defaultState());
+  assert.equal(backup.schemaVersion, 11);
+  assert.equal(Object.prototype.hasOwnProperty.call(backup, 'appVersion'), false, 'a versão do app não entra no formato persistido');
 });

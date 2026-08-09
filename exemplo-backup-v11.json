@@ -1,0 +1,312 @@
+{
+  "app": "treino-hard-fofo",
+  "schemaVersion": 11,
+  "format": "treino-hard-backup",
+  "exportedAt": "2026-08-08T12:00:00.000Z",
+  "state": {
+    "schemaVersion": 11,
+    "app": "treino-hard-fofo",
+    "revision": 7,
+    "createdAt": "2026-08-03T11:00:00.000Z",
+    "updatedAt": "2026-08-08T12:00:00.000Z",
+    "settings": {
+      "mode": "calendar",
+      "sound": true,
+      "vibration": true,
+      "largeText": false,
+      "keepAwake": true,
+      "autoStartRest": true,
+      "defaultWeek": 1,
+      "vacuumFrequency": 3,
+      "vacuumRepetitions": 2,
+      "vacuumDuration": 15,
+      "vacuumPosition": "lying"
+    },
+    "cycle": {
+      "id": "cycle-example-2026",
+      "startedAt": "2026-08-03T11:00:00.000Z",
+      "currentWeek": 1,
+      "status": "active"
+    },
+    "sessions": [
+      {
+        "id": "session-example-push-a",
+        "workoutId": "push_a",
+        "plannedDate": "2026-08-03",
+        "actualDate": "2026-08-03",
+        "week": 1,
+        "status": "completed",
+        "startedAt": "2026-08-03T11:05:00.000Z",
+        "pausedAt": "",
+        "pausedSeconds": 0,
+        "completedAt": "2026-08-03T12:10:00.000Z",
+        "durationSeconds": 3900,
+        "rescheduledFrom": "",
+        "note": "Dados fictícios para validar importação.",
+        "cardioId": "cardio-example-2026-08-03",
+        "exercises": [
+          {
+            "id": "exercise-example-chest-press",
+            "exerciseId": "chest_press_machine",
+            "variationId": "",
+            "machineId": "maquina-exemplo-01",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "good",
+            "feedback": "Execução confortável; registro fictício.",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "set-example-warmup-1",
+                "type": "warmup",
+                "index": 0,
+                "load": "20",
+                "reps": "12",
+                "rir": "5+",
+                "status": "completed",
+                "note": "Aquecimento fictício.",
+                "completedAt": "2026-08-03T11:12:00.000Z",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "set-example-work-1",
+                "type": "work",
+                "index": 0,
+                "load": "40",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-03T11:18:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "set-example-work-2",
+                "type": "work",
+                "index": 1,
+                "load": "40",
+                "reps": "14",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-03T11:21:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "set-example-work-3",
+                "type": "work",
+                "index": 2,
+                "load": "40",
+                "reps": "12",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-03T11:24:00.000Z",
+                "nextRestSeconds": 120
+              }
+            ]
+          }
+        ],
+        "createdAt": "2026-08-03T11:00:00.000Z",
+        "updatedAt": "2026-08-03T12:10:00.000Z"
+      }
+    ],
+    "cardio": [
+      {
+        "id": "cardio-example-2026-08-03",
+        "date": "2026-08-03",
+        "startTime": "18:30",
+        "durationMinutes": 25,
+        "distanceKm": "1.8",
+        "pace": "leve",
+        "effort": 3,
+        "status": "normal",
+        "discomfort": "",
+        "legDayFlags": {
+          "fatigue": false,
+          "rightCalfPain": false,
+          "gaitChange": false,
+          "kneePain": false,
+          "anklePain": false,
+          "performanceDrop": false
+        },
+        "note": "Registro fictício.",
+        "relatedSessionId": "session-example-push-a",
+        "savedAt": "2026-08-03T22:00:00.000Z"
+      }
+    ],
+    "homeRoutines": [
+      {
+        "id": "home-example-vacuum",
+        "date": "2026-08-04",
+        "time": "07:30",
+        "position": "lying",
+        "durationSeconds": 15,
+        "repetitions": 2,
+        "ease": 7,
+        "note": "Registro fictício; não entra no volume de musculação.",
+        "savedAt": "2026-08-04T11:00:00.000Z"
+      }
+    ],
+    "measurements": [
+      {
+        "id": "measurement-example-2026-08-03",
+        "date": "2026-08-03",
+        "weight": "100",
+        "height": "175",
+        "inseam": "80",
+        "neck": "40",
+        "shoulderWidth": "45",
+        "chest": "110",
+        "waist": "105",
+        "abdomen": "112",
+        "hip": "108",
+        "armLeft": "36",
+        "armRight": "37",
+        "forearmLeft": "29",
+        "forearmRight": "30",
+        "thighLeft": "61",
+        "thighRight": "63",
+        "calfLeft": "39",
+        "calfRight": "40",
+        "quality": {
+          "derivedFields": [],
+          "directFields": [
+            "weight",
+            "height",
+            "inseam",
+            "neck",
+            "shoulderWidth",
+            "chest",
+            "waist",
+            "abdomen",
+            "hip",
+            "armLeft",
+            "armRight",
+            "forearmLeft",
+            "forearmRight",
+            "thighLeft",
+            "thighRight",
+            "calfLeft",
+            "calfRight"
+          ],
+          "warnings": []
+        },
+        "note": "Valores inteiramente fictícios.",
+        "measuredAt": "2026-08-03T09:55:00.000Z",
+        "savedAt": "2026-08-03T10:00:00.000Z"
+      }
+    ],
+    "progressionDecisions": [
+      {
+        "id": "progression-example-chest-press",
+        "sessionId": "session-example-push-a",
+        "exerciseId": "chest_press_machine",
+        "seriesKey": "chest_press_machine|default|maquina-exemplo-01|bilateral|12-15",
+        "date": "2026-08-03",
+        "recommendation": "maintain",
+        "message": "Resultado dentro da faixa e do RIR planejado. Mantenha a carga na próxima execução comparável.",
+        "load": "40",
+        "result": "15 / 14 / 12",
+        "rir": "3 / 3 / 3",
+        "decision": "maintained",
+        "nextLoad": "40",
+        "savedAt": "2026-08-03T12:10:00.000Z"
+      }
+    ],
+    "legacyCycles": [
+      {
+        "id": "legacy-cycle-example",
+        "sourceSchema": 9,
+        "label": "Ciclo legado fictício",
+        "importedAt": "2026-08-03T11:00:00.000Z",
+        "sourceStartedAt": "2026-06-08T10:00:00.000Z",
+        "sessionMeta": [
+          {
+            "id": "legacy-meta-example",
+            "week": 1,
+            "occurrence": 1,
+            "legacyWorkoutId": "a",
+            "startedAt": "2026-06-08T11:00:00.000Z",
+            "completedAt": "2026-06-08T12:00:00.000Z",
+            "manualCompleted": true
+          }
+        ],
+        "records": [
+          {
+            "id": "legacy-record-example",
+            "week": 1,
+            "occurrence": 1,
+            "legacyWorkoutId": "a",
+            "legacyExerciseId": "a_puxada_supinada",
+            "canonicalId": "pulldown_supinated",
+            "legacy": true,
+            "variationId": "",
+            "equipmentKey": "legacy:a_puxada_supinada:unspecified",
+            "mappingStatus": "mapped",
+            "done": true,
+            "feeling": "good",
+            "feedback": "Registro legado fictício.",
+            "sets": [
+              {
+                "id": "legacy-set-example",
+                "type": "work",
+                "index": 0,
+                "load": "35",
+                "reps": "12",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "archives": [],
+    "migrationLog": [
+      {
+        "at": "2026-08-03T11:00:00.000Z",
+        "from": 9,
+        "to": 10,
+        "summary": "1 registro ABC fictício preservado como ciclo legado."
+      },
+      {
+        "at": "2026-08-03T11:00:01.000Z",
+        "from": 10,
+        "to": 11,
+        "summary": "Exemplo de migração para o esquema 11."
+      }
+    ],
+    "quarantine": []
+  }
+}
