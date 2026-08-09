@@ -2,6 +2,54 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.1.0] — restauração da identidade visual clássica — 2026-08-08
+
+A interface da v3 foi reprojetada sobre a linguagem visual da versão 2.2,
+preservando a arquitetura, ficha, dados, segurança e funcionalidades da versão 3.
+Esquema de dados continua **11**; nenhuma migração foi criada.
+
+### Identidade restaurada
+
+- Paleta preto + rosa empoeirado da logo, com as variáveis originais de fundo,
+  elevação, cartão e borda.
+- Largura principal de volta a 760 px, pensada primeiro para o celular e
+  centralizada no desktop.
+- Cabeçalho compacto com a logo protagonista; versão e estado de salvamento
+  deixam de competir com o título.
+- As oito semanas voltam a ser botões visíveis (4 + 4 em telas pequenas), com
+  deload diferenciado, em vez de um seletor escondido.
+- Resumo unificado da semana com valores grandes e rótulos pequenos, no lugar de
+  quatro cartões separados.
+- Abas em cápsula, horizontais, roláveis e fixas no topo, com toda a semântica
+  ARIA e a navegação por teclado da v3 preservadas.
+- Cada exercício volta a ser percebido como um cartão próprio, com borda lateral
+  por categoria: mobilidade roxo, terra azul, compostos rosa, acessórios laranja
+  e concluído verde.
+- Bloco “Meta da semana” antes dos campos, com faixa, RIR e descanso.
+- Séries redesenhadas: carga, repetições, RIR e concluir em destaque; status,
+  descanso e observação continuam registrados dentro de “Mais”.
+- Aquecimentos com borda azul e selo próprio, ainda fora do volume.
+- Variações com poucas opções viram chips; o seletor fica só a partir de quatro.
+- Vídeo pendente vira nota discreta; vídeo aprovado ganha botão largo no cartão.
+- Barra de progresso simples com texto curto, no lugar do medidor nativo.
+- Cronômetro compacto, fixo no rodapé, dentro da mesma largura do aplicativo.
+- Tela “Hoje” simplificada: treino do dia, semana, meta e ação principal.
+
+### Corrigido
+
+- `registerPwa` quebrava com “Cannot read properties of undefined” em perfis que
+  bloqueiam service worker; agora avisa e o aplicativo segue funcionando.
+- Contraste ajustado apenas em luminosidade nos elementos claros da identidade
+  (semana ativa, botão principal, selo de série, cronômetro e link de atalho),
+  mantendo o rosa e atendendo ao mínimo aplicável do WCAG AA.
+
+### Preservado
+
+Ficha canônica, periodização, séries por lado, variantes, progressão dupla,
+descansos, cronômetro, caminhada, vacuum, medidas, gráficos separados por
+máquina/variação/lado/faixa, IndexedDB com fallback, migrações, backups, backup
+criptografado, recuperação, PWA, service worker, CSP e acessibilidade.
+
 ## [3.0.1] — 2026-08-08
 
 Lote 1: sincronização da ficha com a versão canônica aprovada. O esquema de dados

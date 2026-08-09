@@ -237,8 +237,52 @@
     ]);
   }
 
+  // As oito semanas ficam visíveis como botões, não escondidas num seletor.
+  function renderWeekSelector() {
+    if (!dom.weekSelector || !state) return;
+    dom.weekSelector.replaceChildren(
+      element('div', {className: 'wlbl', text: 'Semana da periodização'}),
+      element('div', {className: 'weekbar', attrs: {role: 'group', 'aria-label': 'Semana da periodização'}},
+        Array.from({length: 8}, (_, index) => {
+          const week = index + 1;
+          const selected = state.cycle.currentWeek === week;
+          return element('button', {
+            className: `week${week === 8 ? ' dl' : ''}${selected ? ' on' : ''}`,
+            text: week === 8 ? 'DL' : String(week),
+            attrs: {
+              type: 'button',
+              'aria-pressed': selected ? 'true' : 'false',
+              'aria-label': week === 8 ? 'Semana 8, deload' : `Semana ${week}`
+            },
+            dataset: {action: 'cycle-week-set', week: String(week)}
+          });
+        }))
+    );
+  }
+
+  // Bloco único de resumo, no lugar de quatro cartões soltos.
+  function renderWeekSummary() {
+    if (!dom.weekSummary || !state) return;
+    const week = state.cycle.currentWeek;
+    const focused = Data.WORKOUT_BY_ID[currentTab] || (sessionForToday() ? Data.WORKOUT_BY_ID[sessionForToday().workoutId] : null);
+    const prescription = Data.prescriptionFor(Data.CATALOG.chest_press_machine, week, false);
+    const rir = prescription.rirMin == null ? '—' : prescription.rirMin === prescription.rirMax ? String(prescription.rirMin) : `${prescription.rirMin}–${prescription.rirMax}`;
+    const cell = (label, value, big) => element('div', {className: 'wcell'}, [
+      element('div', {className: 'lbl', text: label}),
+      element('div', {className: big ? 'big' : 'val', text: value})
+    ]);
+    dom.weekSummary.replaceChildren(element('div', {className: `wsum${week === 8 ? ' dl' : ''}`}, [
+      cell('Semana', week === 8 ? 'DL' : String(week), true),
+      cell('Repetições', prescription.label),
+      cell('RIR', rir),
+      cell('Séries', focused ? String(focused.workSetTotal) : '—')
+    ]));
+  }
+
   function renderActivePanel() {
     if (!state) return;
+    renderWeekSelector();
+    renderWeekSummary();
     let panel;
     try {
       if (currentTab === 'today') panel = renderTodayPanel();
@@ -283,6 +327,8 @@
     dom.timerNumber = document.getElementById('timer-number');
     dom.timerLabel = document.getElementById('timer-label');
     dom.timerAnnouncement = document.getElementById('timer-announcement');
+    dom.weekSelector = document.getElementById('week-selector');
+    dom.weekSummary = document.getElementById('week-summary');
     dom.footerVersion = document.getElementById('footer-version');
     if (dom.footerVersion) dom.footerVersion.textContent = `Treino Hard (Fofo) · versão ${Core.APP_VERSION} · esquema ${Core.SCHEMA_VERSION}`;
   }
@@ -380,13 +426,6 @@
     const progress = sessionProgress(session);
     const children = [];
 
-    children.push(element('div', {className: 'summary-grid'}, [
-      summaryCard('Data', formatDate(today, false), new Intl.DateTimeFormat('pt-BR', {weekday: 'long'}).format(now)),
-      summaryCard('Semana', `Semana ${state.cycle.currentWeek}`, Data.WEEK_LABELS[state.cycle.currentWeek]),
-      summaryCard('Caminhada', sunday ? 'Sem meta' : 'Leve no fim do dia', sunday ? 'Descanso completo planejado' : 'Registro opcional'),
-      summaryCard('Backup', lastBackupState, storage.mode === 'indexeddb' ? 'IndexedDB local' : storage.mode === 'localstorage' ? 'Fallback local' : 'Memória temporária')
-    ]));
-
     if (sunday) {
       children.push(element('article', {className: 'card rest-day-card'}, [
         element('div', {className: 'card-header'}, [element('div', {className: 'card-title'}, [element('h3', {text: 'Domingo — descanso completo'}), element('p', {text: 'Hoje não há musculação nem meta obrigatória de caminhada.'})])]),
@@ -396,18 +435,25 @@
       children.push(element('div', {className: 'empty-state'}, [element('h3', {text: 'Nenhuma sessão planejada para hoje'}), element('p', {text: 'Você pode abrir uma ficha e planejar ou remarcar uma sessão explicitamente.'})]));
     } else {
       const workout = Data.WORKOUT_BY_ID[session.workoutId];
-      children.push(element('article', {className: 'card today-card'}, [
-        element('div', {className: 'card-header'}, [
-          element('div', {className: 'card-title'}, [element('h3', {text: workout.label}), element('p', {text: state.settings.mode === 'sequence' && session.plannedDate !== today ? `Pendente desde ${formatDate(session.plannedDate)}` : workout.intro})]),
+      const snapshot = prescription ? prescription.prescriptionSnapshot : null;
+      children.push(element('article', {className: `card today-card k-per${session.status === 'completed' ? ' done' : ''}`}, [
+        element('div', {className: 'chead'}, [
+          element('div', {className: 'card-title'}, [
+            element('div', {className: 'today-kicker', text: 'Treino de hoje'}),
+            element('h3', {className: 'cname', text: workout.label}),
+            element('p', {className: 'cdetail', text: state.settings.mode === 'sequence' && session.plannedDate !== today ? `Pendente desde ${formatDate(session.plannedDate)}` : workout.intro})
+          ]),
           element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
         ]),
-        element('div', {className: 'target-box'}, [
-          element('div', {className: 'target-item'}, [element('span', {text: 'Faixa inicial'}), element('strong', {text: prescription ? `${prescription.prescriptionSnapshot.label} rep.` : 'Por exercício'})]),
-          element('div', {className: 'target-item'}, [element('span', {text: 'RIR inicial'}), element('strong', {text: prescription && prescription.prescriptionSnapshot.rirMin != null ? `${prescription.prescriptionSnapshot.rirMin}–${prescription.prescriptionSnapshot.rirMax}` : 'Por exercício'})]),
-          element('div', {className: 'target-item'}, [element('span', {text: 'Progresso'}), element('strong', {text: `${progress.done}/${progress.total}`})])
+        element('div', {className: 'target'}, [
+          element('span', {className: 'ico', text: '🎯'}),
+          element('div', {}, [
+            element('div', {className: 't1', text: `Semana ${session.week}`}),
+            element('div', {className: 't2', text: snapshot && snapshot.min ? `${snapshot.label} rep · RIR ${snapshot.rirMin === snapshot.rirMax ? snapshot.rirMin : `${snapshot.rirMin}–${snapshot.rirMax}`}` : 'Faixa por exercício'})
+          ])
         ]),
-        element('progress', {attrs: {max: '100', value: String(progress.percent), 'aria-label': `Progresso do treino: ${progress.percent}%`}}),
-        element('div', {className: 'button-row'}, [button('Abrir treino do dia', 'open-workout', 'primary-button', {workoutId: session.workoutId})])
+        progress.done ? progressBar(progress, 'itens registrados') : null,
+        element('div', {className: 'button-row'}, [button(progress.done ? 'Continuar treino' : 'Iniciar treino', 'open-workout', 'primary-button', {workoutId: session.workoutId})])
       ]));
     }
     if (!sunday && next) children.push(element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label} — ${formatDate(next.plannedDate)}.`}));
@@ -415,11 +461,26 @@
       element('strong', {text: 'Como interpretar a faixa'}),
       element('p', {text: 'Uma faixa de 12–15 repetições significa escolher uma carga que permita terminar cada série entre 12 e 15 repetições com o esforço planejado. Não é obrigatório fazer 15 repetições nas três séries. Resultados como 15, 14 e 12 podem ser válidos.'})
     ]));
+    children.push(element('p', {className: 'fine-print', text: `${formatDate(today, true)} · ${sunday ? 'sem meta de caminhada' : 'caminhada leve no fim do dia'} · ${lastBackupState.toLowerCase()}.`}));
     return panelShell('today', 'Hoje', 'Planejamento real, sem registrar automaticamente o que não foi feito.', children);
   }
 
   function statusBadge(text, modifier) {
     return element('span', {className: `badge${modifier ? ` ${modifier}` : ''}`, text});
+  }
+
+  // Barra simples de progresso, no lugar do <progress> nativo.
+  // A largura é aplicada por CSSOM: a CSP proíbe atributo `style` inline.
+  function progressBar(progress, noun) {
+    const fill = element('i');
+    fill.style.width = `${progress.percent}%`;
+    return element('div', {className: 'progwrap'}, [
+      element('div', {
+        className: 'prog',
+        attrs: {role: 'progressbar', 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': String(progress.percent), 'aria-label': `Progresso: ${progress.percent}%`}
+      }, [fill]),
+      element('p', {className: 'progtxt', text: `${progress.done} de ${progress.total} ${noun || 'itens'} · ${progress.percent}%`})
+    ]);
   }
 
   function renderSessionActions(session) {
@@ -453,16 +514,21 @@
     const variant = variants.find(item => item.id === log.variationId);
     const videoKey = variant && variant.videoKey ? variant.videoKey : exercise.videoKey;
     const video = Data.VIDEOS[videoKey] || Data.VIDEOS[exercise.id];
+    // Ausência de vídeo é uma nota discreta, não um bloco chamativo.
     if (!video || video.status !== 'accepted' || !video.youtubeId) {
-      return element('div', {className: 'video-status'}, [
-        element('strong', {text: 'Vídeo pendente de curadoria.'}),
-        element('span', {text: navigator.onLine ? 'Nenhum link foi aprovado sem assistir e conferir a execução.' : 'O vídeo exige internet; o registro continua funcionando offline.'})
-      ]);
+      return element('p', {className: 'video-pending', text: navigator.onLine ? 'Vídeo pendente de curadoria.' : 'Vídeo pendente de curadoria · exige internet.'});
     }
-    return element('div', {className: 'video-status'}, [
-      element('strong', {text: video.classification === 'technical' ? 'Guia técnico' : video.classification === 'demonstration' ? 'Demonstração objetiva' : 'Referência visual'}),
-      element('span', {text: 'O selo descreve o conteúdo revisado e não certifica o autor.'}),
-      button('Ver vídeo', 'open-video', 'secondary-button', {videoKey})
+    return element('button', {
+      className: 'vbtn',
+      attrs: {type: 'button'},
+      dataset: {action: 'open-video', videoKey}
+    }, [
+      element('span', {className: 'vplay', text: '▶'}),
+      element('span', {className: 'vcopy'}, [
+        element('strong', {text: 'Ver execução'}),
+        element('span', {className: 'vs', text: video.classification === 'technical' ? 'Guia técnico' : video.classification === 'demonstration' ? 'Demonstração objetiva' : 'Referência visual'})
+      ]),
+      element('span', {className: 'ext', text: '↗'})
     ]);
   }
 
@@ -476,9 +542,9 @@
         element('span', {text: label})
       ]))
     ]));
-    return element('article', {className: 'section-card'}, [
-      element('div', {className: 'card-header'}, [
-        element('div', {className: 'card-title'}, [element('h3', {text: `${order}. ${workoutExercise.name}`}), element('p', {text: `${workoutExercise.sets} × ${workoutExercise.target}${workoutExercise.effort ? ` · esforço aproximado ${workoutExercise.effort}` : ''}`})]),
+    return element('article', {className: `section-card card k-mob${exerciseLog.completed ? ' done' : ''}`}, [
+      element('div', {className: 'card-header chead'}, [
+        element('div', {className: 'card-title'}, [element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}`}), element('p', {className: 'cdetail', text: `${workoutExercise.sets} × ${workoutExercise.target}${workoutExercise.effort ? ` · esforço aproximado ${workoutExercise.effort}` : ''}`})]),
         statusBadge(exerciseLog.completed ? 'Concluído' : exerciseLog.skipped ? 'Não realizado' : 'Mobilidade', exerciseLog.completed ? 'is-success' : '')
       ]),
       renderVideoStatus(workoutExercise, exerciseLog),
@@ -501,18 +567,31 @@
       ...restValues.map(value => option(String(value), formatDuration(value), set.nextRestSeconds === value)),
       option('custom', 'Personalizado', !restValues.includes(set.nextRestSeconds))
     ]);
-    return element('div', {className: `set-row${set.type === 'warmup' ? ' is-warmup' : ''}${completed ? ' is-complete' : ''}`}, [
-      element('div', {className: 'set-number'}, [element('strong', {text: String(setIndex + 1)}), element('span', {text: set.type === 'warmup' ? 'Aquec.' : 'Trabalho'})]),
-      field('Carga (kg)', element('input', {className: 'input', attrs: {type: 'text', inputmode: 'decimal', id: `${idBase}-load`}, props: {value: set.load}, dataset: {action: 'set-field', field: 'load', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}})),
-      field('Repetições', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1000', id: `${idBase}-reps`}, props: {value: set.reps}, dataset: {action: 'set-field', field: 'reps', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}})),
-      field('RIR', element('select', {className: 'select', attrs: {id: `${idBase}-rir`}, dataset: {action: 'set-field', field: 'rir', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, RIR_OPTIONS.map(([value, label]) => option(value, label, set.rir === value)))),
-      field('Status', element('select', {className: 'select', attrs: {id: `${idBase}-status`}, dataset: {action: 'set-field', field: 'status', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, SET_STATUS_OPTIONS.map(([value, label]) => option(value, label, set.status === value)))),
-      field('Descanso seguinte', restSelect),
-      field('Segundos personalizados', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1800'}, props: {value: String(set.nextRestSeconds || 0)}, dataset: {action: 'set-field', field: 'nextRestSeconds', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}})),
-      field('Observação opcional', element('input', {className: 'input', attrs: {type: 'text', maxlength: '200'}, props: {value: set.note}, dataset: {action: 'set-field', field: 'note', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field full'),
+    const warmup = set.type === 'warmup';
+    // Prioridade visual: carga, repetições, RIR e concluir. Status, descanso e
+    // observação continuam registrados, mas recolhidos em "Mais".
+    return element('div', {className: `set-row${warmup ? ' is-warmup' : ''}${completed ? ' is-complete' : ''}`}, [
+      element('div', {className: 'srow'}, [
+        element('div', {className: `stag${warmup ? ' warm' : ''}`, attrs: {'aria-hidden': 'true'}, text: String(setIndex + 1)}),
+        field('Carga', element('input', {className: 'input sin', attrs: {type: 'text', inputmode: 'decimal', id: `${idBase}-load`}, props: {value: set.load}, dataset: {action: 'set-field', field: 'load', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field set-field-load'),
+        field('Reps', element('input', {className: 'input sin', attrs: {type: 'number', min: '0', max: '1000', id: `${idBase}-reps`}, props: {value: set.reps}, dataset: {action: 'set-field', field: 'reps', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field set-field-reps'),
+        field('RIR', element('select', {className: 'select sin', attrs: {id: `${idBase}-rir`}, dataset: {action: 'set-field', field: 'rir', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, RIR_OPTIONS.map(([value, label]) => option(value, label, set.rir === value))), 'field set-field-rir')
+      ]),
       element('div', {className: 'set-actions'}, [
         button(completed ? 'Atualizar série' : 'Concluir série', 'set-complete', 'complete-set', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}),
-        set.nextRestSeconds ? button('Iniciar descanso', 'timer-start-set', 'ghost-button', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}) : null
+        set.nextRestSeconds ? button('Iniciar descanso', 'timer-start-set', 'ghost-button', {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}) : null,
+        warmup ? statusBadge('Aquecimento', 'b-warm') : null
+      ]),
+      element('details', {className: 'setmore'}, [
+        element('summary', {text: 'Mais'}),
+        element('div', {className: 'details-body'}, [
+          element('div', {className: 'field-grid'}, [
+            field('Status', element('select', {className: 'select', attrs: {id: `${idBase}-status`}, dataset: {action: 'set-field', field: 'status', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, SET_STATUS_OPTIONS.map(([value, label]) => option(value, label, set.status === value)))),
+            field('Descanso seguinte', restSelect),
+            field('Segundos personalizados', element('input', {className: 'input', attrs: {type: 'number', min: '0', max: '1800'}, props: {value: String(set.nextRestSeconds || 0)}, dataset: {action: 'set-field', field: 'nextRestSeconds', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}))
+          ]),
+          field('Observação opcional', element('input', {className: 'input', attrs: {type: 'text', maxlength: '200'}, props: {value: set.note}, dataset: {action: 'set-field', field: 'note', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}), 'field full')
+        ])
       ])
     ]);
   }
@@ -521,38 +600,60 @@
     const snapshot = exerciseLog.prescriptionSnapshot;
     const recommendation = Core.doubleProgressionRecommendation(workoutExercise, exerciseLog, session.week);
     const previous = previousComparablePerformance(session, exerciseLog);
-    const variantSelect = workoutExercise.variants.length ? field('Variação', element('select', {className: 'select', dataset: {action: 'variation-change', sessionId: session.id, exerciseId: exerciseLog.id}}, workoutExercise.variants.map(item => option(item.id, item.label, exerciseLog.variationId === item.id)))) : null;
-    return element('article', {className: 'section-card'}, [
-      element('div', {className: 'card-header'}, [
+    // Poucas opções viram chips; a partir de quatro, seletor.
+    const variants = Array.isArray(workoutExercise.variants) ? workoutExercise.variants : [];
+    const variantBox = variants.length ? element('div', {className: 'variantbox'}, [
+      element('span', {className: 'variantlabel', text: 'Variação'}),
+      variants.length <= 3
+        ? element('div', {className: 'variantbar', attrs: {role: 'group', 'aria-label': 'Variação executada'}}, variants.map(item => element('button', {
+            className: `variantbtn${exerciseLog.variationId === item.id ? ' on' : ''}`,
+            text: item.label,
+            attrs: {type: 'button', 'aria-pressed': exerciseLog.variationId === item.id ? 'true' : 'false'},
+            dataset: {action: 'variation-pick', sessionId: session.id, exerciseId: exerciseLog.id, variationId: item.id}
+          })))
+        : element('select', {className: 'select', attrs: {'aria-label': 'Variação executada'}, dataset: {action: 'variation-change', sessionId: session.id, exerciseId: exerciseLog.id}}, variants.map(item => option(item.id, item.label, exerciseLog.variationId === item.id)))
+    ]) : null;
+    const kind = workoutExercise.category === 'accessory' ? 'k-fix' : workoutExercise.category === 'deadlift' ? 'k-warm' : 'k-per';
+    return element('article', {className: `section-card card ${kind}${exerciseLog.completed ? ' done' : ''}`}, [
+      element('div', {className: 'card-header chead'}, [
         element('div', {className: 'card-title'}, [
-          element('h3', {text: `${order}. ${workoutExercise.name}${workoutExercise.unilateral ? ` — lado ${exerciseLog.side === 'left' ? 'esquerdo' : 'direito'}` : ''}`}),
-          element('p', {text: workoutExercise.detail || 'Registre apenas a execução realizada.'})
+          element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}${workoutExercise.unilateral ? ` — lado ${exerciseLog.side === 'left' ? 'esquerdo' : 'direito'}` : ''}`}),
+          element('p', {className: 'cdetail', text: workoutExercise.detail || 'Registre apenas a execução realizada.'}),
+          element('div', {className: 'badges'}, [
+            statusBadge(`${snapshot.sets} séries`, 'b-per'),
+            workoutExercise.unilateral ? statusBadge(exerciseLog.side === 'left' ? 'Esquerdo' : 'Direito', 'is-side') : null,
+            snapshot.deload ? statusBadge('Deload', 'is-deload') : null
+          ])
         ]),
-        element('div', {className: 'badges'}, [
-          statusBadge(`${snapshot.sets} séries`, 'is-work'),
-          workoutExercise.unilateral ? statusBadge(exerciseLog.side === 'left' ? 'Esquerdo' : 'Direito', 'is-side') : null,
-          snapshot.deload ? statusBadge('Deload', 'is-deload') : null
+        exerciseLog.completed ? element('span', {className: 'donebtn on', text: 'Feito'}) : null
+      ]),
+      element('div', {className: `target${snapshot.deload ? ' dl' : ''}`}, [
+        element('span', {className: 'ico', text: '🎯'}),
+        element('div', {}, [
+          element('div', {className: 't1', text: 'Meta da semana'}),
+          element('div', {className: 't2', text: prescriptionText(snapshot)}),
+          element('div', {className: 't3', text: `Descanso ${formatDuration(snapshot.restSeconds)}`})
         ])
       ]),
-      element('div', {className: 'target-box'}, [
-        element('div', {className: 'target-item'}, [element('span', {text: 'Meta registrada nesta sessão'}), element('strong', {text: prescriptionText(snapshot)})]),
-        element('div', {className: 'target-item'}, [element('span', {text: 'Descanso padrão'}), element('strong', {text: formatDuration(snapshot.restSeconds)})])
-      ]),
-      element('div', {className: 'field-grid is-three'}, [
-        variantSelect,
-        field('Identificação da máquina', element('input', {className: 'input', attrs: {type: 'text', maxlength: '80', placeholder: 'Ex.: articulada 2'}, props: {value: exerciseLog.machineId}, dataset: {action: 'exercise-field', field: 'machineId', sessionId: session.id, exerciseId: exerciseLog.id}}), null, 'Use um nome estável para não misturar máquinas.'),
-        workoutExercise.allowHighReps ? element('label', {className: 'check-field'}, [element('input', {attrs: {type: 'checkbox'}, props: {checked: exerciseLog.highRepPreference}, dataset: {action: 'high-rep-toggle', sessionId: session.id, exerciseId: exerciseLog.id}}), element('span', {text: 'Preferir faixa leve de 15–20 repetições quando aplicável'})]) : null
-      ]),
-      workoutExercise.bracing ? element('details', {}, [element('summary', {text: 'Orientação de bracing integrada'}), element('div', {className: 'details-body'}, [element('p', {text: Data.BRACING_TEXT}), element('p', {text: 'Bracing é estabilização por cocontração; vacuum é um controle motor separado. Um breve ensaio pode ser feito no aquecimento, sem substituir o intervalo por contrações fatigantes.'})])]) : null,
-      workoutExercise.notes.length ? element('details', {}, [element('summary', {text: 'Técnica e contexto'}), element('div', {className: 'details-body'}, workoutExercise.notes.map(note => element('p', {text: note})))]) : null,
+      variantBox,
       renderVideoStatus(workoutExercise, exerciseLog),
-      previous ? element('div', {className: 'info-box'}, [
-        element('strong', {text: `Última execução comparável · ${formatDate(previous.session.actualDate || previous.session.plannedDate)}`}),
-        element('p', {text: previous.workSets.map(set => `${set.load || '—'} kg × ${set.reps || '—'}`).join(' · ')}),
-        previous.decision ? element('p', {text: `Recomendação registrada: ${previous.decision.message}`}) : null,
-        button('Copiar somente as cargas anteriores', 'copy-previous-loads', 'secondary-button', {sessionId: session.id, exerciseId: exerciseLog.id})
-      ]) : null,
       element('div', {className: 'set-table'}, exerciseLog.sets.map((set, setIndex) => renderSetRow(session, exerciseLog, set, setIndex))),
+      element('details', {className: 'exdetails'}, [
+        element('summary', {text: 'Detalhes do exercício'}),
+        element('div', {className: 'details-body'}, [
+          field('Identificação da máquina', element('input', {className: 'input', attrs: {type: 'text', maxlength: '80', placeholder: 'Ex.: articulada 2'}, props: {value: exerciseLog.machineId}, dataset: {action: 'exercise-field', field: 'machineId', sessionId: session.id, exerciseId: exerciseLog.id}}), 'field full', 'Use um nome estável para não misturar máquinas.'),
+          workoutExercise.allowHighReps ? element('label', {className: 'check-field'}, [element('input', {attrs: {type: 'checkbox'}, props: {checked: exerciseLog.highRepPreference}, dataset: {action: 'high-rep-toggle', sessionId: session.id, exerciseId: exerciseLog.id}}), element('span', {text: 'Preferir faixa leve de 12–20 repetições quando aplicável'})]) : null,
+          workoutExercise.bracing ? element('p', {className: 'notes-p', text: Data.BRACING_TEXT}) : null,
+          workoutExercise.bracing ? element('p', {className: 'notes-p', text: 'Bracing é estabilização por cocontração; vacuum é um controle motor separado. Um breve ensaio pode ser feito no aquecimento, sem substituir o intervalo por contrações fatigantes.'}) : null,
+          ...workoutExercise.notes.map(note => element('p', {className: 'notes-p', text: note})),
+          previous ? element('div', {className: 'prevref'}, [
+            element('b', {text: `Última execução comparável · ${formatDate(previous.session.actualDate || previous.session.plannedDate)}`}),
+            element('p', {text: previous.workSets.map(set => `${set.load || '—'} kg × ${set.reps || '—'}`).join(' · ')}),
+            previous.decision ? element('p', {text: `Recomendação registrada: ${previous.decision.message}`}) : null,
+            button('Copiar somente as cargas anteriores', 'copy-previous-loads', 'secondary-button', {sessionId: session.id, exerciseId: exerciseLog.id})
+          ]) : null
+        ])
+      ]),
       element('details', {}, [element('summary', {text: 'Como me senti neste exercício'}), element('div', {className: 'details-body'}, [
         element('div', {className: 'field-grid'}, [
           field('Sensação', element('select', {className: 'select', dataset: {action: 'exercise-field', field: 'feeling', sessionId: session.id, exerciseId: exerciseLog.id}}, FEELING_OPTIONS.map(([value, label]) => option(value, label, exerciseLog.feeling === value)))),
@@ -580,8 +681,8 @@
           element('div', {className: 'card-title'}, [element('h3', {text: `${formatDate(session.plannedDate, true)} · Semana ${session.week}`}), element('p', {text: `${workout.workSetTotal} séries de trabalho planejadas; aquecimentos não entram no volume${workout.exercises.some(exercise => exercise.unilateral) ? ' e o exercício unilateral conta uma vez, embora seja executado nos dois lados' : ''}.`})]),
           element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
         ]),
-        element('progress', {attrs: {max: '100', value: String(progress.percent), 'aria-label': `Progresso: ${progress.percent}%`}}),
-        element('p', {className: 'fine-print', text: `Progresso: ${progress.done} de ${progress.total} itens. Início: ${formatDateTime(session.startedAt)}. Duração registrada: ${session.durationSeconds ? formatDuration(session.durationSeconds) : 'em aberto'}.`}),
+        progressBar(progress, 'itens'),
+        element('p', {className: 'fine-print', text: `Início: ${formatDateTime(session.startedAt)}. Duração registrada: ${session.durationSeconds ? formatDuration(session.durationSeconds) : 'em aberto'}.`}),
         renderSessionActions(session)
       ]),
       element('div', {className: 'info-box'}, [element('strong', {text: 'Faixa, RIR e falha'}), element('p', {text: 'O limite inferior é o mínimo planejado; o superior é o topo da faixa. RIR estima quantas repetições ainda seriam possíveis com técnica aceitável. RIR 0 não é obrigatório e uma série encerrada por dor ou técnica inadequada não deve ser tratada como falha muscular planejada.'})]),
@@ -875,7 +976,7 @@
     return panelShell('cycles', 'Ciclos', 'Controle explícito da semana e reinício reversível.', [
       element('section', {className: 'section-card'}, [
         element('h3', {text: 'Periodização ativa'}),
-        element('div', {className: 'field-grid'}, [field('Semana atual', element('select', {className: 'select', dataset: {action: 'cycle-week'}}, Array.from({length: 8}, (_, index) => option(String(index + 1), `Semana ${index + 1}${index === 7 ? ' — deload' : ''}`, state.cycle.currentWeek === index + 1))))]),
+        element('p', {className: 'fine-print', text: 'A semana ativa é escolhida nos botões de 1 a 8 no topo do aplicativo.'}),
         element('div', {className: 'split-list'}, periodizationRows()),
         element('p', {className: 'fine-print', text: 'Alterar a semana atualiza apenas sessões ainda não iniciadas. Sessões antigas preservam a prescrição registrada no dia.'})
       ]),
@@ -1349,6 +1450,7 @@
     const action = target.dataset.action;
     if (target.tagName === 'A' && action !== 'open-video') return;
     if (action === 'activate-tab') { activateTab(target.dataset.tab, false); return; }
+    if (action === 'cycle-week-set') { await changeCycleWeek(Number(target.dataset.week)); return; }
     if (action === 'open-workout') { activateTab(target.dataset.workoutId, true); return; }
     if (action === 'close-modal') { closeModal(); return; }
     if (action === 'close-video') { closeVideo(); return; }
@@ -1419,6 +1521,11 @@
     }
     if (action === 'mobility-complete') { await toggleMobility(session, target.dataset.exerciseId, 'completed'); return; }
     if (action === 'mobility-skip') { await toggleMobility(session, target.dataset.exerciseId, 'skipped'); return; }
+    if (action === 'variation-pick') {
+      const log = findExerciseLog(session, target.dataset.exerciseId);
+      if (log) requestVariationChange(session, log, target.dataset.variationId);
+      return;
+    }
     if (action === 'variation-confirm') { await confirmVariation(target.dataset.sessionId, target.dataset.exerciseId, target.dataset.variationId); }
   }
 
@@ -1440,7 +1547,6 @@
       await persist('Configuração da rotina atualizada.', true);
       return;
     }
-    if (action === 'cycle-week') { await changeCycleWeek(Number(target.value)); return; }
     if (action === 'progression-decision') {
       const decision = state.progressionDecisions.find(item => item.id === target.dataset.decisionId);
       if (decision) { decision.decision = ['pending', 'accepted', 'maintained', 'rejected'].includes(target.value) ? target.value : 'pending'; await persist('Decisão de progressão registrada.', false); }
@@ -2011,6 +2117,11 @@
     }
     try {
       const registration = await navigator.serviceWorker.register('./sw.js');
+      // Perfis que bloqueiam service worker podem resolver sem registro.
+      if (!registration) {
+        showNotice('Este navegador está bloqueando o pacote offline. O aplicativo continua funcionando com os dados locais.', 'warning');
+        return;
+      }
       if (registration.waiting) showPwaUpdate(registration);
       registration.addEventListener('updatefound', () => {
         const worker = registration.installing;

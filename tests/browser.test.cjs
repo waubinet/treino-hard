@@ -105,6 +105,13 @@ async function waitStatus(page, expected) {
   );
 }
 
+// Abre o bloco "Mais" de uma série, onde ficam status, descanso e observação.
+async function openSetMore(row) {
+  const details = row.locator('details.setmore');
+  if (await details.evaluate(node => node.open)) return;
+  await details.locator('summary').click();
+}
+
 // Preenche repetições e status de todas as séries de trabalho visíveis.
 async function fillWorkSets(page, reps) {
   const rows = page.locator('.set-row:not(.is-warmup)');
@@ -112,6 +119,8 @@ async function fillWorkSets(page, reps) {
   for (let index = 0; index < total; index += 1) {
     const row = rows.nth(index);
     await row.locator('input').nth(1).fill(String(reps == null ? 12 : reps));
+    // Status fica no bloco recolhido "Mais" de cada série.
+    await openSetMore(row);
     await row.locator('select').nth(1).selectOption('completed');
   }
   return total;
@@ -454,7 +463,8 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await page.waitForTimeout(250);
   assert.equal(await page.locator('#timer-bar').isHidden(), true, 'o cronômetro não pode iniciar por blur de campo');
 
-  // Descanso personalizado de 45 s.
+  // Descanso personalizado de 45 s, no bloco "Mais".
+  await openSetMore(firstWork);
   await firstWork.locator('select').nth(2).selectOption('custom');
   await firstWork.locator('input').nth(2).fill('45');
   await page.keyboard.press('Tab');
@@ -476,6 +486,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await reloadApp(page);
   await openTab(page, 'Empurrar A');
   const persisted = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
+  await openSetMore(persisted);
   assert.equal(await persisted.locator('select').nth(2).inputValue(), 'custom', 'o descanso personalizado deve sobreviver ao reload');
   assert.equal(await persisted.locator('input').nth(2).inputValue(), '45');
 
@@ -494,6 +505,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   assert.equal(await page.locator('#timer-bar').isHidden(), true);
   const undone = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(4);
   assert.doesNotMatch(await undone.getAttribute('class'), /is-complete/);
+  await openSetMore(undone);
   assert.equal(await undone.locator('select').nth(1).inputValue(), '');
 
   const stored = await readStoredDocument(page);
@@ -601,16 +613,14 @@ test('semana, deload, arquivamento e snapshot preservam o ciclo anterior', {time
   await marker.getByRole('button', {name: 'Concluir série', exact: true}).click();
   await page.waitForTimeout(300);
 
-  await openTab(page, 'Ciclos');
-  await page.locator('select[data-action="cycle-week"]').selectOption('2');
+  await page.locator('button[data-action="cycle-week-set"][data-week="2"]').click();
   await page.waitForTimeout(500);
   let stored = await readStoredDocument(page);
   assert.equal(stored.cycle.currentWeek, 2);
   assert.equal(stored.sessions.find(session => session.workoutId === 'push_a').week, 1, 'sessão iniciada mantém a prescrição do dia');
   assert.equal(stored.sessions.find(session => session.workoutId === 'pull_a').week, 2, 'sessão vazia acompanha a semana nova');
 
-  await openTab(page, 'Ciclos');
-  await page.locator('select[data-action="cycle-week"]').selectOption('8');
+  await page.locator('button[data-action="cycle-week-set"][data-week="8"]').click();
   await page.waitForTimeout(500);
   await openTab(page, 'Puxar A');
   // Deload: seis exercícios com no máximo 2 séries, e a remada unilateral
@@ -618,9 +628,9 @@ test('semana, deload, arquivamento e snapshot preservam o ciclo anterior', {time
   assert.equal(await page.locator('.set-row:not(.is-warmup)').count(), 14, 'no deload cada exercício cai para no máximo 2 séries');
   assert.ok(await page.locator('.badge.is-deload').count() > 0, 'o deload precisa estar sinalizado');
 
-  await openTab(page, 'Ciclos');
-  await page.locator('select[data-action="cycle-week"]').selectOption('1');
+  await page.locator('button[data-action="cycle-week-set"][data-week="1"]').click();
   await page.waitForTimeout(500);
+  await openTab(page, 'Ciclos');
 
   const beforeReset = await readStoredDocument(page);
   const beforeSessions = beforeReset.sessions.length;
@@ -713,6 +723,7 @@ async function seedSampleData(page) {
   await workSet.locator('input').nth(0).fill('57,5');
   await workSet.locator('input').nth(1).fill('13');
   await workSet.locator('select').nth(0).selectOption('2');
+  await openSetMore(workSet);
   await workSet.locator('input').nth(3).fill('=SOMA(1;2) sentou bem');
   await workSet.getByRole('button', {name: 'Concluir série', exact: true}).click();
   await page.waitForTimeout(300);
@@ -1198,8 +1209,11 @@ test('nenhuma entrada do usuário vira HTML executável', {timeout: 180000}, asy
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
   const card = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  await card.getByText('Detalhes do exercício', {exact: true}).click();
   await card.locator('input[data-field="machineId"]').fill(payload);
-  await card.locator('.set-row').nth(3).locator('input').nth(3).fill(payload);
+  const notaRow = card.locator('.set-row').nth(3);
+  await openSetMore(notaRow);
+  await notaRow.locator('input').nth(3).fill(payload);
   await card.getByText('Como me senti neste exercício', {exact: true}).click();
   await card.locator('textarea[data-field="feedback"]').fill(payload);
   await page.waitForTimeout(400);
@@ -1255,6 +1269,7 @@ test('nenhuma entrada do usuário vira HTML executável', {timeout: 180000}, asy
   assert.equal(await timeline.evaluate(node => node.querySelectorAll('script, img, svg, iframe').length), 0);
 
   await openTab(page, 'Empurrar A');
+  await page.locator('#panels article.section-card').first().getByText('Detalhes do exercício', {exact: true}).click();
   assert.match(await page.locator('input[data-field="machineId"]').first().inputValue(), /<script>alert\(1\)<\/script>/);
 
   // As chaves proibidas digitadas como texto não alcançam o protótipo.
@@ -1964,7 +1979,9 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
   );
 
   // Cargas dos dois lados não se misturam.
+  await unilaterais.nth(0).getByText('Detalhes do exercício', {exact: true}).click();
   await unilaterais.nth(0).locator('input[data-field="machineId"]').fill('articulada 2');
+  await unilaterais.nth(1).getByText('Detalhes do exercício', {exact: true}).click();
   await unilaterais.nth(1).locator('input[data-field="machineId"]').fill('articulada 2');
   await page.waitForTimeout(300);
   const armazenado = await readStoredDocument(page);
@@ -1977,13 +1994,13 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
   await openTab(page, 'Empurrar B');
   const triceps = page.locator('#panels article.section-card').filter({hasText: 'Tríceps testa ou extensão acima da cabeça'});
   assert.equal(await triceps.count(), 1);
-  const seletor = triceps.locator('select[data-action="variation-change"]');
+  const chips = triceps.locator('button[data-action="variation-pick"]');
   assert.deepEqual(
-    (await seletor.locator('option').allInnerTexts()).map(item => item.trim()),
+    (await chips.allInnerTexts()).map(item => item.trim()),
     ['Extensão acima da cabeça', 'Tríceps testa com halteres']
   );
-  assert.equal(await seletor.inputValue(), 'overhead');
-  await seletor.selectOption('skull_crusher');
+  assert.equal(await chips.nth(0).getAttribute('aria-pressed'), 'true');
+  await chips.nth(1).click();
   await page.waitForTimeout(400);
   assert.equal(
     (await readStoredDocument(page)).sessions.find(session => session.workoutId === 'push_b').exercises
@@ -1994,8 +2011,7 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
   // Periodização visível: semana 1 e semana 7 nas metas dos cartões.
   await openTab(page, 'Empurrar A');
   assert.match(await page.locator('#panels article.section-card').first().innerText(), /3 × 12–15 · 3 RIR/);
-  await openTab(page, 'Ciclos');
-  await page.locator('select[data-action="cycle-week"]').selectOption('7');
+  await page.locator('button[data-action="cycle-week-set"][data-week="7"]').click();
   await page.waitForTimeout(500);
   await openTab(page, 'Empurrar A');
   assert.match(await page.locator('#panels article.section-card').first().innerText(), /3 × 6–8 · 1–2 RIR/);
