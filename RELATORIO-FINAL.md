@@ -1,9 +1,15 @@
 # Relatório final
 
-**Estado: publicado e verificado.** Versão do app **3.0.1**, esquema **11**, commit
-`7c939cb`, em `https://waubinet.github.io/treino-hard/` (GitHub Pages, branch `main`).
+**Estado: publicado e verificado.** Versão do app **3.1.0**, esquema **11**, commit
+`b877d1f`, em `https://waubinet.github.io/treino-hard/` (GitHub Pages, branch `main`).
 
 ## Resultado desta execução
+
+- **3.1.0**: identidade visual da 2.2 restaurada sobre a arquitetura da v3 —
+  paleta rosa/preto, largura de 760 px, oito semanas como botões, resumo
+  unificado, abas em cápsula, exercícios como cartões com borda por categoria e
+  séries com carga/reps/RIR em destaque. Nenhuma funcionalidade foi removida e o
+  esquema continua 11.
 
 - Ficha sincronizada com a versão canônica aprovada: remada unilateral registrada por
   lado, tríceps de Empurrar B com as duas execuções e faixa alta corrigida para 12–20.

@@ -22,6 +22,17 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 Toda a interface é montada por `element()` com `textContent`. Nada de `innerHTML`,
 nada de `on*` inline: a CSP proíbe.
 
+## Referência visual
+
+A referência visual canônica é `treino-hard-original-v2.2-2026-08-08/index.html`
+(cópia preservada da 2.2): paleta, proporções, espaçamento, cards, abas, seletor
+de semana, resumo e estados. Extraia dela apenas o **sistema visual** — a
+arquitetura e o JavaScript continuam sendo os da v3.
+
+O PDF da ficha **nunca** é referência de interface. Ele serviu somente para
+definir o conteúdo do treino. Nada de aparência de ficha impressa, planilha,
+tabela horizontal ou formulário administrativo.
+
 ## Invariantes
 
 - Aplicação local, estática, sem conta e sem servidor.

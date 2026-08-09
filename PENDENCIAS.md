@@ -1,9 +1,13 @@
 # Pendências reais
 
-Atualizado em **2026-08-08**. Versão publicada: **3.0.1**, esquema **11**, commit `7c939cb`,
+Atualizado em **2026-08-08**. Versão publicada: **3.1.0**, esquema **11**, commit `b877d1f`,
 em `https://waubinet.github.io/treino-hard/`.
 
-Estado de publicação: **realizada e verificada no app real** (41/41 verificações do smoke test).
+Estado de publicação: **realizada e verificada no app real** (42/42 verificações do smoke test).
+
+A identidade visual da 2.2 foi restaurada sobre a arquitetura da v3 na 3.1.0. O PDF
+da ficha **não é e não volta a ser referência de interface**: serviu apenas para
+definir o conteúdo do treino.
 
 Esta lista contém somente o que ainda **não** foi comprovado.
 

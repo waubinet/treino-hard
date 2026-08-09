@@ -2,16 +2,17 @@
 
 ## Estado
 
-Atualizado em **2026-08-08**, versão do app **3.0.1**, esquema **11**, commit publicado
-`7c939cb`, URL `https://waubinet.github.io/treino-hard/`.
+Atualizado em **2026-08-08**, versão do app **3.1.0**, esquema **11**, commit publicado
+`b877d1f`, URL `https://waubinet.github.io/treino-hard/`.
 
 Resultados atuais:
 
 - `node --check` em `js/workouts.js`, `js/core.js`, `js/storage.js`, `js/measurements.js`, `js/app.js` e `sw.js`: **6/6 aprovados**;
 - `node --test tests/app.test.cjs`: **34/34 aprovados, 0 falhas** (20 originais + 14 de conformidade da ficha);
 - `node --test tests/browser.test.cjs`: **26/26 aprovados, 0 falhas**, em Chrome real via Playwright;
+- capturas visuais em 360×800, 430×900 e 1280×800 para Hoje, Empurrar A, Pernas A, Evolução e Ajustes: **0 transbordamentos e 0 erros de console**;
 - console/page errors nos cenários automatizados: **0**;
-- smoke test no app publicado: **41/41 verificações aprovadas, 0 erros de console**.
+- smoke test no app publicado: **42/42 verificações aprovadas, 0 erros de console**.
 
 Legenda:
 
@@ -25,7 +26,7 @@ Legenda:
 
 | Item | Valor |
 |---|---|
-| commit testado e publicado | `7c939cb` |
+| commit testado e publicado | `b877d1f` |
 | URL pública | `https://waubinet.github.io/treino-hard/` (GitHub Pages, branch `main`, raiz) |
 | navegador | Google Chrome via Playwright 1.61.1, executável local |
 | sistema/tela | Windows; viewports 320, 360, 430, 640 e 1280 px |
