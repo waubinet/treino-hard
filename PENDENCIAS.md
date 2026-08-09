@@ -1,6 +1,6 @@
 # Pendências reais
 
-Atualizado em **2026-08-09**. Versão publicada: **3.2.1**, esquema **11**,
+Atualizado em **2026-08-09**. Versão publicada: **3.2.2**, esquema **11**,
 em `https://waubinet.github.io/treino-hard/`.
 
 A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
@@ -10,41 +10,35 @@ Esta lista contém somente o que ainda **não** foi comprovado.
 
 ## Vídeos
 
-Números extraídos de `js/workouts.js` em 2026-08-09 e travados por testes de
-inventário em `tests/app.test.cjs`:
+Números extraídos de `js/workouts.js` e travados por testes de inventário:
 
 | Medida | Valor |
 |---|---|
-| entradas no catálogo | 41 |
-| `accepted` | 27 |
-| `pending` | 14 |
+| entradas | 41 |
+| `accepted` | 29 |
+| `pending` | 12 |
 | `rejected` | 0 |
-| com identificador do YouTube | 32 |
-| sem candidato | 9 |
-| `technical_guide` / `objective_demo` / `visual_reference` | 15 / 12 / 2 |
-| aprovados sem metadado de revisão | 0 |
+| `available` | 30 |
+| `external_only` | 2 |
+| `removed_or_private` | 0 |
+| sem candidato (`unknown`) | 9 |
+| aprovados sem metadado | 0 |
 
-O enum do código é `accepted`, `pending` e `rejected`. A documentação usa os
-mesmos nomes.
-
-A preferência de reprodução **já está implementada** em Ajustes, com os três
-modos, persistência e prévia interna restrita a `youtube-nocookie.com`. Coberta
-por teste de navegador.
+Disponibilidade foi verificada com o IFrame Player API em 2026-08-09; não depende
+mais de `oEmbed` isolado. A preferência de reprodução e o comportamento de
+`external_only` estão cobertos por teste de navegador.
 
 Ainda pendente:
 
-- [ ] Revisar os 14 itens `pending`: 9 nunca tiveram candidato e 5 têm candidato
-      registrado mas sem aprovação.
-- [ ] Reavaliar `squat_free_barbell` e `mob_hamstring_seated`, rebaixados de
-      `accepted` para `pending` em 09/08/2026 porque deixaram de responder
-      publicamente (oEmbed 401). A revisão de conteúdo continua registrada e pode
-      ser reaproveitada se voltarem.
-- [ ] A curadoria dos 27 aprovados foi feita em execução anterior; ela não foi
-      reconferida assistindo aos vídeos nesta auditoria.
+- [ ] Assistir e decidir os **12 itens `pending`**: 9 sem candidato e 3 com
+      candidato registrado aguardando revisão.
+- [ ] Reconferir os 29 aprovados assistindo aos vídeos. A revisão registrada é de
+      execução anterior; esta rodada verificou apenas disponibilidade e metadados.
 
-Um vídeo que não permite incorporação **não** é o mesmo que um vídeo errado: o
-catálogo separa disponibilidade (`availability`, `embedCompatible`) de qualidade
-da demonstração (`classification`).
+**Limite honesto desta rodada:** não assisti a nenhum vídeo. Aprovar exige ver a
+demonstração e conferir exercício, equipamento, pegada, posição, trajetória,
+amplitude e lateralidade — e isso não foi feito aqui. Nenhum item foi promovido a
+`accepted` por título, canal ou miniatura.
 
 ## Acessibilidade
 

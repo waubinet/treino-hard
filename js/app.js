@@ -549,24 +549,44 @@
 
   // Bloco do vídeo no formato da referência: chamada, canal com a data da
   // revisão e, abaixo, a classificação com a cobertura e a duração.
+  // Um vídeo pode ser tecnicamente aprovado e ainda assim não tocar dentro do
+  // app: `availability` e `embedCompatible` descrevem ONDE ele toca,
+  // `classification` descreve O QUE ele entrega. Os dois nunca se substituem.
+  function videoUsavel(video) {
+    return Boolean(video && video.status === 'accepted' && video.youtubeId && video.availability !== 'removed_or_private');
+  }
+
+  function videoIncorporavel(video) {
+    return videoUsavel(video) && video.embedCompatible !== false && video.availability !== 'external_only';
+  }
+
   function renderVideoByKey(videoKey, label) {
     const video = Data.VIDEOS[videoKey];
-    if (!video || video.status !== 'accepted' || !video.youtubeId) {
-      return element('p', {className: 'video-pending', text: navigator.onLine ? 'Vídeo pendente de curadoria.' : 'Vídeo pendente de curadoria · exige internet.'});
+    if (!video || video.status === 'rejected') {
+      return element('p', {className: 'video-pending', text: 'Vídeo em curadoria.'});
     }
+    if (video.status !== 'accepted') {
+      return element('p', {className: 'video-pending', text: video.youtubeId ? 'Vídeo em revisão.' : 'Vídeo em curadoria.'});
+    }
+    if (video.availability === 'removed_or_private') {
+      return element('p', {className: 'video-pending', text: 'Este vídeo não está mais disponível; substituição pendente.'});
+    }
+    const externo = !videoIncorporavel(video);
     const revisao = video.reviewedAt ? formatReviewDate(video.reviewedAt) : '';
-    const cobertura = [video.positives ? resumirCobertura(video.positives) : '', video.duration].filter(Boolean).join(' · ');
+    const cobertura = externo
+      ? ['Reprodução externa', video.duration].filter(Boolean).join(' · ')
+      : ['Cobre: ' + resumirCobertura(video.positives || ''), video.duration].filter(Boolean).join(' · ');
     return element('button', {
-      className: 'vbtn',
+      className: `vbtn${externo ? ' is-external' : ''}`,
       attrs: {type: 'button'},
       dataset: {action: 'open-video', videoKey}
     }, [
-      element('span', {className: 'vplay', text: '▶'}),
+      element('span', {className: 'vplay', text: externo ? '↗' : '▶'}),
       element('span', {className: 'vcopy'}, [
-        element('strong', {text: label || 'Ver demonstração'}),
+        element('strong', {text: label || (externo ? 'Abrir no YouTube' : 'Ver demonstração')}),
         element('span', {className: 'vs', text: `Canal: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
         element('span', {className: 'vquality', text: videoClassificationLabel(video).toUpperCase()}),
-        cobertura ? element('span', {className: 'vreason', text: `Cobre: ${cobertura}`}) : null
+        cobertura ? element('span', {className: 'vreason', text: cobertura}) : null
       ]),
       element('span', {className: 'ext', text: '▸'})
     ]);
@@ -1597,7 +1617,7 @@
   }
 
   function playableVideo(video) {
-    return Boolean(video && video.status === 'accepted' && video.youtubeId && video.url);
+    return videoUsavel(video) && Boolean(video.url);
   }
 
   function externalVideoUrl(video) {
@@ -1610,13 +1630,17 @@
   function openVideo(videoKey) {
     const video = Data.VIDEOS[videoKey];
     if (!playableVideo(video)) {
-      showNotice('Vídeo pendente de curadoria; nenhum player incorreto será aberto.', 'warning');
+      showNotice(video && video.availability === 'removed_or_private'
+        ? 'Este vídeo não está mais disponível. Nenhum substituto será aberto automaticamente.'
+        : 'Vídeo pendente de curadoria; nenhum player incorreto será aberto.', 'warning');
       return;
     }
     if (!navigator.onLine) {
       showNotice('Os vídeos de apoio exigem internet. O restante do treino continua disponível offline.', 'warning');
       return;
     }
+    // O proprietário deste vídeo bloqueia incorporação: não há o que perguntar.
+    if (!videoIncorporavel(video)) { openVideoExternally(videoKey); return; }
     if (state.settings.videoMode === 'external') { openVideoExternally(videoKey); return; }
     if (state.settings.videoMode === 'inline') { openVideoInline(videoKey); return; }
     confirmationModal('Como deseja assistir?', 'Abrir no YouTube aproveita a conta já autenticada no navegador ou aplicativo. O Treino Hard não acessa suas credenciais.', 'video-open-external', {videoKey}, 'Abrir no YouTube');
@@ -1637,8 +1661,8 @@
   function openVideoInline(videoKey) {
     const video = Data.VIDEOS[videoKey];
     if (!playableVideo(video)) return;
-    if (video.embedCompatible === false) {
-      showNotice('Este vídeo não permite reprodução incorporada. Abrindo no YouTube, onde a conta Premium do navegador pode ser utilizada.', 'warning');
+    if (!videoIncorporavel(video)) {
+      showNotice('Este vídeo não permite reprodução dentro do app. Abrindo no YouTube.', 'warning');
       openVideoExternally(videoKey);
       return;
     }

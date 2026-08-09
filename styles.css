@@ -1936,6 +1936,29 @@ details[open] > summary::after {
   text-overflow: ellipsis;
 }
 
+
+.video-fallback {
+  margin: 10px 0 0;
+  color: var(--dim);
+  font-size: 11.5px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.vbtn.is-external {
+  border-color: var(--orangedim);
+}
+
+.vbtn.is-external .vplay {
+  background: var(--orange);
+  color: #1a0d12;
+}
+
+.vbtn.is-external .vquality {
+  background: rgba(217, 160, 102, .16);
+  color: #f0c78e;
+}
+
 /* --------------------------------------------------------------- responsivo */
 
 @media (max-width: 560px) {

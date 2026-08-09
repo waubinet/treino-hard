@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Estado atual: versão **3.2.1**, esquema **11**, cache `treino-hard-v3.2.1`.
+- Estado atual: versão **3.2.2**, esquema **11**, cache `treino-hard-v3.2.2`.
 - Trabalho recente feito em `agent/3.2-claude-handoff`, integrada por fast-forward
   em `main`. Crie uma branch nova por rodada e integre por fast-forward.
 
@@ -111,11 +111,14 @@ Chrome e os cenários de concorrência falham por timeout.
 - Chaves `__proto__`, `prototype` e `constructor` são recusadas na importação, junto
   com profundidade acima de 20 e campos inesperados do esquema 11.
 - Fórmulas do CSV são neutralizadas com apóstrofo.
-- Vídeos: enum `accepted` / `pending` / `rejected`. Disponibilidade
-  (`availability`, `embedCompatible`) é separada da qualidade da demonstração
-  (`classification`): um vídeo que não incorpora não é um vídeo errado. Aprovado
-  exige título, canal, duração, data da revisão, pontos positivos, limitações e
-  decisão — travado por testes de inventário.
+- Vídeos: estado `accepted` / `pending` / `rejected` descreve o **conteúdo**;
+  `availability` (`available`, `external_only`, `removed_or_private`, `unknown`)
+  e `embedCompatible` descrevem **onde o vídeo toca**. Os dois nunca se
+  substituem: aprovado + `external_only` é válido. Use o IFrame Player API para
+  classificar — erro 100 é removido/privado, 101 e 150 são bloqueio de
+  incorporação, e `oEmbed 401` sozinho não prova nada. Aprovado exige título,
+  canal, duração, data da revisão, positivos, limitações e decisão; tudo travado
+  por testes de inventário.
 - Backup criptografado: AES-GCM 256, PBKDF2-SHA-256 com **600 000** iterações em
   arquivos novos, salt e IV aleatórios, cabeçalho autenticado como AAD, formato
   versionado. Backups antigos com 310 000 iterações continuam abrindo: o número de

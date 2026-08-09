@@ -2594,3 +2594,70 @@ test('cartão de exercício expõe a estrutura da referência', {timeout: 120000
 
   assert.deepEqual(errors, []);
 });
+
+test('vídeo bloqueado para incorporação abre no YouTube sem prévia interna', {timeout: 150000}, async t => {
+  const {page, context, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  const catalogo = fs.readFileSync(path.join(ROOT, 'js/workouts.js'), 'utf8');
+  assert.match(catalogo, /availability: 'external_only'/, 'o catálogo precisa exercitar o caso external_only');
+
+  // Pernas A traz o agachamento, cuja variante livre é external_only.
+  await openTab(page, 'Pernas A');
+  await page.waitForTimeout(200);
+  const agacho = page.locator('#panels article.section-card').filter({hasText: 'Agachamento'}).first();
+  await agacho.locator('button[data-action="variation-pick"]', {hasText: 'Livre com barra'}).click();
+  await page.waitForTimeout(500);
+
+  const botao = agacho.locator('button[data-action="open-video"]');
+  assert.equal(await botao.count(), 1);
+  const rotulo = await botao.innerText();
+  assert.match(rotulo, /Abrir no YouTube/, `o cartão external_only não oferece prévia interna: ${rotulo}`);
+  assert.match(rotulo, /Reprodução externa/, 'o cartão informa que a reprodução é fora do app');
+  assert.match(await botao.getAttribute('class'), /is-external/);
+
+  // Mesmo com a preferência "assistir dentro do app", nada é incorporado.
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('inline');
+  await page.waitForTimeout(400);
+  await openTab(page, 'Pernas A');
+  await page.waitForTimeout(300);
+  const [aba] = await Promise.all([
+    context.waitForEvent('page', {timeout: 15000}),
+    page.locator('#panels article.section-card').filter({hasText: 'Agachamento'}).first().locator('button[data-action="open-video"]').click()
+  ]);
+  assert.ok(aba, 'o vídeo bloqueado precisa abrir fora do app');
+  assert.equal(await page.locator('#video-modal').isHidden(), true, 'nenhuma prévia interna pode abrir');
+  await aba.close();
+
+  // O modal interno sempre oferece a saída para o YouTube.
+  await openTab(page, 'Empurrar A');
+  await page.waitForTimeout(200);
+  await page.locator('#panels button[data-action="open-video"]').first().click();
+  await page.locator('#video-modal iframe').waitFor({state: 'attached', timeout: 15000});
+  assert.equal(await page.locator('#video-fallback').isVisible(), true, 'o modal precisa explicar o que fazer se não tocar');
+  assert.equal(await page.locator('#video-external').isVisible(), true, 'o modal precisa oferecer o YouTube');
+  await page.keyboard.press('Escape');
+  await page.locator('#video-modal').waitFor({state: 'hidden'});
+
+  assert.deepEqual(errors, []);
+});
+
+test('vídeo pendente e vídeo em revisão nunca se apresentam como recomendação', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Puxar A');
+  await page.waitForTimeout(250);
+  const pendentes = page.locator('#panels p.video-pending');
+  const quantidade = await pendentes.count();
+  if (quantidade) {
+    const textos = (await pendentes.allInnerTexts()).map(item => item.trim());
+    textos.forEach(texto => assert.match(texto, /Vídeo em revisão|Vídeo em curadoria|não está mais disponível/, texto));
+    textos.forEach(texto => assert.doesNotMatch(texto, /Ver demonstração|Abrir no YouTube/, texto));
+  }
+  // Um item pendente nunca vira botão clicável de vídeo.
+  const chavesVisiveis = await page.locator('#panels button[data-action="open-video"]').evaluateAll(nodes => nodes.map(node => node.dataset.videoKey));
+  const catalogo = fs.readFileSync(path.join(ROOT, 'js/workouts.js'), 'utf8');
+  chavesVisiveis.forEach(chave => {
+    const bloco = catalogo.slice(catalogo.indexOf(`${chave}: reviewedVideo(`));
+    assert.match(bloco.slice(0, 400), /status: 'accepted'/, `${chave} aparece como botão sem estar aprovado`);
+  });
+  assert.deepEqual(errors, []);
+});

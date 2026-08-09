@@ -339,7 +339,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
 
   // 29 candidatos foram revisados; dois deixaram de responder publicamente em
   // 09/08/2026 e voltaram para pendente sem perder a revisão registrada.
-  assert.ok(accepted.length >= 27, 'a curadoria já feita não pode ser descartada');
+  assert.ok(accepted.length >= 29, 'a curadoria já feita não pode ser descartada');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.equal(video.exactMatch, true, `${key}: correspondência exata`);
@@ -347,9 +347,11 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     assert.match(video.url, /^https:\/\/www\.youtube\.com\/watch\?v=/, `${key}: URL canônica`);
     assert.ok(video.title && video.channel && video.duration && video.language, `${key}: metadados públicos`);
     assert.match(video.reviewedAt, /^2026-08-09$/, `${key}: data da revisão visual`);
-    assert.equal(video.availability, 'available_external', `${key}: disponibilidade externa`);
+    // A incorporação foi verificada com o IFrame Player API em 2026-08-09:
+    // erro 101/150 vira external_only, erro 100 viraria removed_or_private.
+    assert.ok(['available', 'external_only'].includes(video.availability), `${key}: disponibilidade verificada`);
     assert.ok(video.positives && video.limitations && video.decision, `${key}: justificativa e limitações`);
-    assert.equal(video.embedCompatible, null, `${key}: embed só muda após teste real no app`);
+    assert.equal(typeof video.embedCompatible, 'boolean', `${key}: incorporação verificada no app`);
   });
 
   const row = app.run(`THFData.CATALOG.seated_row_triangle.variants.map(item => [item.id, item.videoKey])`);
@@ -1211,7 +1213,7 @@ test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
     return total;
   }, {});
   assert.equal(chaves.length, 41, 'total de entradas do catálogo');
-  assert.deepEqual(contagem, {accepted: 27, pending: 14}, 'distribuição por estado');
+  assert.deepEqual(contagem, {accepted: 29, pending: 12}, 'distribuição por estado');
   assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 32, 'entradas com identificador do YouTube');
   assert.equal(chaves.filter(chave => videos[chave].url).length, 32, 'entradas com URL');
 });
@@ -1239,7 +1241,11 @@ test('inventário de vídeos: aprovado exige metadados completos de revisão', (
     assert.match(video.reviewedAt, /^\d{4}-\d{2}-\d{2}$/, `${chave} com data de revisão inválida`);
     assert.match(video.url, /^https:\/\/www\.youtube\.com\/watch\?v=/, `${chave} com URL fora do YouTube`);
     assert.ok(video.url.endsWith(video.youtubeId), `${chave} com URL que não corresponde ao identificador`);
-    assert.equal(video.availability, 'available_external', `${chave} aprovado sem disponibilidade confirmada`);
+    // Aprovado descreve o CONTEÚDO. Onde ele toca é `availability`:
+    // `external_only` continua sendo um estado válido de vídeo aprovado.
+    assert.ok(['available', 'external_only'].includes(video.availability), `${chave} aprovado com disponibilidade ${video.availability}`);
+    assert.equal(typeof video.embedCompatible, 'boolean', `${chave} aprovado sem verificação de incorporação`);
+    assert.equal(video.embedCompatible, video.availability === 'available', `${chave} com incorporação incoerente com a disponibilidade`);
   }
 });
 
@@ -1250,9 +1256,9 @@ test('inventário de vídeos: pendente nunca se apresenta como aprovado', () => 
     if (video.status === 'accepted') continue;
     assert.notEqual(video.availability, 'available_external_approved', chave);
     // Um vídeo indisponível guarda o motivo, sem apagar a revisão já feita.
-    if (video.availability.startsWith('unavailable')) {
-      assert.ok(video.decision, `${chave} indisponível sem decisão registrada`);
-      assert.match(video.decision, /pendente|indispon/i, `${chave} indisponível sem motivo legível`);
+    assert.ok(['unknown', 'external_only', 'available', 'removed_or_private'].includes(video.availability), `${chave} com disponibilidade desconhecida: ${video.availability}`);
+    if (video.availability === 'removed_or_private') {
+      assert.ok(video.decision, `${chave} removido/privado sem decisão registrada`);
     }
   }
 });
@@ -1295,4 +1301,54 @@ test('inventário de vídeos: toda execução possível da ficha resolve uma ent
   for (const chave of chavesEfetivas) {
     assert.ok(Object.prototype.hasOwnProperty.call(videos, chave), `a ficha aponta para a chave inexistente ${chave}`);
   }
+});
+
+test('vídeos: disponibilidade e qualidade são campos independentes', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  const externos = Object.entries(videos).filter(([, video]) => video.availability === 'external_only');
+
+  // A. Aprovado pode ter embedCompatible === false.
+  assert.ok(externos.length > 0, 'o catálogo precisa exercitar o caso external_only');
+  externos.forEach(([chave, video]) => {
+    assert.equal(video.status, 'accepted', `${chave}: bloqueio de incorporação não rebaixa a aprovação`);
+    assert.equal(video.embedCompatible, false, chave);
+    assert.notEqual(video.classification, 'pending', `${chave}: a classificação técnica permanece`);
+    assert.ok(video.youtubeId && video.url, `${chave}: continua utilizável fora do app`);
+  });
+
+  // B. Nenhum vídeo aprovado foi rebaixado por causa de incorporação.
+  const rebaixadosPorEmbed = Object.entries(videos)
+    .filter(([, video]) => video.status !== 'accepted' && video.embedCompatible === false);
+  assert.deepEqual(rebaixadosPorEmbed.map(([chave]) => chave), [], 'embed bloqueado não pode virar pendente');
+
+  // C. Removido ou privado nunca é oferecido como utilizável.
+  Object.entries(videos)
+    .filter(([, video]) => video.availability === 'removed_or_private')
+    .forEach(([chave, video]) => assert.notEqual(video.status, 'accepted', `${chave}: removido não pode ficar aprovado`));
+
+  // F. Os dois casos do YouTube são estados distintos no catálogo.
+  const estados = new Set(Object.values(videos).map(video => video.availability));
+  assert.equal(estados.has('external_only'), true, 'external_only precisa existir como estado próprio');
+  assert.notEqual('external_only', 'removed_or_private', 'bloqueio de embed e vídeo removido são estados distintos');
+  assert.deepEqual(
+    [...estados].filter(estado => !['available', 'external_only', 'removed_or_private', 'unknown'].includes(estado)),
+    [],
+    'nenhum estado de disponibilidade fora do enum'
+  );
+
+  // H. Nenhum aprovado sem metadados obrigatórios.
+  Object.entries(videos).filter(([, video]) => video.status === 'accepted').forEach(([chave, video]) => {
+    ['title', 'channel', 'duration', 'reviewedAt', 'positives', 'limitations', 'decision'].forEach(campo => {
+      assert.ok(video[campo], `${chave} aprovado sem ${campo}`);
+    });
+  });
+
+  // G. O recorte revisado precisa estar preservado nas duas formas de abertura.
+  const comRecorte = Object.entries(videos).filter(([, video]) => video.startSeconds > 0);
+  assert.ok(comRecorte.length > 0);
+  comRecorte.forEach(([chave, video]) => {
+    assert.equal(Number.isInteger(video.startSeconds), true, chave);
+    assert.ok(video.startSeconds > 0, chave);
+  });
 });

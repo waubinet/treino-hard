@@ -2,6 +2,46 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.2.2] — disponibilidade de vídeo separada da qualidade — 2026-08-09
+
+Esquema **11** inalterado.
+
+### Corrigido
+
+- `oEmbed 401` havia sido tratado como prova de indisponibilidade. Não é. Sondei
+  os 31 identificadores com o **IFrame Player API** real: `4L5nBs8Eq7g`
+  (agachamento livre) e `2s6jU4I5gy4` (posterior de coxa) devolvem **erro 150**,
+  ou seja, o vídeo existe e o proprietário bloqueia incorporação. Ambos voltaram
+  a `accepted` — o rebaixamento da 3.2.1 estava errado.
+
+### Modelo de disponibilidade
+
+- `availability` passa a ser `available`, `external_only`, `removed_or_private`
+  ou `unknown`, e `embedCompatible` é booleano verificado no app.
+- Estado verificado do catálogo: **30 available**, **2 external_only**,
+  **0 removed_or_private**, 9 sem candidato.
+- `accepted` descreve o conteúdo; `availability` descreve onde ele toca. Um
+  vídeo aprovado e bloqueado para incorporação continua aprovado.
+
+### Interface
+
+- Aprovado e incorporável: `▶ Ver demonstração` com canal, revisão,
+  classificação, cobertura e duração.
+- Aprovado e só externo: `↗ Abrir no YouTube` com `Reprodução externa · duração`
+  e sem oferecer prévia interna, mesmo com a preferência "assistir dentro do app".
+- Pendente com candidato: "Vídeo em revisão". Sem candidato: "Vídeo em curadoria".
+  Removido ou privado: aviso explícito, sem abrir substituto automaticamente.
+- O modal interno passa a trazer sempre a saída para o YouTube e uma linha
+  explicando o que fazer se o vídeo não tocar.
+
+### Testes
+
+Quatro novos: independência entre disponibilidade e qualidade, `external_only`
+abrindo fora do app mesmo na preferência interna, pendente que nunca vira botão
+de vídeo, e o modal interno sempre com saída externa.
+
+`CURADORIA-DE-VIDEOS.md` passa a ser gerado a partir do catálogo.
+
 ## [3.2.1] — auditoria factual do catálogo de vídeos — 2026-08-09
 
 Correção de estado, sem reforma. Esquema **11** inalterado.

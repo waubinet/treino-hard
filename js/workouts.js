@@ -390,7 +390,10 @@
       duration: value.duration || '',
       language: value.language || '',
       reviewedAt: value.reviewedAt || '',
-      availability: value.availability || 'pending',
+      // available = toca no app; external_only = existe mas o dono bloqueia
+      // incorporação (erro 101/150); removed_or_private = erro 100;
+      // unknown = sem candidato ou sem verificação.
+      availability: value.availability || 'unknown',
       embedCompatible: value.embedCompatible === true ? true : value.embedCompatible === false ? false : null,
       startSeconds: Math.max(0, Math.floor(Number(value.startSeconds) || 0)),
       positives: value.positives || '',
@@ -402,61 +405,62 @@
   const VIDEOS = Object.freeze({
     chest_press_machine: reviewedVideo({
       exerciseId: 'chest_press_machine', status: 'pending', classification: 'pending', youtubeId: 'YVbiDGkZyx0',
-      title: 'Life Fitness Signature Series Chest Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '1:28', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Life Fitness Signature Series Chest Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '1:28', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra ajuste, posição inicial e trajetória da máquina horizontal.', limitations: 'Não representa todas as máquinas convergentes aceitas pelo cartão.', decision: 'Manter pendente até a máquina executada ser identificada.'
     }),
     incline_press_machine: reviewedVideo({
       exerciseId: 'incline_press_machine', status: 'pending', classification: 'pending', youtubeId: 'xwK8Wd5F0Hk',
-      title: 'Hammer Strength Plate-Loaded Incline Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '4:38', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Hammer Strength Plate-Loaded Incline Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '4:38', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Demonstra setup e trajetória da versão articulada carregada por anilhas.', limitations: 'Não corresponde à variante seletorizada também permitida pelo cartão.', decision: 'Manter pendente até a máquina executada ser identificada.'
     }),
     cable_crossover: reviewedVideo({
       exerciseId: 'cable_crossover', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'XY6JrX1wyxk',
-      title: 'How to do a Cable Crossover | Proper Form & Technique', channel: 'NASM', duration: '0:23', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'How to do a Cable Crossover | Proper Form & Technique', channel: 'NASM', duration: '0:23', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Polias, base, arco dos braços e encontro das mãos ficam visíveis.', limitations: 'Muito curto; não cobre ajustes e erros com profundidade.', decision: 'Aprovar somente como demonstração objetiva.'
     }),
     machine_fly: reviewedVideo({
       exerciseId: 'machine_fly', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ON8kg47QpOY', startSeconds: 48,
-      title: 'Life Fitness Optima Series Pectoral Fly Rear Delt Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:19', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Life Fitness Optima Series Pectoral Fly Rear Delt Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:19', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Fonte do fabricante; mostra ajuste e execução do peck deck.', limitations: 'O mesmo vídeo também ensina a configuração de deltóide posterior e usa um modelo específico.', decision: 'Aprovar como guia técnico com início no trecho do peitoral.'
     }),
     shoulder_press_machine: reviewedVideo({
       exerciseId: 'shoulder_press_machine', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ef-hOkkRuY0',
-      title: 'Life Fitness Signature Series Shoulder Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '1:30', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Life Fitness Signature Series Shoulder Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '1:30', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra banco, pegadores, posição inferior e trajetória guiada.', limitations: 'A regulagem depende do modelo da academia.', decision: 'Aprovar como guia técnico para desenvolvimento na máquina.'
     }),
     lateral_raise_dumbbell: reviewedVideo({
       exerciseId: 'lateral_raise_dumbbell', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'XPPfnSEATJA',
-      title: 'How to do a Dumbbell Lateral Raise', channel: 'NASM', duration: '0:18', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'How to do a Dumbbell Lateral Raise', channel: 'NASM', duration: '0:18', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Postura frontal, halteres e amplitude até a altura dos ombros ficam claros.', limitations: 'Curto demais para explicar escolha de carga, ritmo e compensações.', decision: 'Aprovar como demonstração objetiva.'
     }),
     triceps_skull_dumbbell: reviewedVideo({
       exerciseId: 'triceps_skull_dumbbell', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'jPjhQ2hsAds',
-      title: 'Dumbbell Skullcrusher', channel: 'Renaissance Periodization', duration: '0:12', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Dumbbell Skullcrusher', channel: 'Renaissance Periodization', duration: '0:12', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Banco, dois halteres, flexão e extensão dos cotovelos aparecem em enquadramento lateral.', limitations: 'Não há explicação de setup ou erros; a amplitude individual pode variar.', decision: 'Aprovar somente como demonstração objetiva.'
     }),
     triceps_overhead: reviewedVideo({
+      availability: 'unknown', embedCompatible: null,
       exerciseId: 'triceps_overhead', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09',
       limitations: 'O exercício não informa se é feito no cabo, com corda, halter ou máquina.', decision: 'Pedir a escolha do equipamento antes de associar um vídeo.'
     }),
     triceps_rope: reviewedVideo({
       exerciseId: 'triceps_rope', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'GdQYdpo_iI0',
-      title: 'PWR Play Cable Rope Triceps Pushdown Training', channel: 'Life Fitness Training', duration: '0:18', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'PWR Play Cable Rope Triceps Pushdown Training', channel: 'Life Fitness Training', duration: '0:18', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Polia alta, corda, cotovelos próximos ao tronco e extensão completa ficam visíveis.', limitations: 'É uma demonstração curta em equipamento específico.', decision: 'Aprovar como demonstração objetiva.'
     }),
     pulldown_supinated: reviewedVideo({
       exerciseId: 'pulldown_supinated', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: '6WeUXN7dQWg',
-      title: 'Underhand Lat Pulldown', channel: 'NYU Abu Dhabi Wellness', duration: '0:32', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Underhand Lat Pulldown', channel: 'NYU Abu Dhabi Wellness', duration: '0:32', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Pegada realmente supinada, posição sentada, extensão e puxada ao alto do peito ficam claras.', limitations: 'Breve; não cobre ajuste do apoio de coxas nem erros em profundidade.', decision: 'Aprovar como demonstração objetiva.'
     }),
     pulldown_neutral: reviewedVideo({
       exerciseId: 'pulldown_neutral', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'KgZqDuNx7rI',
-      title: 'The BEST way to Perform the Neutral Grip Lat Pulldown | Form Tutorial', channel: 'Physique Development', duration: '4:54', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'The BEST way to Perform the Neutral Grip Lat Pulldown | Form Tutorial', channel: 'Physique Development', duration: '4:54', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Explica amplitude, setup, direção dos cotovelos e erros com pegadores neutros.', limitations: 'Usa alças neutras independentes; a largura pode diferir do acessório existente na academia.', decision: 'Aprovar como guia técnico da pegada neutra, registrando a limitação do acessório.'
     }),
     seated_row_triangle: reviewedVideo({
       exerciseId: 'seated_row_triangle', variationId: 'cable_triangle', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '7BkgqzC6WsM', startSeconds: 132,
-      title: 'How to PROPERLY Seated Cable Row (DO THIS NOW)', channel: 'Colossus Fitness', duration: '5:06', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'How to PROPERLY Seated Cable Row (DO THIS NOW)', channel: 'Colossus Fitness', duration: '5:06', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra triângulo, posição inicial, remada e explicação de erros.', limitations: 'O vídeo é longo e contém divulgação; o trecho relevante começa perto de 2:12.', decision: 'Aprovar como guia técnico para a variante no cabo com triângulo.'
     }),
     seated_row_supported: reviewedVideo({exerciseId: 'seated_row_triangle', variationId: 'machine_supported', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09', decision: 'Aguardando vídeo exato da máquina com apoio.'}),
@@ -466,96 +470,96 @@
     row_articulated_unsupported: reviewedVideo({exerciseId: 'row_machine_choice', variationId: 'articulated_unsupported', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09'}),
     reverse_fly_machine: reviewedVideo({
       exerciseId: 'reverse_fly_machine', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ON8kg47QpOY', startSeconds: 97,
-      title: 'Life Fitness Optima Series Pectoral Fly Rear Delt Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:19', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Life Fitness Optima Series Pectoral Fly Rear Delt Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:19', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Fonte do fabricante; mostra a inversão do banco, pegada e abertura para deltóide posterior.', limitations: 'Modelo específico e vídeo compartilhado com peitoral.', decision: 'Aprovar como guia técnico com início no trecho do deltóide posterior.'
     }),
     ez_bar_curl: reviewedVideo({exerciseId: 'ez_bar_curl', status: 'pending', classification: 'pending', exactMatch: false}),
     hammer_curl_standing: reviewedVideo({exerciseId: 'hammer_curl_standing', status: 'pending', classification: 'pending', exactMatch: false}),
     squat_free_barbell: reviewedVideo({
-      exerciseId: 'squat', variationId: 'free_barbell', status: 'pending', classification: 'technical_guide', exactMatch: true, youtubeId: '4L5nBs8Eq7g',
-      title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'unavailable_2026-08-09',
-      positives: 'Mostra rack, posição da barra, pegada, base, descida e fundo.', limitations: 'Base, posição da barra e profundidade dependem da antropometria e mobilidade.', decision: 'Rebaixado para pendente em 09/08/2026: o vídeo deixou de responder publicamente (oEmbed 401). A avaliação do conteúdo continua válida e pode ser reaproveitada se ele voltar.'
+      exerciseId: 'squat', variationId: 'free_barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '4L5nBs8Eq7g',
+      title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'external_only', embedCompatible: false,
+      positives: 'Mostra rack, posição da barra, pegada, base, descida e fundo.', limitations: 'Base, posição da barra e profundidade dependem da antropometria e mobilidade.', decision: 'Aprovado como guia técnico; o proprietário bloqueia incorporação (erro 150), então o cartão abre direto no YouTube.'
     }),
     squat_smith: reviewedVideo({
       exerciseId: 'squat', variationId: 'smith', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'uDBQtlCLQ0Y',
-      title: 'AGACHAMENTO SMITH - O passo a passo completo', channel: 'Tay Training', duration: '8:03', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'AGACHAMENTO SMITH - O passo a passo completo', channel: 'Tay Training', duration: '8:03', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra entrada, destravamento, pés, descida e retorno.', limitations: 'O Smith residencial demonstrado pode ter geometria diferente da academia.', decision: 'Aprovar como guia técnico.'
     }),
     leg_press_45: reviewedVideo({
       exerciseId: 'leg_press_45', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'waAxlYvtCcI',
-      title: 'Exercício Leg Press 45° - Execução Correta', channel: 'Treino Mestre', duration: '0:56', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Exercício Leg Press 45° - Execução Correta', channel: 'Treino Mestre', duration: '0:56', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Trenó 45°, apoio do tronco, pés e posição inferior ficam claros.', limitations: 'Não cobre travas, regulagem e profundidade individual em detalhe.', decision: 'Aprovar como demonstração objetiva.'
     }),
     leg_extension: reviewedVideo({
       exerciseId: 'leg_extension', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'Svq2T3L9oKo',
-      title: 'CADEIRA EXTENSORA - COMO EXECUTAR DE FORMA CORRETA', channel: 'Gymflix', duration: '2:49', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'CADEIRA EXTENSORA - COMO EXECUTAR DE FORMA CORRETA', channel: 'Gymflix', duration: '2:49', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra encosto, eixo do joelho, rolete e extensão.', limitations: 'Eixos e regulagens variam por modelo.', decision: 'Aprovar como guia técnico.'
     }),
     leg_curl_seated: reviewedVideo({
       exerciseId: 'leg_curl', variationId: 'seated', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'YLJJJYOfSfc',
-      title: 'Life Fitness Signature Series Seated Leg Curl Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:01', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Life Fitness Signature Series Seated Leg Curl Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:01', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Fonte do fabricante; mostra banco, trava de coxa, rolete e flexão.', limitations: 'Inglês e modelo específico.', decision: 'Aprovar como guia técnico.'
     }),
     leg_curl_lying: reviewedVideo({
       exerciseId: 'leg_curl', variationId: 'lying', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'Dq5y4WEcqqo',
-      title: 'How to Use a Lying Leg Curl | Proper Form & Technique | NASM', channel: 'NASM', duration: '0:21', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'How to Use a Lying Leg Curl | Proper Form & Technique | NASM', channel: 'NASM', duration: '0:21', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Posição prona, rolete e trajetória até cerca de 90 graus ficam claros.', limitations: 'Curto; não detalha regulagens e erros.', decision: 'Aprovar como demonstração objetiva.'
     }),
     leg_curl_standing_unilateral: reviewedVideo({
       exerciseId: 'leg_curl', variationId: 'standing_unilateral', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'T--10UN1jKs',
-      title: 'Flexora em Pé Unilateral na Máquina', channel: 'FISIculturismo.com.br', duration: '1:29', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Flexora em Pé Unilateral na Máquina', channel: 'FISIculturismo.com.br', duration: '1:29', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Máquina unilateral em pé, apoio anterior e flexão ficam visíveis.', limitations: 'Cobertura limitada de ajustes e modelo específico.', decision: 'Aprovar como demonstração objetiva.'
     }),
     calf_standing: reviewedVideo({
       exerciseId: 'calf_standing_or_leg_press', variationId: 'standing_machine', status: 'accepted', classification: 'visual_reference', exactMatch: true, youtubeId: 'Dvu8WJRUGTQ',
-      title: 'Cybex Standing Calf', channel: 'UKCampusRec', duration: '0:58', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Cybex Standing Calf', channel: 'UKCampusRec', duration: '0:58', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra máquina dedicada, apoio nos ombros, antepé e movimento.', limitations: 'Baixa resolução, fonte não oficial e quase sem instrução de ajuste.', decision: 'Aprovar somente como referência visual.'
     }),
     calf_leg_press: reviewedVideo({
       exerciseId: 'calf_standing_or_leg_press', variationId: 'leg_press_45', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'F7_8z_7Kwks',
-      title: 'Panturrilha no Leg Press 45º', channel: 'FISIculturismo.com.br', duration: '2:15', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Panturrilha no Leg Press 45º', channel: 'FISIculturismo.com.br', duration: '2:15', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra antepés na borda, calcanhares livres e amplitude.', limitations: 'Não cobre totalmente travas, joelhos e amplitude individual.', decision: 'Aprovar como demonstração objetiva.'
     }),
     deadlift_barbell: reviewedVideo({
       exerciseId: 'deadlift_barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '3otpFrCvjLw',
-      title: 'EXECUÇÃO CORRETA DE DEAD LIFT (LEVANTAMENTO TERRA)', channel: 'Comer, Treinar e Amar', duration: '3:48', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'EXECUÇÃO CORRETA DE DEAD LIFT (LEVANTAMENTO TERRA)', channel: 'Comer, Treinar e Amar', duration: '3:48', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra setup no chão, mãos, pernas, quadril e puxada até a posição ereta.', limitations: 'A altura inicial do quadril depende da antropometria; bracing permanece conteúdo separado.', decision: 'Aprovar como guia técnico.'
     }),
     calf_seated: reviewedVideo({
       exerciseId: 'calf_seated', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'zHJE3HPEP84',
-      title: 'Panturrilha Sentado Solear - Execução Exercício', channel: 'Mariana Sardelli', duration: '0:35', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Panturrilha Sentado Solear - Execução Exercício', channel: 'Mariana Sardelli', duration: '0:35', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Máquina sentada, apoio sobre as coxas, antepés e movimento ficam visíveis.', limitations: 'Não detalha ajuste, trava ou amplitude individual.', decision: 'Aprovar como demonstração objetiva.'
     }),
     mob_adductor_butterfly: reviewedVideo({
       exerciseId: 'mob_adductor_butterfly', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'imijpudAW7s',
-      title: 'Como fazer alongamento borboleta - Adutores - Matheus Morgavi', channel: 'Matheus Morgavi', duration: '1:07', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Como fazer alongamento borboleta - Adutores - Matheus Morgavi', channel: 'Matheus Morgavi', duration: '1:07', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Solas juntas, joelhos abertos e posições de tronco ficam claras.', limitations: 'Inclinação grande do tronco pode ser desconfortável com barriga grande.', decision: 'Aprovar como demonstração objetiva.'
     }),
     mob_hip_butterfly: reviewedVideo({
       exerciseId: 'mob_hip_butterfly', status: 'pending', classification: 'pending', exactMatch: false, youtubeId: '2uj6sgyAUc4',
-      title: 'Seated Leg butterfly exercise for Hip mobility', channel: 'Health Q', duration: '0:32', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Seated Leg butterfly exercise for Hip mobility', channel: 'Health Q', duration: '0:32', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'É dinâmico e demonstra abertura e fechamento dos joelhos.', limitations: 'Usa cadeira, difere da borboleta no chão e quase não ensina setup.', decision: 'Manter pendente até encontrar guia melhor e exatamente compatível.'
     }),
     mob_hamstring_seated: reviewedVideo({
-      exerciseId: 'mob_hamstring_seated', status: 'pending', classification: 'visual_reference', exactMatch: true, youtubeId: '2s6jU4I5gy4',
-      title: 'Alongamento dos posteriores de coxa sentado', channel: 'Cinesio Pro', duration: '0:13', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'unavailable_2026-08-09',
-      positives: 'Movimento bilateral isolado e claramente visível.', limitations: 'Muito curto, flexiona bastante o tronco e pode ser desconfortável com barriga grande.', decision: 'Rebaixado para pendente em 09/08/2026: o vídeo deixou de responder publicamente (oEmbed 401). A avaliação do conteúdo continua válida e pode ser reaproveitada se ele voltar.'
+      exerciseId: 'mob_hamstring_seated', status: 'accepted', classification: 'visual_reference', exactMatch: true, youtubeId: '2s6jU4I5gy4',
+      title: 'Alongamento dos posteriores de coxa sentado', channel: 'Cinesio Pro', duration: '0:13', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'external_only', embedCompatible: false,
+      positives: 'Movimento bilateral isolado e claramente visível.', limitations: 'Muito curto, flexiona bastante o tronco e pode ser desconfortável com barriga grande.', decision: 'Aprovado; o proprietário bloqueia incorporação (erro 150), então o cartão abre direto no YouTube.'
     }),
     mob_ankle: reviewedVideo({
       exerciseId: 'mob_ankle', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '3pprN9t_P1o',
-      title: 'Mobilidade de Tornozelo - Joelho na Parede', channel: 'Descomplicando a Musculação - NS Personal', duration: '1:35', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Mobilidade de Tornozelo - Joelho na Parede', channel: 'Descomplicando a Musculação - NS Personal', duration: '1:35', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra base, calcanhar apoiado e joelho avançando em direção à parede.', limitations: 'Distância da parede e amplitude precisam ser individualizadas.', decision: 'Aprovar como guia técnico.'
     }),
     bracing: reviewedVideo({
       exerciseId: 'bracing', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ZFiosv9_vis',
-      title: 'Squat Pillar #2 | Breathing & Bracing | JTSstrength.com', channel: 'Juggernaut Training Systems', duration: '7:38', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external',
+      title: 'Squat Pillar #2 | Breathing & Bracing | JTSstrength.com', channel: 'Juggernaut Training Systems', duration: '7:38', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Ensina pressão circunferencial em 360 graus aplicada ao agachamento.', limitations: 'Longo, em inglês e específico ao agachamento; dublagem automática não é garantida no embed.', decision: 'Aprovar como guia técnico.'
     }),
     vacuum: reviewedVideo({exerciseId: 'vacuum', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09', limitations: 'Um vídeo genérico não cobre as quatro posições do app.', decision: 'Usar associação por posição.'}),
-    vacuum_standing: reviewedVideo({exerciseId: 'vacuum', variationId: 'standing', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'lvwTkY7l_-s', title: 'Demonstrating the Hypopressive abdominal vacuum technique used in low pressure fitness exercises.', channel: 'ACTIVCORE', duration: '1:13', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external', positives: 'Expiração, abertura costal e retração abdominal ficam visíveis.', limitations: 'Não cobre as demais posições ou contraindicações.', decision: 'Aprovar para a posição em pé.'}),
-    vacuum_all_fours: reviewedVideo({exerciseId: 'vacuum', variationId: 'all_fours', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'vPQNERJUBlk', title: 'How to do a tummy vacuum', channel: 'Rehab My Patient', duration: '0:35', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external', positives: 'Mostra apoios, coluna neutra e retração abdominal.', limitations: 'Muito curto.', decision: 'Aprovar para quatro apoios.'}),
-    vacuum_lying: reviewedVideo({exerciseId: 'vacuum', variationId: 'lying', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'GSEA3-ThqXA', title: 'Supine Stomach Vacuums', channel: 'CCEDseminars', duration: '2:55', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external', positives: 'Mostra posição supina com joelhos flexionados e progressões.', limitations: 'Vídeo antigo e fonte educacional pequena.', decision: 'Aprovar com ressalva para a posição deitada.'}),
-    vacuum_seated: reviewedVideo({exerciseId: 'vacuum', variationId: 'seated', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'UNKe4LL8cKc', title: 'How to Perform a Vacuum in a Seated Position', channel: 'The Daily Stretch', duration: '2:45', language: 'en', reviewedAt: '2026-08-09', availability: 'available_external', positives: 'Mostra cadeira, pés, postura e contração/relaxamento.', limitations: 'Canal pequeno, sem credencial institucional claramente verificável.', decision: 'Aprovar com ressalva para a posição sentada.'})
+    vacuum_standing: reviewedVideo({exerciseId: 'vacuum', variationId: 'standing', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'lvwTkY7l_-s', title: 'Demonstrating the Hypopressive abdominal vacuum technique used in low pressure fitness exercises.', channel: 'ACTIVCORE', duration: '1:13', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true, positives: 'Expiração, abertura costal e retração abdominal ficam visíveis.', limitations: 'Não cobre as demais posições ou contraindicações.', decision: 'Aprovar para a posição em pé.'}),
+    vacuum_all_fours: reviewedVideo({exerciseId: 'vacuum', variationId: 'all_fours', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'vPQNERJUBlk', title: 'How to do a tummy vacuum', channel: 'Rehab My Patient', duration: '0:35', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true, positives: 'Mostra apoios, coluna neutra e retração abdominal.', limitations: 'Muito curto.', decision: 'Aprovar para quatro apoios.'}),
+    vacuum_lying: reviewedVideo({exerciseId: 'vacuum', variationId: 'lying', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'GSEA3-ThqXA', title: 'Supine Stomach Vacuums', channel: 'CCEDseminars', duration: '2:55', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true, positives: 'Mostra posição supina com joelhos flexionados e progressões.', limitations: 'Vídeo antigo e fonte educacional pequena.', decision: 'Aprovar com ressalva para a posição deitada.'}),
+    vacuum_seated: reviewedVideo({exerciseId: 'vacuum', variationId: 'seated', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'UNKe4LL8cKc', title: 'How to Perform a Vacuum in a Seated Position', channel: 'The Daily Stretch', duration: '2:45', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true, positives: 'Mostra cadeira, pés, postura e contração/relaxamento.', limitations: 'Canal pequeno, sem credencial institucional claramente verificável.', decision: 'Aprovar com ressalva para a posição sentada.'})
   });
 
   function prescriptionFor(exercise, week, highRepPreference) {

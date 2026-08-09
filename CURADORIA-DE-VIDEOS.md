@@ -1,160 +1,90 @@
 # Curadoria de vídeos
 
-## Estado desta execução
+Gerado a partir de `js/workouts.js` em 2026-08-09. **Não edite a tabela à mão**:
+ela é derivada do catálogo e travada pelos testes de inventário.
 
-Data do inventário: **2026-08-08**.
+## Como ler
 
-Esta etapa ainda **não é uma curadoria concluída**. Nenhum vídeo foi aberto e assistido integralmente nesta execução. Por isso:
+- **estado**: `accepted` (conteúdo técnico aprovado), `pending` (não revisado ou
+  sem segurança suficiente), `rejected` (conferido e incompatível).
+- **classificação**: `technical_guide` explica execução, ajustes ou erros;
+  `objective_demo` mostra a execução sem ensinar em profundidade;
+  `visual_reference` serve como reconhecimento do movimento.
+- **disponibilidade**: `available` toca dentro do app; `external_only` existe mas
+  o proprietário bloqueia incorporação (IFrame Player API, erro 101/150);
+  `removed_or_private` corresponde ao erro 100; `unknown` é sem candidato.
+- **embed**: resultado do teste real com o IFrame Player API.
 
-- candidatos novos no catálogo: **34**;
-- referências legadas inventariadas: **42 ocorrências, 37 IDs únicos**;
-- vídeos aceitos: **0**;
-- vídeos substituídos: **0**;
-- vídeos rejeitados após revisão: **0**;
-- vídeos pendentes: **todos**.
+Disponibilidade e qualidade são independentes. Um vídeo `accepted` com
+`external_only` é um estado válido: o conteúdo foi aprovado e o cartão abre
+direto no YouTube, sem oferecer prévia interna.
 
-Até uma revisão humana individual, o aplicativo deve exibir **“Vídeo pendente de curadoria.”** e continuar funcionando sem o vídeo. É preferível não mostrar vídeo algum a associar ao exercício uma pegada, máquina, trajetória ou variação diferente.
+## Verificação de 2026-08-09
 
-> Os selos descrevem o conteúdo revisado e não certificam o autor.
+31 identificadores únicos sondados com o IFrame Player API: **29 available**,
+**2 external_only** (erro 150), **0 removed_or_private**.
 
-## Critério de revisão
+`4L5nBs8Eq7g` (agachamento livre) e `2s6jU4I5gy4` (posterior de coxa) haviam sido
+rebaixados para `pending` com base apenas no `oEmbed 401`. A sonda mostrou erro
+150 — bloqueio de incorporação, não ausência do vídeo. Ambos voltaram a
+`accepted` com `availability: external_only`.
 
-Cada candidato só pode sair de `pending` depois de uma pessoa:
+## Catálogo
 
-1. abrir o vídeo e confirmar sua disponibilidade;
-2. assistir à demonstração completa, e não apenas ler título, miniatura ou descrição;
-3. conferir exercício, equipamento, pegada, posição, trajetória, amplitude e lateralidade;
-4. verificar se há orientação técnica enganosa, promessa absoluta ou demonstração claramente degradada;
-5. testar o link externo e, quando aplicável, a incorporação em `youtube-nocookie.com`;
-6. registrar título, canal, duração, data, idioma, cobertura, limitações e decisão;
-7. classificar o conteúdo como `technical_guide`, `objective_demo` ou `visual_reference` somente quando a revisão sustentar o rótulo.
+| chave | exercício | variação | estado | classificação | disponibilidade | embed | ID | título | canal | duração | idioma | revisão | recorte |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| bracing | bracing | — | accepted | technical_guide | available | sim | ZFiosv9_vis | Squat Pillar #2 / Breathing & Bracing / JTSstrength. | Juggernaut Training Systems | 7:38 | en | 2026-08-09 | — |
+| cable_crossover | cable_crossover | — | accepted | objective_demo | available | sim | XY6JrX1wyxk | How to do a Cable Crossover / Proper Form & Techniqu | NASM | 0:23 | en | 2026-08-09 | — |
+| calf_leg_press | calf_standing_or_leg_press | leg_press_45 | accepted | objective_demo | available | sim | F7_8z_7Kwks | Panturrilha no Leg Press 45º | FISIculturismo.com.br | 2:15 | pt-BR | 2026-08-09 | — |
+| calf_seated | calf_seated | — | accepted | objective_demo | available | sim | zHJE3HPEP84 | Panturrilha Sentado Solear - Execução Exercício | Mariana Sardelli | 0:35 | pt-BR | 2026-08-09 | — |
+| calf_standing | calf_standing_or_leg_press | standing_machine | accepted | visual_reference | available | sim | Dvu8WJRUGTQ | Cybex Standing Calf | UKCampusRec | 0:58 | en | 2026-08-09 | — |
+| chest_press_machine | chest_press_machine | — | pending | pending | available | sim | YVbiDGkZyx0 | Life Fitness Signature Series Chest Press Instructio | Life Fitness / Hammer Strength | 1:28 | en | 2026-08-09 | — |
+| deadlift_barbell | deadlift_barbell | — | accepted | technical_guide | available | sim | 3otpFrCvjLw | EXECUÇÃO CORRETA DE DEAD LIFT (LEVANTAMENTO TERRA) | Comer, Treinar e Amar | 3:48 | pt-BR | 2026-08-09 | — |
+| ez_bar_curl | ez_bar_curl | — | pending | pending | unknown | — | — | — | — | — | — | — | — |
+| hammer_curl_standing | hammer_curl_standing | — | pending | pending | unknown | — | — | — | — | — | — | — | — |
+| incline_press_machine | incline_press_machine | — | pending | pending | available | sim | xwK8Wd5F0Hk | Hammer Strength Plate-Loaded Incline Press Instructi | Life Fitness / Hammer Strength | 4:38 | en | 2026-08-09 | — |
+| lateral_raise_dumbbell | lateral_raise_dumbbell | — | accepted | objective_demo | available | sim | XPPfnSEATJA | How to do a Dumbbell Lateral Raise | NASM | 0:18 | en | 2026-08-09 | — |
+| leg_curl_lying | leg_curl | lying | accepted | objective_demo | available | sim | Dq5y4WEcqqo | How to Use a Lying Leg Curl / Proper Form & Techniqu | NASM | 0:21 | en | 2026-08-09 | — |
+| leg_curl_seated | leg_curl | seated | accepted | technical_guide | available | sim | YLJJJYOfSfc | Life Fitness Signature Series Seated Leg Curl Instru | Life Fitness / Hammer Strength | 2:01 | en | 2026-08-09 | — |
+| leg_curl_standing_unilateral | leg_curl | standing_unilateral | accepted | objective_demo | available | sim | T--10UN1jKs | Flexora em Pé Unilateral na Máquina | FISIculturismo.com.br | 1:29 | pt-BR | 2026-08-09 | — |
+| leg_extension | leg_extension | — | accepted | technical_guide | available | sim | Svq2T3L9oKo | CADEIRA EXTENSORA - COMO EXECUTAR DE FORMA CORRETA | Gymflix | 2:49 | pt-BR | 2026-08-09 | — |
+| leg_press_45 | leg_press_45 | — | accepted | objective_demo | available | sim | waAxlYvtCcI | Exercício Leg Press 45° - Execução Correta | Treino Mestre | 0:56 | pt-BR | 2026-08-09 | — |
+| machine_fly | machine_fly | — | accepted | technical_guide | available | sim | ON8kg47QpOY | Life Fitness Optima Series Pectoral Fly Rear Delt In | Life Fitness / Hammer Strength | 2:19 | en | 2026-08-09 | 48s |
+| mob_adductor_butterfly | mob_adductor_butterfly | — | accepted | objective_demo | available | sim | imijpudAW7s | Como fazer alongamento borboleta - Adutores - Matheu | Matheus Morgavi | 1:07 | pt-BR | 2026-08-09 | — |
+| mob_ankle | mob_ankle | — | accepted | technical_guide | available | sim | 3pprN9t_P1o | Mobilidade de Tornozelo - Joelho na Parede | Descomplicando a Musculação - NS Personal | 1:35 | pt-BR | 2026-08-09 | — |
+| mob_hamstring_seated | mob_hamstring_seated | — | accepted | visual_reference | external_only | não | 2s6jU4I5gy4 | Alongamento dos posteriores de coxa sentado | Cinesio Pro | 0:13 | pt-BR | 2026-08-09 | — |
+| mob_hip_butterfly | mob_hip_butterfly | — | pending | pending | available | sim | 2uj6sgyAUc4 | Seated Leg butterfly exercise for Hip mobility | Health Q | 0:32 | en | 2026-08-09 | — |
+| pulldown_neutral | pulldown_neutral | — | accepted | technical_guide | available | sim | KgZqDuNx7rI | The BEST way to Perform the Neutral Grip Lat Pulldow | Physique Development | 4:54 | en | 2026-08-09 | — |
+| pulldown_supinated | pulldown_supinated | — | accepted | objective_demo | available | sim | 6WeUXN7dQWg | Underhand Lat Pulldown | NYU Abu Dhabi Wellness | 0:32 | en | 2026-08-09 | — |
+| reverse_fly_machine | reverse_fly_machine | — | accepted | technical_guide | available | sim | ON8kg47QpOY | Life Fitness Optima Series Pectoral Fly Rear Delt In | Life Fitness / Hammer Strength | 2:19 | en | 2026-08-09 | 97s |
+| row_articulated_supported | row_machine_choice | articulated_supported | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| row_articulated_unsupported | row_machine_choice | articulated_unsupported | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| row_machine_choice | row_machine_choice | — | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| seated_row_supported | seated_row_triangle | machine_supported | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| seated_row_triangle | seated_row_triangle | cable_triangle | accepted | technical_guide | available | sim | 7BkgqzC6WsM | How to PROPERLY Seated Cable Row (DO THIS NOW) | Colossus Fitness | 5:06 | en | 2026-08-09 | 132s |
+| shoulder_press_machine | shoulder_press_machine | — | accepted | technical_guide | available | sim | ef-hOkkRuY0 | Life Fitness Signature Series Shoulder Press Instruc | Life Fitness / Hammer Strength | 1:30 | en | 2026-08-09 | — |
+| squat_free_barbell | squat | free_barbell | accepted | technical_guide | external_only | não | 4L5nBs8Eq7g | 3 Passos Para Fazer o Agachamento Livre PERFEITO (O  | Laércio Refundini | 7:05 | pt-BR | 2026-08-09 | — |
+| squat_smith | squat | smith | accepted | technical_guide | available | sim | uDBQtlCLQ0Y | AGACHAMENTO SMITH - O passo a passo completo | Tay Training | 8:03 | pt-BR | 2026-08-09 | — |
+| triceps_overhead | triceps_overhead | — | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| triceps_rope | triceps_rope | — | accepted | objective_demo | available | sim | GdQYdpo_iI0 | PWR Play Cable Rope Triceps Pushdown Training | Life Fitness Training | 0:18 | en | 2026-08-09 | — |
+| triceps_skull_dumbbell | triceps_skull_dumbbell | — | accepted | objective_demo | available | sim | jPjhQ2hsAds | Dumbbell Skullcrusher | Renaissance Periodization | 0:12 | en | 2026-08-09 | — |
+| unilateral_row_machine | unilateral_row_machine | — | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| vacuum | vacuum | — | pending | pending | unknown | — | — | — | — | — | — | 2026-08-09 | — |
+| vacuum_all_fours | vacuum | all_fours | accepted | objective_demo | available | sim | vPQNERJUBlk | How to do a tummy vacuum | Rehab My Patient | 0:35 | en | 2026-08-09 | — |
+| vacuum_lying | vacuum | lying | accepted | technical_guide | available | sim | GSEA3-ThqXA | Supine Stomach Vacuums | CCEDseminars | 2:55 | en | 2026-08-09 | — |
+| vacuum_seated | vacuum | seated | accepted | technical_guide | available | sim | UNKe4LL8cKc | How to Perform a Vacuum in a Seated Position | The Daily Stretch | 2:45 | en | 2026-08-09 | — |
+| vacuum_standing | vacuum | standing | accepted | technical_guide | available | sim | lvwTkY7l_-s | Demonstrating the Hypopressive abdominal vacuum tech | ACTIVCORE | 1:13 | en | 2026-08-09 | — |
 
-Classificações:
+## Pendentes
 
-- **Guia técnico (`technical_guide`)**: cobre parte relevante de ajuste, posição inicial, execução, estabilização/respiração, erros comuns, amplitude e segurança prática.
-- **Demonstração objetiva (`objective_demo`)**: mostra posição, movimento, trajetória e ritmo com clareza, sem ser apresentado como aula completa.
-- **Referência visual (`visual_reference`)**: serve apenas para reconhecer o movimento.
-- **Pendente (`pending`)**: ainda não assistido ou sem evidência suficiente.
+Os itens com estado `pending` não foram assistidos nesta rodada. Nenhum vídeo é
+aprovado por título, miniatura, descrição ou reputação do canal: a aprovação
+exige assistir à demonstração e conferir exercício, equipamento, pegada, posição,
+trajetória, amplitude e lateralidade.
 
-## Catálogo novo
+## Reaproveitamento de vídeo
 
-Fonte do inventário: objeto `VIDEOS` em `js/workouts.js`. Os campos URL, título, canal, duração e idioma não foram preenchidos porque não foram verificados.
-
-| Chave de vídeo | Exercício canônico | Variação/equipamento | URL/ID | Metadados | Disponibilidade/embed | Correspondência e qualidade | Decisão |
-|---|---|---|---|---|---|---|---|
-| `chest_press_machine` | Supino reto na máquina | máquina a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `incline_press_machine` | Supino inclinado na máquina | máquina inclinada a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `cable_crossover` | Crossover na polia | polia/trajetória a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `machine_fly` | Crucifixo no aparelho | peck deck/aparelho a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `shoulder_press_machine` | Desenvolvimento na máquina | máquina a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `lateral_raise_dumbbell` | Elevação lateral com halteres | halteres | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `triceps_skull_dumbbell` | Tríceps testa com halteres | halteres | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `triceps_overhead` | Extensão de tríceps acima da cabeça | equipamento a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `triceps_rope` | Tríceps na polia com corda | corda | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `pulldown_supinated` | Puxada frontal supinada | pegada supinada | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `pulldown_neutral` | Puxada frontal neutra | pegada neutra | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `seated_row_triangle` | Remada sentada com triângulo | cabo com triângulo | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `unilateral_row_machine` | Remada unilateral na máquina | unilateral/máquina a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `row_machine_choice` | Remada sentada ou articulada | variação selecionável | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `reverse_fly_machine` | Crucifixo invertido no aparelho | aparelho | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `ez_bar_curl` | Rosca direta com barra W | barra W | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `hammer_curl_standing` | Rosca martelo em pé | halteres | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `squat_free_barbell` | Agachamento | livre com barra | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `squat_smith` | Agachamento | Smith | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `leg_press_45` | Leg press 45° | máquina a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `leg_extension` | Cadeira extensora | máquina a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `leg_curl_seated` | Flexora | sentada | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `leg_curl_lying` | Flexora | deitada | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `leg_curl_standing_unilateral` | Flexora | em pé unilateral | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `calf_standing` | Panturrilha | em pé na máquina | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `calf_leg_press` | Panturrilha | leg press 45° | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `deadlift_barbell` | Levantamento terra | barra | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `calf_seated` | Panturrilha sentada | máquina sentada | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `mob_adductor_butterfly` | Alongamento de adutores | borboleta | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `mob_hip_butterfly` | Mobilidade de quadril | borboleta | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `mob_hamstring_seated` | Alongamento de posterior | sentado | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `mob_ankle` | Mobilidade de tornozelo | lado/apoio a confirmar | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `bracing` | Bracing | orientação técnica, não exercício | não selecionado | não verificados | não testados | não avaliada | pendente |
-| `vacuum` | Vacuum | rotina em casa/posição selecionável | não selecionado | não verificados | não testados | não avaliada | pendente |
-
-## Inventário legado
-
-Fonte: `index.html` preservado no `HEAD` anterior à reforma, objetos `YT` e `FLEX_LIST`. Esta tabela registra os links encontrados; ela **não recomenda nem aprova** nenhum deles. Comentários antigos do código também não constituem revisão.
-
-| Associação legada | ID do YouTube | URL | Estado |
-|---|---|---|---|
-| `a_puxada_supinada` | `zg1MSZR-y4Y` | https://www.youtube.com/watch?v=zg1MSZR-y4Y | pendente; não assistido |
-| `a_remada_unilateral` | `Prevu525iYQ` | https://www.youtube.com/watch?v=Prevu525iYQ | pendente; não assistido |
-| `a_puxada_neutra` | `vUu_4jBxM1c` | https://www.youtube.com/watch?v=vUu_4jBxM1c | pendente; não assistido |
-| `a_remada_sentada` | `HZPqEGzrLRg` | https://www.youtube.com/watch?v=HZPqEGzrLRg | pendente; não assistido |
-| `a_pulldown` | `QTQABcLosXk` | https://www.youtube.com/watch?v=QTQABcLosXk | pendente; não assistido |
-| `a_crucifixo_inv` | `eo4O-BvfjRk` | https://www.youtube.com/watch?v=eo4O-BvfjRk | pendente; não assistido |
-| `a_biceps_martelo` | `YrZ0qzBi-kk` | https://www.youtube.com/watch?v=YrZ0qzBi-kk | pendente; não assistido |
-| `a_rosca_barra_w` | `V6UEDzY51gY` | https://www.youtube.com/watch?v=V6UEDzY51gY | pendente; não assistido |
-| `b_supino_barra` | `9Cy3ngopGRk` | https://www.youtube.com/watch?v=9Cy3ngopGRk | pendente; exercício legado, não usar no card de máquina |
-| `b_supino_inclinado_halteres` | `3dnLfE3mB1I` | https://www.youtube.com/watch?v=3dnLfE3mB1I | pendente; variação não padrão |
-| `b_supino_inclinado_maquina` | `lTDvD97_e3g` | https://www.youtube.com/watch?v=lTDvD97_e3g | pendente; não assistido |
-| `b_supino_inclinado_smith` | `WP1VLAt8hbM` | https://www.youtube.com/watch?v=WP1VLAt8hbM | pendente; variação não padrão |
-| `b_crossover` | `jqTlJt3JXzQ` | https://www.youtube.com/watch?v=jqTlJt3JXzQ | pendente; não assistido |
-| `b_crucifixo_aparelho` | `zEcIgGm7fxU` | https://www.youtube.com/watch?v=zEcIgGm7fxU | pendente; não assistido |
-| `b_desenv_maquina` | `Xd5bgkvYdfk` | https://www.youtube.com/watch?v=Xd5bgkvYdfk | pendente; não assistido |
-| `b_elev_lateral` | `jannLx4RxKo` | https://www.youtube.com/watch?v=jannLx4RxKo | pendente; não assistido |
-| `b_triceps_testa` | `VakpIeaaeXA` | https://www.youtube.com/watch?v=VakpIeaaeXA | pendente; não assistido |
-| `b_triceps_pulley` | `7le1JRUUagM` | https://www.youtube.com/watch?v=7le1JRUUagM | pendente; não assistido |
-| `c_agach_smith` | `uDBQtlCLQ0Y` | https://www.youtube.com/watch?v=uDBQtlCLQ0Y | pendente; não assistido |
-| `c_agach_livre` | `4L5nBs8Eq7g` | https://www.youtube.com/watch?v=4L5nBs8Eq7g | pendente; não assistido |
-| `c_terra_barra` | `3otpFrCvjLw` | https://www.youtube.com/watch?v=3otpFrCvjLw | pendente; não assistido |
-| `c_leg_press` | `waAxlYvtCcI` | https://www.youtube.com/watch?v=waAxlYvtCcI | pendente; não assistido |
-| `c_extensor` | `Svq2T3L9oKo` | https://www.youtube.com/watch?v=Svq2T3L9oKo | pendente; não assistido |
-| `c_flexor_sentado` | `T--10UN1jKs` | https://www.youtube.com/watch?v=T--10UN1jKs | pendente; comentário legado indica possível divergência de variação, não verificada |
-| `c_flexor_deitado` | `vXPbKrYIEaQ` | https://www.youtube.com/watch?v=vXPbKrYIEaQ | pendente; comentário legado indica possível exercício incorreto, não reutilizar sem revisão |
-| `c_panturrilha_pe` | `F7_8z_7Kwks` | https://www.youtube.com/watch?v=F7_8z_7Kwks | pendente; não assistido |
-| `c_panturrilha_sentado` | `zHJE3HPEP84` | https://www.youtube.com/watch?v=zHJE3HPEP84 | pendente; não assistido |
-| `a_alonga_dorsal` | `eVmGZVPhjV0` | https://www.youtube.com/watch?v=eVmGZVPhjV0 | pendente; não assistido |
-| `a_alonga_peitoral` | `6Be-s3RwVp4` | https://www.youtube.com/watch?v=6Be-s3RwVp4 | pendente; não assistido |
-| `b_alonga_dorsal` | `eVmGZVPhjV0` | https://www.youtube.com/watch?v=eVmGZVPhjV0 | referência duplicada; pendente |
-| `c_alonga_adutor` | `imijpudAW7s` | https://www.youtube.com/watch?v=imijpudAW7s | pendente; não assistido |
-| `c_mob_quadril` | `R6zbYBwgioc` | https://www.youtube.com/watch?v=R6zbYBwgioc | pendente; não assistido |
-| `c_alonga_posterior` | `x861NmGgbpQ` | https://www.youtube.com/watch?v=x861NmGgbpQ | pendente; não assistido |
-| `c_mob_tornozelo` | `3pprN9t_P1o` | https://www.youtube.com/watch?v=3pprN9t_P1o | pendente; não assistido |
-| `FLEX_LIST: Dorsais` | `eVmGZVPhjV0` | https://www.youtube.com/watch?v=eVmGZVPhjV0 | referência duplicada; pendente |
-| `FLEX_LIST: Peitoral` | `6Be-s3RwVp4` | https://www.youtube.com/watch?v=6Be-s3RwVp4 | referência duplicada; pendente |
-| `FLEX_LIST: Adutor (Borboleta)` | `imijpudAW7s` | https://www.youtube.com/watch?v=imijpudAW7s | referência duplicada; pendente |
-| `FLEX_LIST: Posterior da Coxa` | `x861NmGgbpQ` | https://www.youtube.com/watch?v=x861NmGgbpQ | referência duplicada; pendente |
-| `FLEX_LIST: Reto Femoral` | `nf4OOzWrcXw` | https://www.youtube.com/watch?v=nf4OOzWrcXw | pendente; não assistido |
-| `FLEX_LIST: Isquiotibiais` | `bLgb6XZz2N4` | https://www.youtube.com/watch?v=bLgb6XZz2N4 | pendente; não assistido |
-| `FLEX_LIST: Adutores no espaldar` | `NxbDKOYe1Hk` | https://www.youtube.com/watch?v=NxbDKOYe1Hk | pendente; não assistido |
-| `FLEX_LIST: Glúteos` | `i9Ub99a97go` | https://www.youtube.com/watch?v=i9Ub99a97go | pendente; não assistido |
-
-## Registro obrigatório para cada futura decisão
-
-```json
-{
-  "exerciseId": "",
-  "variationId": "",
-  "url": "",
-  "youtubeId": "",
-  "title": "",
-  "channel": "",
-  "durationSeconds": null,
-  "reviewDate": "",
-  "language": "",
-  "status": "pending",
-  "classification": "pending",
-  "exactMatch": false,
-  "embeddable": null,
-  "coverage": [],
-  "limitations": []
-}
-```
-
-## Fontes de referência
-
-As fontes abaixo orientam a linguagem de esforço, volume, descanso e limitações. Elas não substituem a inspeção audiovisual de cada candidato:
-
-- [ACSM — Resistance Training Prescription for Muscle Function, Hypertrophy, and Physical Performance in Healthy Adults (posição publicada em 2026)](https://acsm.org/science-spotlight-acsm-releases-new-position-stand-on-resistance-training/)
-- [PubMed PMID 38970765 — proximidade da falha](https://pubmed.ncbi.nlm.nih.gov/38970765/)
-- [PubMed PMID 39205815 — intervalos entre séries](https://pubmed.ncbi.nlm.nih.gov/39205815/)
-- [W3C WAI — padrão de abas](https://www.w3.org/WAI/ARIA/apg/patterns/tabs/)
-- [MDN — Service Worker API](https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API)
-
+`ON8kg47QpOY` atende `machine_fly` (recorte em 48 s) e `reverse_fly_machine`
+(recorte em 97 s): é o vídeo do fabricante da mesma máquina. O recorte é aplicado
+no link externo (`t=`) e no embed (`start=`), e o teste de inventário proíbe
+reaproveitar um identificador sem recortes distintos e documentados.
