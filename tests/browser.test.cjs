@@ -2021,3 +2021,128 @@ test('versão do app e esquema aparecem em Ajustes e no rodapé', {timeout: 9000
 
   assert.deepEqual(errors, []);
 });
+
+// Caminho real de atualização de quem já tinha a versão 2.2 instalada como PWA.
+// A 2.2 é reconstruída a partir do commit publicado anteriormente.
+test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {timeout: 240000}, async t => {
+  const {execFileSync} = require('node:child_process');
+  const os = require('node:os');
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'treino-hard-v22-'));
+  t.after(() => fs.rmSync(legacyRoot, {recursive: true, force: true}));
+  for (const file of ['index.html', 'sw.js', 'manifest.webmanifest', 'logo.png']) {
+    const bytes = execFileSync('git', ['show', `ad2e552:${file}`], {cwd: ROOT, maxBuffer: 64 * 1024 * 1024, encoding: 'buffer'});
+    fs.writeFileSync(path.join(legacyRoot, file), bytes);
+  }
+  assert.match(fs.readFileSync(path.join(legacyRoot, 'sw.js'), 'utf8'), /treino-hard-v2\.2/);
+
+  const state = {root: legacyRoot};
+  const server = await new Promise(resolve => {
+    const instance = http.createServer((request, response) => {
+      const requested = new URL(request.url, 'http://127.0.0.1').pathname;
+      const relative = requested === '/' ? 'index.html' : decodeURIComponent(requested.slice(1));
+      fs.readFile(path.resolve(state.root, relative), (error, bytes) => {
+        if (error) {
+          response.writeHead(404, {'Content-Type': 'text/plain; charset=utf-8'}).end(error.message);
+          return;
+        }
+        response.writeHead(200, {'Content-Type': MIME[path.extname(relative)] || 'application/octet-stream', 'Cache-Control': 'no-store'}).end(bytes);
+      });
+    });
+    instance.listen(0, '127.0.0.1', () => resolve(instance));
+  });
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const baseUrl = `http://127.0.0.1:${server.address().port}/`;
+
+  const browser = await chromium.launch({headless: true, executablePath: CHROME});
+  t.after(() => browser.close());
+  const context = await browser.newContext({viewport: {width: 1280, height: 800}, serviceWorkers: 'allow'});
+
+  // 1. Versão antiga instalada, com dados reais do esquema 9.
+  const antiga = await context.newPage();
+  await antiga.goto(baseUrl, {waitUntil: 'domcontentloaded'});
+  await antiga.evaluate(() => navigator.serviceWorker.ready);
+  // A 2.2 recarrega sozinha quando o service worker assume o controle — o
+  // comportamento que a 3.x corrigiu. Espera passar para ter contexto estável.
+  await antiga.waitForTimeout(1500);
+  await antiga.goto(baseUrl, {waitUntil: 'domcontentloaded'});
+  await antiga.evaluate(() => navigator.serviceWorker.ready);
+  await antiga.evaluate(() => {
+    localStorage.setItem('jovilite_data', JSON.stringify({
+      1: {1: {a_puxada_supinada: {done: true, sets: [{kg: 40, reps: 12}, {kg: 40, reps: 11}]},
+              a_remada_smith: {done: true, sets: [{kg: 30, reps: 10}]}}}
+    }));
+    localStorage.setItem('jovilite_body_measurements', JSON.stringify([{date: '2026-07-01', weight: 112, arm: 39}]));
+    localStorage.setItem('jovilite_cycle_started', '2026-06-01T09:00:00.000Z');
+  });
+  assert.deepEqual(await antiga.evaluate(() => caches.keys()), ['treino-hard-v2.2'], 'a 2.2 precisa estar em cache');
+
+  // 2. Publicação da versão nova na mesma origem.
+  state.root = ROOT;
+  await antiga.evaluate(() => navigator.serviceWorker.getRegistration().then(registration => registration.update()));
+  await antiga.waitForFunction(async () => (await caches.keys()).length >= 2, null, {timeout: 30000});
+
+  // 3. O usuário fecha o aplicativo e abre de novo: a versão nova assume.
+  await antiga.close();
+  const nova = await context.newPage();
+  const erros = [];
+  nova.on('pageerror', error => erros.push(`pageerror: ${error.message}`));
+  nova.on('console', message => {
+    if (message.type() === 'error') erros.push(`console: ${message.text()}`);
+  });
+  await nova.goto(baseUrl, {waitUntil: 'domcontentloaded'});
+  await waitAppReady(nova);
+
+  // O service worker da 2.2 busca a navegação na rede antes do cache, então a
+  // interface nova já aparece; o worker antigo, porém, continua no controle e o
+  // novo fica em espera. É exatamente aí que o aviso de atualização precisa
+  // existir, em vez de um reload forçado no meio de um treino.
+  const esperada = fs.readFileSync(path.join(ROOT, 'js/core.js'), 'utf8').match(/APP_VERSION = '([^']+)'/)[1];
+  await openTab(nova, 'Ajustes');
+  await nova.locator('#about-card').waitFor({state: 'visible'});
+  assert.equal(await nova.locator('#about-card [data-about="app-version"]').innerText(), esperada, 'a interface nova precisa aparecer ao reabrir');
+
+  await nova.waitForFunction(
+    () => /nova versão do aplicativo está pronta/i.test(document.getElementById('app-notice')?.textContent || ''),
+    null,
+    {timeout: 30000}
+  );
+  await Promise.all([
+    nova.waitForNavigation({waitUntil: 'domcontentloaded', timeout: 30000}),
+    nova.getByRole('button', {name: 'Atualizar agora', exact: true}).click()
+  ]);
+  await waitAppReady(nova);
+  assert.equal(await nova.evaluate(() => Boolean(navigator.serviceWorker.controller)), true);
+
+  let caches1 = [];
+  for (let tentativa = 0; tentativa < 60; tentativa += 1) {
+    caches1 = await nova.evaluate(() => caches.keys());
+    if (caches1.length === 1) break;
+    await nova.waitForTimeout(500);
+  }
+  assert.deepEqual(caches1, [`treino-hard-v${esperada}`], 'só o cache da versão nova pode sobrar depois de atualizar');
+
+  // 4. O histórico do esquema 9 vira ciclo legado, sem virar treino atual.
+  const documento = await readStoredDocument(nova);
+  assert.equal(documento.schemaVersion, 11);
+  assert.equal(documento.legacyCycles.length >= 1, true, 'o ciclo ABC precisa ser preservado');
+  const registros = documento.legacyCycles.flatMap(cycle => cycle.records);
+  assert.equal(registros.length >= 2, true);
+  const supinada = registros.find(record => record.legacyExerciseId === 'a_puxada_supinada');
+  assert.equal(supinada.canonicalId, 'pulldown_supinated');
+  assert.equal(supinada.sets.map(set => `${set.load}x${set.reps}`).join(','), '40x12,40x11');
+  const ambiguo = registros.find(record => record.legacyExerciseId === 'a_remada_smith');
+  assert.equal(ambiguo.mappingStatus, 'ambiguous', 'IDs ambíguos continuam ambíguos');
+  assert.equal(ambiguo.canonicalId, '', 'ID ambíguo não pode virar exercício atual');
+  assert.equal(documento.measurements.length, 1);
+  assert.equal(documento.measurements[0].armLeft, '39');
+  assert.equal(documento.measurements[0].armRight, '39');
+  assert.ok(documento.measurements[0].quality.warnings.includes('legacy_single_arm_copied_to_both_sides'));
+  assert.equal(documento.sessions.length, 6, 'a semana nova é criada sem apagar o legado');
+
+  // 5. A fonte bruta anterior continua recuperável.
+  await openTab(nova, 'Ajustes');
+  await nova.waitForTimeout(600);
+  assert.ok(await nova.getByRole('button', {name: 'Exportar arquivo bruto', exact: true}).count() >= 1, 'a fonte local anterior precisa ficar recuperável');
+
+  assert.deepEqual(erros, []);
+});

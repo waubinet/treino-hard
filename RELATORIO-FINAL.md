@@ -1,4 +1,33 @@
-# Relatório final técnico — validação local
+# Relatório final
+
+**Estado: publicado e verificado.** Versão do app **3.0.1**, esquema **11**, commit
+`7c939cb`, em `https://waubinet.github.io/treino-hard/` (GitHub Pages, branch `main`).
+
+## Resultado desta execução
+
+- Ficha sincronizada com a versão canônica aprovada: remada unilateral registrada por
+  lado, tríceps de Empurrar B com as duas execuções e faixa alta corrigida para 12–20.
+- Cinco defeitos corrigidos, dois deles impediam o uso normal do aplicativo:
+  Pernas A e Pernas B não abriam, e o service worker recarregava a página sozinho.
+- Backup criptografado por senha implementado com Web Crypto.
+- Cópias automáticas e recuperação bruta passaram a existir na interface.
+- Ícones 192, 512 e maskable criados a partir da logo, com zona segura medida.
+- Versão do app visível em Ajustes e no rodapé, separada do esquema e do cache.
+- 34 testes de núcleo e 26 cenários em Chrome real, todos aprovados.
+- Smoke test no app publicado: 41 verificações, nenhuma falha, zero erros de console.
+- Caminho de atualização de quem tem a 2.2 instalada verificado ponta a ponta, com
+  preservação do histórico legado.
+
+## O que continua pendente
+
+O PDF da ficha canônica não pôde ser lido: é um placeholder do iCloud e o provedor de
+arquivos não está em execução. Quatro colunas da comparação seguem sem confronto com a
+fonte original — aquecimentos, variações extras, variação padrão do agachamento e
+orientação técnica. Os 34 vídeos continuam sem curadoria: nenhum foi assistido e
+nenhum foi aprovado. Falta um teste com leitor de tela real e a instalação pelo prompt
+do sistema. Detalhes em `PENDENCIAS.md`.
+
+---
 
 ## Estado do relatório
 

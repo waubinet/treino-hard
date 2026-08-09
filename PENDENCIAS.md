@@ -1,72 +1,76 @@
 # Pendências reais
 
-Atualizado em **2026-08-08**. A implementação local passou em **20/20 testes de núcleo** e **1/1 cenário integrado em Chrome real**. Esta lista contém somente lacunas ainda abertas ou procedimentos cujo alcance completo não foi testado.
+Atualizado em **2026-08-08**. Versão publicada: **3.0.1**, esquema **11**, commit `7c939cb`,
+em `https://waubinet.github.io/treino-hard/`.
 
-## Antes da publicação
+Estado de publicação: **realizada e verificada no app real** (41/41 verificações do smoke test).
 
-- [ ] Criar e validar ícone 192×192 e arte `maskable`; o repositório possui apenas `logo.png` 512×512 com finalidade `any`.
-- [ ] Decidir se o backup criptografado por senha será incluído nesta versão; ele ainda não foi implementado. Se for incluído, usar Web Crypto, AES-GCM, PBKDF2, salt e IV aleatórios e formato versionado — nunca criptografia artesanal.
-- [ ] Concluir a curadoria audiovisual individual ou manter todos os cards honestamente em “Vídeo pendente de curadoria.”.
-- [ ] Revisar o diff completo, registrar o commit final e garantir que alterações concorrentes não tenham sido perdidas.
-- [ ] Verificar a cópia de segurança do projeto original e registrar caminho/hash antes e depois.
-- [ ] Publicar somente o artefato aprovado localmente; depois verificar URL pública, versão, cache, instalação e atualização.
+Esta lista contém somente o que ainda **não** foi comprovado.
 
-Estado de publicação: **não realizada**.
+## Bloqueio de origem: a ficha canônica em PDF
 
-## Dados e migração
+`C:\Users\waubi\iCloudDrive\Ficha_de_Treino_Hipertrofia_Waubin.pdf` é um placeholder
+desidratado do iCloud. O provedor de arquivos da Apple não está em execução, então
+qualquer leitura falha com "O provedor do arquivo de nuvem não está em execução".
+Iniciar o aplicativo iCloud não resolveu.
 
-Já coberto por testes automatizados: esquema 9→10→11, duas ocorrências, aliases e ambiguidades, metadados antigos, ciclos arquivados, IDs desconhecidos/estáveis, até três cópias automáticas antigas, preservação da fonte bruta, esquema futuro, staging, conflito de revisão, prototype pollution, profundidade excessiva e normalização de medidas.
+A ficha foi sincronizada com a especificação canônica escrita pelo usuário, que cobre
+estrutura semanal, exercícios, ordem, séries, totais, periodização, descansos e
+mobilidade. Continuam **sem confronto com o PDF**:
 
-Ainda pendente:
+- [ ] aquecimentos por exercício (hoje: supino reto 3, puxada supinada 2, agachamento 3, leg press 1, terra 3);
+- [ ] variações permitidas além das citadas na especificação (remada sentada com triângulo, remada unilateral, flexora, extensora, leg press);
+- [ ] variação padrão do agachamento (hoje: Smith);
+- [ ] orientação técnica por exercício e o esforço "6–7/10" das mobilidades.
 
-- [ ] Executar prévia e importação de um backup real do usuário, mantendo uma cópia externa antes da tentativa.
-- [ ] Executar ida e volta pela interface: exportar JSON, importar o mesmo JSON, comparar contagens e restaurar snapshot.
-- [ ] Executar download CSV pela interface e comparar integralmente com o cabeçalho de 27 colunas.
-- [ ] Testar arquivo acima de 5 MiB, quota esgotada e falha real de IndexedDB.
-- [ ] Testar campos inesperados do esquema 11, textos no limite e um documento corrompido não futuro.
-- [ ] Testar recuperação/exportação do bruto, restauração de snapshot e restauração de cópia automática pela interface.
-- [ ] Testar o fallback completo sem IndexedDB e uma edição concorrente real em duas abas.
+Para desbloquear: baixar o PDF pelo iCloud ("Manter sempre neste dispositivo") ou
+copiá-lo para a pasta do projeto.
 
 ## Vídeos
 
-- [ ] Selecionar candidatos adequados para os 34 itens do catálogo novo.
-- [ ] Abrir e assistir integralmente cada candidato.
-- [ ] Registrar título, canal, duração, idioma, disponibilidade, embed, correspondência, cobertura, limitações e decisão.
-- [ ] Verificar equipamento, pegada, posição, trajetória, amplitude e lateralidade.
-- [ ] Não reutilizar supino com barra em card de máquina nem qualquer conteúdo de stiff em flexora/terra.
-- [ ] Testar `youtube-nocookie.com` e abertura externa somente depois de aprovar um candidato.
+- [ ] Selecionar e assistir candidatos para os 34 itens do catálogo.
+- [ ] Registrar título, canal, duração, idioma, disponibilidade, incorporação, correspondência, cobertura, limitações e decisão.
+- [ ] Testar `youtube-nocookie.com` e a abertura externa depois de aprovar ao menos um vídeo.
+- [ ] Implementar a preferência "Abrir no YouTube / Assistir dentro do app / Perguntar toda vez" em Ajustes.
 
-Estado atual: **0 vídeos assistidos; 0 aprovados; 37 IDs únicos legados inventariados**. Os 34 registros da versão 3 permanecem pendentes. Consulte `CURADORIA-DE-VIDEOS.md`.
+Estado atual: **0 vídeos assistidos, 0 aprovados, 34 itens `pending`**. Todos os cards
+exibem "Vídeo pendente de curadoria." e nenhum bloqueia o registro do treino.
 
-## Funcional e interface
+Nenhum vídeo pode ser aprovado sem que alguém assista à demonstração e confira
+exercício, equipamento, pegada, posição, trajetória, amplitude e lateralidade. Isso
+não foi feito e não será declarado como feito.
 
-Já coberto em Chrome real: 13 abas, início de treino, preenchimento e conclusão de série, timer iniciado apenas por ação explícita, desfazer série, modal Escape/retorno de foco, service worker/offline e ausência de overflow global em 320, 360, 430 e 1280 px.
+## Acessibilidade
 
-Ainda pendente:
+- [ ] Teste com leitor de tela real (NVDA, JAWS ou Narrador), conferindo ordem de leitura e anúncios das regiões vivas.
 
-- [ ] Testar em navegador os fluxos de pausar, retomar, concluir treino, concluir parcialmente, pular, cancelar, reabrir e confirmar remarcação.
-- [ ] Testar modo sequência com sessões atrasadas e garantir que nada avance ou seja reorganizado sem confirmação.
-- [ ] Testar alteração de semana e zerar periodização, incluindo snapshot e restauração.
-- [ ] Testar descanso personalizado e configuração de início automático após confirmação.
-- [ ] Testar salvamento completo de caminhada, vacuum e todos os estados de desconforto.
-- [ ] Testar filtros e gráficos com máquinas, variações, lados e faixas diferentes em dados reais.
-- [ ] Repetir fluxos completos, não apenas a ausência de overflow, em cada largura móvel.
+Já coberto por teste automatizado: teclado completo nas abas (setas, Home, End, Enter,
+Espaço, Tab e Shift+Tab), retenção cíclica de foco no modal em ambos os sentidos,
+Escape com retorno ao acionador, papéis, `aria-selected`, `aria-controls` sem
+referência quebrada, `aria-labelledby`, regiões vivas, contraste medido em nove abas,
+zoom equivalente a 200%, texto ampliado e movimento reduzido.
 
-## Acessibilidade e segurança
+## PWA
 
-Já coberto: roving tabindex, ArrowRight + Enter, Escape e retorno de foco no modal, 0 IDs duplicados, 0 manipuladores inline, 0 controles sem rótulo e 0 errors/warnings no Browser integrado.
+- [ ] Instalar pelo prompt do sistema em perfil limpo e conferir a aparência instalada
+      (o `beforeinstallprompt` não é disparado em Chrome headless).
 
-Ainda pendente:
+Já coberto: manifesto, ícones 192/512/maskable com dimensões e MIME conferidos, zona
+segura do maskable medida pixel a pixel, service worker controlando a página, uso
+offline completo, atualização entre duas versões de cache com confirmação do usuário,
+remoção do cache antigo, descarte de cache incompleto e atualização a partir da 2.2
+instalada com preservação do histórico legado.
 
-- [ ] Testar Home, End, Espaço, percurso completo com Tab e retenção cíclica de foco no modal.
-- [ ] Testar com leitor de tela real e conferir regiões vivas e ordem de leitura.
-- [ ] Medir contraste de todas as combinações e testar zoom 200%, texto ampliado e movimento reduzido.
-- [ ] Testar injeção HTML/script por notas e feedback na interface, além dos bloqueios estruturais já automatizados.
-- [ ] Testar a CSP com um vídeo eventualmente aprovado e incorporado em `youtube-nocookie.com`.
+## Dados
 
-## Documentação e liberação
+- [ ] Executar a importação de um backup real do usuário, mantendo cópia externa antes.
 
-- [ ] Preencher em `TESTES.md` qualquer resultado manual adicional com ambiente e evidência.
-- [ ] Atualizar contagens e decisões em `CURADORIA-DE-VIDEOS.md` somente depois de assistir aos vídeos.
-- [ ] Inserir o hash/ID do commit aprovado em `TESTES.md` e `CHANGELOG.md`.
-- [ ] Publicar a versão 3.0 e verificar a página pública, o service worker, a atualização e o modo offline servido.
+Já coberto: ida e volta do JSON pela interface, CSV com as 27 colunas, backup
+criptografado com senha correta, incorreta, ciphertext adulterado, IV alterado, salt
+alterado e truncamento, importações hostis e de esquema futuro, prototype pollution,
+cópias automáticas restauradas, recuperação bruta exportada, conflito de revisão entre
+abas, fallback para `localStorage` e falha de gravação por quota.
+
+## Documentação
+
+- [ ] Atualizar `CURADORIA-DE-VIDEOS.md` somente depois que houver vídeo assistido.
