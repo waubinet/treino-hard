@@ -2,6 +2,46 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.3.0] — experiência durante o treino — 2026-08-09
+
+Esquema **11** inalterado. Ficha, periodização e catálogo de vídeos intocados.
+
+### Tela Hoje
+
+- Responde de imediato: treino, dia da semana, semana, faixa e RIR, quantos
+  exercícios já foram concluídos, barra de progresso e a próxima ação
+  (**Iniciar treino** ou **Continuar treino**).
+- Mostra o último treino igual concluído e, quando existir, o desconforto que
+  você mesmo registrou nele — sem diagnóstico e sem sugerir troca.
+- Sessão pendente de outro dia ganha bloco próprio com **Continuar pendente** e
+  **Ir para o treino de hoje**. Nada é remarcado ou concluído em silêncio.
+- Caminhada com último registro e atalho direto, sem meta no domingo.
+
+### Durante a série
+
+- Confirmar uma série deixou de jogar a página para o topo: rolagem e foco são
+  preservados no re-render. Era o atrito mais grave no uso em academia.
+- **Repetir 1ª série** não sobrescreve mais séries já confirmadas.
+- **Copiar anterior** copia só a carga e ignora séries confirmadas; conclusão,
+  horário, status, RIR, observação e feedback continuam sendo de hoje.
+- **Desfazer** informa "Última alteração desfeita".
+- Exercício concluído mostra o próximo e um atalho para ele, sem forçar navegação.
+- Chips do unilateral mostram o progresso de cada lado (`Direito 1/2`), e o
+  exercício só conta como concluído quando os dois lados terminam.
+
+### Fim do treino
+
+- Finalizar com pendências abre um aviso com a contagem de exercícios e séries
+  faltando, e oferece **Voltar ao treino** ou **Finalizar parcialmente**.
+- Ao encerrar, um resumo factual: duração, exercícios, séries confirmadas,
+  volume registrado, desconforto e melhores séries. Sem pontuação inventada.
+
+### Testes
+
+Quatro novos cenários de navegador: tela Hoje, preservação de rolagem ao
+confirmar série, finalização com pendências mais resumo, e a garantia de que
+copiar/repetir nunca confirmam uma série nem sobrescrevem uma já confirmada.
+
 ## [3.2.2] — disponibilidade de vídeo separada da qualidade — 2026-08-09
 
 Esquema **11** inalterado.

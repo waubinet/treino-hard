@@ -303,6 +303,10 @@
 
   function renderActivePanel() {
     if (!state) return;
+    // Confirmar uma série redesenha o painel. Sem isto, a página pula para o
+    // topo e o campo em uso perde o foco no meio do treino.
+    const focoAnterior = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
+    const rolagemAnterior = global.scrollY;
     renderWeekSelector();
     renderWeekSummary();
     let panel;
@@ -326,6 +330,11 @@
       ]));
     }
     dom.panels.replaceChildren(panel);
+    if (focoAnterior) {
+      const alvo = document.getElementById(focoAnterior);
+      if (alvo && typeof alvo.focus === 'function') alvo.focus({preventScroll: true});
+    }
+    if (global.scrollY !== rolagemAnterior) global.scrollTo({top: rolagemAnterior, behavior: 'auto'});
   }
 
   function bindDom() {
@@ -433,6 +442,28 @@
     return {done, total, percent: total ? Math.round(done * 100 / total) : 0};
   }
 
+  // Progresso contado por exercício da ficha: é assim que a pessoa pensa o
+  // treino ("3 de 7"), e não em itens soltos.
+  function exerciseProgress(session) {
+    if (!session) return {done: 0, total: 0, percent: 0};
+    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    if (!workout) return {done: 0, total: 0, percent: 0};
+    const total = workout.exercises.length;
+    const done = workout.exercises.filter(exercise => {
+      const logs = session.exercises.filter(log => log.exerciseId === exercise.id);
+      if (!logs.length) return false;
+      if (exercise.type === 'mobility') return logs[0].completed || logs[0].skipped;
+      return logs.every(log => log.completed);
+    }).length;
+    return {done, total, percent: total ? Math.round(done * 100 / total) : 0};
+  }
+
+  function lastFinishedSession(workoutId, exceptId) {
+    return state.sessions
+      .filter(session => session.workoutId === workoutId && session.id !== exceptId && ['completed', 'partial'].includes(session.status))
+      .sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate))[0] || null;
+  }
+
   function nextSessionAfter(session) {
     return pendingSessions().find(candidate => !session || candidate.id !== session.id) || null;
   }
@@ -454,47 +485,105 @@
     const sunday = now.getDay() === 0;
     const session = sessionForToday();
     const next = nextSessionAfter(session);
-    const prescription = sessionPrimaryPrescription(session);
-    const progress = sessionProgress(session);
     const children = [];
 
     if (sunday) {
       children.push(element('article', {className: 'card rest-day-card'}, [
-        element('div', {className: 'card-header'}, [element('div', {className: 'card-title'}, [element('h3', {text: 'Domingo — descanso completo'}), element('p', {text: 'Hoje não há musculação nem meta obrigatória de caminhada.'})])]),
-        next ? element('p', {text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label}, planejada para ${formatDate(next.plannedDate)}.`}) : element('p', {text: 'Não há sessão pendente.'})
+        element('div', {className: 'card-title'}, [
+          element('div', {className: 'today-kicker', text: 'Domingo'}),
+          element('h3', {className: 'cname', text: 'Descanso completo'}),
+          element('p', {className: 'cdetail', text: 'Hoje não há musculação nem meta obrigatória de caminhada.'})
+        ]),
+        next ? element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label}, planejada para ${formatDate(next.plannedDate)}.`}) : null
       ]));
     } else if (!session) {
-      children.push(element('div', {className: 'empty-state'}, [element('h3', {text: 'Nenhuma sessão planejada para hoje'}), element('p', {text: 'Você pode abrir uma ficha e planejar ou remarcar uma sessão explicitamente.'})]));
+      children.push(element('div', {className: 'empty-state'}, [
+        element('h3', {text: 'Nenhuma sessão planejada para hoje'}),
+        element('p', {text: 'Abra uma ficha para planejar ou remarcar uma sessão explicitamente.'})
+      ]));
     } else {
       const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      const prescription = sessionPrimaryPrescription(session);
       const snapshot = prescription ? prescription.prescriptionSnapshot : null;
+      const progress = exerciseProgress(session);
+      const iniciado = session.status !== 'planned';
+      const anterior = lastFinishedSession(session.workoutId, session.id);
+      const diaSemana = new Intl.DateTimeFormat('pt-BR', {weekday: 'long'}).format(new Date(`${session.plannedDate}T12:00:00`));
       children.push(element('article', {className: `card today-card k-per${session.status === 'completed' ? ' done' : ''}`}, [
         element('div', {className: 'chead'}, [
           element('div', {className: 'card-title'}, [
             element('div', {className: 'today-kicker', text: 'Treino de hoje'}),
             element('h3', {className: 'cname', text: workout.label}),
-            element('p', {className: 'cdetail', text: state.settings.mode === 'sequence' && session.plannedDate !== today ? `Pendente desde ${formatDate(session.plannedDate)}` : workout.intro})
+            element('p', {className: 'cdetail', text: `${diaSemana} · Semana ${session.week}${snapshot && snapshot.deload ? ' · deload' : ''}${session.plannedDate < today ? ` · Pendente desde ${formatDate(session.plannedDate)}` : ''}`})
           ]),
           element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
         ]),
-        element('div', {className: 'target'}, [
+        snapshot && snapshot.min ? element('div', {className: `target${snapshot.deload ? ' dl' : ''}`}, [
           element('span', {className: 'ico', text: '🎯'}),
           element('div', {}, [
-            element('div', {className: 't1', text: `Semana ${session.week}`}),
-            element('div', {className: 't2', text: snapshot && snapshot.min ? `${snapshot.label} rep · RIR ${snapshot.rirMin === snapshot.rirMax ? snapshot.rirMin : `${snapshot.rirMin}–${snapshot.rirMax}`}` : 'Faixa por exercício'})
+            element('div', {className: 't1', text: 'Faixa inicial'}),
+            element('div', {className: 't2', text: `${snapshot.label} reps${snapshot.rirMin == null ? '' : ` · RIR ${snapshot.rirMin === snapshot.rirMax ? snapshot.rirMin : `${snapshot.rirMin}–${snapshot.rirMax}`}`}`})
           ])
+        ]) : null,
+        element('p', {className: 'todayprog', text: `${progress.done} de ${progress.total} exercícios concluídos`}),
+        progressBar(progress, 'exercícios'),
+        element('div', {className: 'button-row'}, [
+          button(iniciado ? 'Continuar treino' : 'Iniciar treino', 'open-workout', 'primary-button', {workoutId: session.workoutId, sessionId: session.id})
         ]),
-        progress.done ? progressBar(progress, 'itens registrados') : null,
-        element('div', {className: 'button-row'}, [button(progress.done ? 'Continuar treino' : 'Iniciar treino', 'open-workout', 'primary-button', {workoutId: session.workoutId, sessionId: session.id})])
+        anterior ? element('p', {className: 'fine-print', text: `Último ${workout.label}: ${formatDate(anterior.actualDate || anterior.plannedDate)} · ${SESSION_LABELS[anterior.status].toLowerCase()}.`}) : null,
+        discomfortWarning(session)
       ]));
     }
-    if (!sunday && next) children.push(element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label} — ${formatDate(next.plannedDate)}.`}));
+
+    // Sessão pendente de outro dia: aparece explícita, com as duas saídas.
+    const pendente = pendingSessions().find(item => item.id !== (session && session.id) && item.plannedDate < today);
+    if (pendente) {
+      const treino = Data.WORKOUT_BY_ID[pendente.workoutId];
+      const diaPendente = new Intl.DateTimeFormat('pt-BR', {weekday: 'long'}).format(new Date(`${pendente.plannedDate}T12:00:00`));
+      children.push(element('article', {className: 'card k-fix pendingcard'}, [
+        element('div', {className: 'card-title'}, [
+          element('div', {className: 'today-kicker', text: 'Sessão pendente'}),
+          element('h3', {className: 'cname', text: treino.label}),
+          element('p', {className: 'cdetail', text: `${diaPendente} · ${formatDate(pendente.plannedDate)} · ${SESSION_LABELS[pendente.status].toLowerCase()}`})
+        ]),
+        element('div', {className: 'button-row'}, [
+          button('Continuar pendente', 'open-workout', 'secondary-button', {workoutId: pendente.workoutId, sessionId: pendente.id}),
+          session ? button('Ir para o treino de hoje', 'open-workout', 'ghost-button', {workoutId: session.workoutId, sessionId: session.id}) : null
+        ]),
+        element('p', {className: 'fine-print', text: 'Nada é remarcado ou concluído automaticamente; a escolha é sua.'})
+      ]));
+    }
+
+    // Caminhada: registro rápido, sem sair da tela.
+    const ultimaCaminhada = state.cardio.slice().sort((a, b) => b.date.localeCompare(a.date))[0] || null;
+    children.push(element('article', {className: 'card k-warm'}, [
+      element('div', {className: 'card-title'}, [
+        element('div', {className: 'today-kicker', text: 'Caminhada'}),
+        element('p', {className: 'cdetail', text: sunday ? 'Domingo não tem meta obrigatória.' : 'Leve, no fim do dia. Registro opcional.'})
+      ]),
+      ultimaCaminhada ? element('p', {className: 'fine-print', text: `Último registro: ${formatDate(ultimaCaminhada.date)} · ${ultimaCaminhada.durationMinutes || 0} min${ultimaCaminhada.distanceKm ? ` · ${ultimaCaminhada.distanceKm} km` : ''}.`}) : element('p', {className: 'fine-print', text: 'Nenhuma caminhada registrada ainda.'}),
+      element('div', {className: 'button-row'}, [button('+ Registrar caminhada', 'activate-tab', 'secondary-button', {tab: 'cardio'})])
+    ]));
+
     children.push(element('div', {className: 'info-box'}, [
       element('strong', {text: 'Como interpretar a faixa'}),
-      element('p', {text: 'Uma faixa de 12–15 repetições significa escolher uma carga que permita terminar cada série entre 12 e 15 repetições com o esforço planejado. Não é obrigatório fazer 15 repetições nas três séries. Resultados como 15, 14 e 12 podem ser válidos.'})
+      element('p', {text: 'Uma faixa de 12–15 repetições significa escolher uma carga que permita terminar cada série entre 12 e 15 repetições com o esforço planejado. Resultados como 15, 14 e 12 podem ser válidos.'})
     ]));
-    children.push(element('p', {className: 'fine-print', text: `${formatDate(today, true)} · ${sunday ? 'sem meta de caminhada' : 'caminhada leve no fim do dia'} · ${lastBackupState.toLowerCase()}.`}));
     return panelShell('today', 'Hoje', 'Planejamento real, sem registrar automaticamente o que não foi feito.', children);
+  }
+
+  // Aviso factual de desconforto anterior. Não é diagnóstico nem sugestão de
+  // troca: só relembra o que você mesmo registrou.
+  function discomfortWarning(session) {
+    const anterior = lastFinishedSession(session.workoutId, session.id);
+    if (!anterior) return null;
+    const marcados = anterior.exercises.filter(log => ['pain', 'awkward'].includes(log.feeling));
+    if (!marcados.length) return null;
+    const nomes = marcados.map(log => {
+      const exercise = Data.findExercise(anterior.workoutId, log.exerciseId);
+      return exercise ? exercise.name : log.exerciseId;
+    });
+    return element('p', {className: 'discomfort', text: `Na última sessão você registrou desconforto em: ${nomes.join(', ')}.`});
   }
 
   function statusBadge(text, modifier) {
@@ -741,6 +830,19 @@
     ]);
   }
 
+  function proximoExercicioPendente(session, depoisDe) {
+    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    if (!workout) return null;
+    const posicao = workout.exercises.findIndex(exercise => exercise.id === depoisDe);
+    const ordem = workout.exercises.slice(posicao + 1).concat(workout.exercises.slice(0, Math.max(0, posicao)));
+    return ordem.find(exercise => {
+      const logs = session.exercises.filter(log => log.exerciseId === exercise.id);
+      if (!logs.length) return false;
+      if (exercise.type === 'mobility') return !logs[0].completed && !logs[0].skipped;
+      return !logs.every(log => log.completed);
+    }) || null;
+  }
+
   function activeSideLog(session, logs) {
     if (logs.length === 1) return logs[0];
     const chosen = sideSelection[`${session.id}:${logs[0].exerciseId}`] || 'right';
@@ -756,6 +858,9 @@
     const warmupSets = exerciseLog.sets.filter(set => set.type === 'warmup');
     const workSets = exerciseLog.sets.filter(set => set.type === 'work');
     const kind = workoutExercise.category === 'accessory' ? 'k-fix' : workoutExercise.category === 'deadlift' ? 'k-warm' : 'k-per';
+    // Um exercício unilateral só está concluído quando os dois lados estão.
+    const exercicioConcluido = logs.every(item => item.completed);
+    const proximo = proximoExercicioPendente(session, workoutExercise.id);
     const rir = snapshot.rirMin == null ? '' : snapshot.rirMin === snapshot.rirMax ? ` · RIR ${snapshot.rirMin}` : ` · RIR ${snapshot.rirMin}–${snapshot.rirMax}`;
 
     const chips = (label, note, items) => element('div', {className: 'variantbox'}, [
@@ -778,9 +883,11 @@
       ['right', 'left'].map(side => {
         const item = logs.find(entry => entry.side === side);
         if (!item) return null;
+        const seriesLado = item.sets.filter(set => set.type === 'work');
+        const feitasLado = seriesLado.filter(Core.isSetConfirmed).length;
         return element('button', {
           className: `variantbtn${item.id === exerciseLog.id ? ' on' : ''}${item.completed ? ' is-done' : ''}`,
-          text: side === 'right' ? 'Direito' : 'Esquerdo',
+          text: `${side === 'right' ? 'Direito' : 'Esquerdo'} ${feitasLado}/${seriesLado.length}`,
           attrs: {type: 'button', 'aria-pressed': item.id === exerciseLog.id ? 'true' : 'false'},
           dataset: {action: 'side-pick', sessionId: session.id, exerciseId: workoutExercise.id, side}
         });
@@ -795,7 +902,7 @@
 
     const previousLoad = previous && previous.workSets[0] ? previous.workSets[0].load : '';
 
-    return element('article', {className: `section-card card ${kind}${exerciseLog.completed ? ' done' : ''}`}, [
+    return element('article', {className: `section-card card ${kind}${exercicioConcluido ? ' done' : ''}`, attrs: {id: `exercicio-${workoutExercise.id}`}}, [
       element('div', {className: 'card-header chead'}, [
         element('div', {className: 'card-title'}, [
           element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}`}),
@@ -851,6 +958,11 @@
         ])
       ]),
       feelingBlock(session, exerciseLog, workoutExercise.name),
+      exercicioConcluido ? element('div', {className: 'donebox'}, [
+        element('strong', {text: '✓ Exercício concluído'}),
+        proximo ? element('p', {text: `Próximo: ${proximo.name}`}) : element('p', {text: 'Este era o último exercício pendente do treino.'}),
+        proximo ? button('Ir para o próximo', 'goto-exercise', 'secondary-button', {exerciseId: proximo.id}) : null
+      ]) : null,
       button(`⏱ Descanso ${formatDuration(snapshot.restSeconds)}`, 'timer-start-rest', 'restbtn',
         {sessionId: session.id, exerciseId: exerciseLog.id, seconds: String(snapshot.restSeconds)})
     ]);
@@ -1443,9 +1555,38 @@
     await persist('Treino retomado.', true);
   }
 
+  function pendingItems(session) {
+    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    if (!workout) return {exercicios: 0, series: 0};
+    let exercicios = 0;
+    let series = 0;
+    workout.exercises.forEach(exercise => {
+      const logs = session.exercises.filter(log => log.exerciseId === exercise.id);
+      if (!logs.length) return;
+      if (exercise.type === 'mobility') {
+        if (!logs[0].completed && !logs[0].skipped) exercicios += 1;
+        return;
+      }
+      const faltando = logs.reduce((total, log) => total + log.sets.filter(set => set.type === 'work' && !Core.isSetConfirmed(set)).length, 0);
+      if (faltando) {
+        exercicios += 1;
+        series += faltando;
+      }
+    });
+    return {exercicios, series};
+  }
+
   async function finalizeSession(session, status) {
     if (status === 'completed' && !sessionFullyRecorded(session)) {
-      showNotice('Ainda há itens sem status. Use “Encerrar como parcial” ou registre todos os itens antes de concluir.', 'warning');
+      const faltam = pendingItems(session);
+      openModal('Ainda falta registrar', element('div', {}, [
+        element('p', {text: `Existem ${faltam.exercicios} exercício(s) incompleto(s) e ${faltam.series} série(s) sem confirmação.`}),
+        element('p', {className: 'fine-print', text: 'Encerrar como parcial preserva o que foi registrado e mantém explícito o que não foi feito. Nada é marcado como concluído no seu lugar.'}),
+        element('div', {className: 'button-row'}, [
+          button('Voltar ao treino', 'close-modal', 'primary-button'),
+          button('Finalizar parcialmente', 'session-partial-confirm', 'secondary-button', {sessionId: session.id})
+        ])
+      ]));
       return;
     }
     const completedAt = new Date().toISOString();
@@ -1461,6 +1602,43 @@
     await persist(status === 'completed' ? 'Treino do dia concluído.' : 'Treino encerrado como parcial.', true);
     await storage.automaticBackup(state, true);
     lastBackupState = 'Cópia automática atualizada agora';
+    showSessionSummary(session, status);
+  }
+
+  // Resumo factual do que foi registrado. Sem pontuação nem gamificação.
+  function showSessionSummary(session, status) {
+    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    const progresso = exerciseProgress(session);
+    const series = session.exercises.flatMap(log => log.sets.filter(set => set.type === 'work'));
+    const confirmadas = series.filter(Core.isSetConfirmed);
+    const volume = confirmadas.reduce((total, set) => total + (Number(set.load) || 0) * (Number(set.reps) || 0), 0);
+    const melhores = session.exercises.map(log => {
+      const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+      const melhor = log.sets.filter(set => set.type === 'work' && Core.isSetConfirmed(set) && set.load && set.reps)
+        .sort((a, b) => (Number(b.load) || 0) - (Number(a.load) || 0) || (Number(b.reps) || 0) - (Number(a.reps) || 0))[0];
+      return melhor && exercise ? `${exercise.name}${log.side !== 'bilateral' ? ` (${log.side === 'left' ? 'esq.' : 'dir.'})` : ''} · ${melhor.load} × ${melhor.reps}` : null;
+    }).filter(Boolean).slice(0, 5);
+    const desconfortos = session.exercises.filter(log => ['pain', 'awkward'].includes(log.feeling)).length;
+    const linha = (rotulo, valor) => element('div', {className: 'split-row'}, [element('strong', {text: rotulo}), element('span', {text: valor})]);
+
+    openModal(status === 'completed' ? 'Treino concluído' : 'Treino encerrado como parcial', element('div', {}, [
+      element('p', {className: 'cdetail', text: `${workout.label} · Semana ${session.week}`}),
+      element('div', {className: 'split-list'}, [
+        linha('Duração', session.durationSeconds ? formatDuration(session.durationSeconds) : 'não registrada'),
+        linha('Exercícios', `${progresso.done}/${progresso.total}`),
+        linha('Séries confirmadas', `${confirmadas.length}/${series.length}`),
+        linha('Volume registrado', `${Math.round(volume).toLocaleString('pt-BR')} kg`),
+        linha('Desconforto registrado', desconfortos ? `${desconfortos} exercício(s)` : 'nenhum')
+      ]),
+      melhores.length ? element('div', {className: 'summarybest'}, [
+        element('strong', {text: 'Melhores séries'}),
+        element('ul', {className: 'notes'}, melhores.map(texto => element('li', {text: texto})))
+      ]) : null,
+      element('div', {className: 'button-row'}, [
+        button('Ver evolução', 'summary-evolution', 'secondary-button'),
+        button('Voltar para Hoje', 'summary-today', 'primary-button')
+      ])
+    ]));
   }
 
   function refreshExerciseCompletion(log) {
@@ -1503,7 +1681,7 @@
     found.exercise.completed = lastSetUndo.exerciseCompleted;
     lastSetUndo = null;
     stopTimer();
-    await persist('Última confirmação de série desfeita.', true);
+    await persist('Última alteração desfeita.', true);
   }
 
   function startTimer(seconds, label, context) {
@@ -1808,6 +1986,17 @@
     }
     if (action === 'mobility-complete') { await toggleMobility(session, target.dataset.exerciseId, 'completed'); return; }
     if (action === 'mobility-skip') { await toggleMobility(session, target.dataset.exerciseId, 'skipped'); return; }
+    if (action === 'goto-exercise') {
+      const alvo = document.getElementById(`exercicio-${target.dataset.exerciseId}`);
+      if (alvo) {
+        alvo.scrollIntoView({behavior: 'smooth', block: 'start'});
+        const primeiro = alvo.querySelector('input, select, button');
+        if (primeiro) primeiro.focus({preventScroll: true});
+      }
+      return;
+    }
+    if (action === 'summary-evolution') { closeModal(); activateTab('evolution', true); return; }
+    if (action === 'summary-today') { closeModal(); activateTab('today', true); return; }
     if (action === 'side-pick') {
       sideSelection[`${target.dataset.sessionId}:${target.dataset.exerciseId}`] = target.dataset.side === 'left' ? 'left' : 'right';
       renderActivePanel();
@@ -2023,12 +2212,17 @@
       showNotice('Preencha a primeira série antes de repeti-la nas demais.', 'warning');
       return;
     }
-    workSets.slice(1).forEach(set => {
+    const alvo = workSets.slice(1).filter(set => !Core.isSetConfirmed(set));
+    if (!alvo.length) {
+      showNotice('As demais séries já foram confirmadas; nada foi sobrescrito.', 'warning');
+      return;
+    }
+    alvo.forEach(set => {
       set.load = first.load;
       set.reps = first.reps;
       if (first.rir) set.rir = first.rir;
     });
-    await persist('Primeira série repetida nas demais. Confirme cada série individualmente.', true);
+    await persist(`Valores copiados para ${alvo.length} série(s) ainda não confirmada(s).`, true);
   }
 
   // Marcar o exercício confirma apenas séries que já têm repetições registradas;
@@ -2143,7 +2337,13 @@
     const previous = previousComparablePerformance(session, log);
     if (!previous) { showNotice('Nenhuma execução anterior exatamente comparável foi encontrada.', 'warning'); return; }
     const source = previous.workSets;
-    const target = log.sets.filter(set => set.type === 'work');
+    // Só a carga viaja. Conclusão, horário, status, RIR, observação e feedback
+    // pertencem à execução de hoje e continuam em branco.
+    const target = log.sets.filter(set => set.type === 'work' && !Core.isSetConfirmed(set));
+    if (!target.length) {
+      showNotice('Todas as séries já foram confirmadas; nada foi sobrescrito.', 'warning');
+      return;
+    }
     target.forEach((set, index) => { if (source[index] && source[index].load) set.load = source[index].load; });
     await persist('Cargas anteriores copiadas; repetições, RIR e status permaneceram vazios.', true);
   }

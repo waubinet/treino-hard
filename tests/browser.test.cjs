@@ -166,6 +166,18 @@ async function completeMobilityItems(page) {
   return 12;
 }
 
+// Encerrar um treino agora abre um resumo. Ele precisa ser fechado antes de
+// continuar interagindo com o painel atrás dele.
+async function fecharResumo(page) {
+  // Escape fecha sem navegar: "Voltar para Hoje" trocaria a aba e esconderia
+  // os controles da sessão que o cenário ainda precisa exercitar.
+  const resumo = page.locator('#app-modal').getByRole('button', {name: 'Voltar para Hoje', exact: true});
+  if (await resumo.count()) {
+    await page.keyboard.press('Escape');
+    await page.locator('#app-modal').waitFor({state: 'hidden'});
+  }
+}
+
 async function finishSessionCompletely(page, workoutLabel) {
   await openTab(page, workoutLabel);
   const start = page.getByRole('button', {name: 'Iniciar treino', exact: true});
@@ -181,6 +193,8 @@ async function finishSessionCompletely(page, workoutLabel) {
     await fillWorkSets(page, 12);
   }
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   await waitStatus(page, 'Concluído');
 }
 
@@ -252,6 +266,8 @@ test('fluxos essenciais funcionam em Chrome, responsivo e offline', {timeout: 90
 
   await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   await page.waitForFunction(() => document.querySelector('.status-pill')?.textContent.trim() === 'Parcial');
   assert.equal(await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).isVisible(), true);
   await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
@@ -331,12 +347,16 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   await waitStatus(page, 'Iniciado');
 
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
-  await page.locator('#app-notice').waitFor({state: 'visible'});
-  assert.match(await page.locator('#app-notice').innerText(), /itens sem status/i);
+  await page.locator('#app-modal').waitFor({state: 'visible'});
+  assert.match(await page.locator('#app-modal').innerText(), /incompleto|sem confirmação/i);
+  await page.locator('#app-modal').getByRole('button', {name: 'Voltar ao treino', exact: true}).click();
+  await page.locator('#app-modal').waitFor({state: 'hidden'});
   assert.equal(await statusPill(page).innerText(), 'Iniciado', 'sessão incompleta não pode virar concluída');
 
   await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   await waitStatus(page, 'Parcial');
   await reloadApp(page);
   await openTab(page, 'Empurrar A');
@@ -366,6 +386,8 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   const filled = await fillWorkSets(page, 14);
   assert.equal(filled, 17, 'Empurrar A deve expor 17 séries de trabalho');
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   await waitStatus(page, 'Concluído');
 
   await reloadApp(page);
@@ -489,8 +511,10 @@ test('status escolhido só conta depois da confirmação explícita da série', 
   assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^0 de 17 itens · 0%$/);
 
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
-  await page.locator('#app-notice').waitFor({state: 'visible'});
-  assert.match(await page.locator('#app-notice').innerText(), /itens sem status/i);
+  await page.locator('#app-modal').waitFor({state: 'visible'});
+  assert.match(await page.locator('#app-modal').innerText(), /incompleto|sem confirmação/i);
+  await page.locator('#app-modal').getByRole('button', {name: 'Voltar ao treino', exact: true}).click();
+  await page.locator('#app-modal').waitFor({state: 'hidden'});
   assert.equal(await statusPill(page).innerText(), 'Iniciado');
 
   const beforeConfirmationRevision = stored.revision;
@@ -612,6 +636,8 @@ test('reabrir sessão não inclui o intervalo em que ela permaneceu fechada', {t
   let before = await readStoredDocument(page);
   await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   let stored = await waitForStoredRevision(page, before.revision);
   const sessionId = stored.sessions.find(session => session.workoutId === 'push_a').id;
   assert.equal(stored.sessions.find(session => session.id === sessionId).durationSeconds, 3600);
@@ -633,6 +659,8 @@ test('reabrir sessão não inclui o intervalo em que ela permaneceu fechada', {t
   before = stored;
   await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   stored = await waitForStoredRevision(page, before.revision);
   session = stored.sessions.find(item => item.id === sessionId);
   assert.equal(session.durationSeconds, 3600, 'finalizar sem retomar deve manter exatamente a duração anterior');
@@ -647,6 +675,8 @@ test('reabrir sessão não inclui o intervalo em que ela permaneceu fechada', {t
   before = await readStoredDocument(page);
   await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   stored = await waitForStoredRevision(page, before.revision);
   session = stored.sessions.find(item => item.id === sessionId);
   assert.equal(session.durationSeconds, 5400, 'apenas os 30 minutos retomados devem ser somados');
@@ -971,6 +1001,8 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
   before = await readStoredDocument(page);
   await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
   let stored = await waitForStoredRevision(page, before.revision);
   const archivedSessionId = stored.sessions.find(session => session.workoutId === 'push_a').id;
   assert.equal(stored.sessions.find(session => session.id === archivedSessionId).status, 'partial');
@@ -2277,7 +2309,8 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
   const chipsLado = unilateral.locator('button[data-action="side-pick"]');
   assert.deepEqual(
     (await chipsLado.allInnerTexts()).map(item => item.trim()),
-    ['Direito', 'Esquerdo']
+    ['Direito 0/2', 'Esquerdo 0/2'],
+    'os chips mostram o progresso de cada lado'
   );
   assert.equal(await chipsLado.nth(0).getAttribute('aria-pressed'), 'true', 'o lado direito abre selecionado');
   assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 2, 'duas séries por lado');
@@ -2659,5 +2692,128 @@ test('vídeo pendente e vídeo em revisão nunca se apresentam como recomendaç�
     const bloco = catalogo.slice(catalogo.indexOf(`${chave}: reviewedVideo(`));
     assert.match(bloco.slice(0, 400), /status: 'accepted'/, `${chave} aparece como botão sem estar aprovado`);
   });
+  assert.deepEqual(errors, []);
+});
+
+test('tela Hoje responde treino, semana, faixa, progresso e próxima ação', {timeout: 150000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  const hoje = page.locator('#panels .today-card');
+  await hoje.waitFor({state: 'visible'});
+  const texto = await hoje.innerText();
+  assert.match(texto, /Treino de hoje/i);
+  assert.match(texto, /Empurrar A/);
+  assert.match(texto, /segunda-feira · Semana 1/i, texto);
+  assert.match(texto, /12–15 reps · RIR 3/);
+  assert.match(texto, /0 de 7 exercícios concluídos/);
+  assert.equal(await hoje.getByRole('button', {name: 'Iniciar treino', exact: true}).count(), 1);
+  assert.equal(await page.locator('#panels .progwrap').count(), 1, 'a barra de progresso precisa estar em Hoje');
+
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const quantidade = await cartao.locator('.set-row:not(.is-warmup)').count();
+  for (let index = 0; index < quantidade; index += 1) {
+    const linha = cartao.locator('.set-row:not(.is-warmup)').nth(index);
+    await linha.locator('.set-field-load input').fill('30');
+    await linha.locator('.set-field-reps input').fill('14');
+    await linha.getByRole('button', {name: /^(Concluir|Atualizar) série \d+$/}).click();
+    await page.waitForTimeout(400);
+  }
+  assert.match(await cartao.locator('.donebox').innerText(), /Exercício concluído/);
+  assert.match(await cartao.locator('.donebox').innerText(), /Próximo:/);
+  assert.equal(await cartao.getByRole('button', {name: 'Ir para o próximo', exact: true}).count(), 1);
+
+  await openTab(page, 'Hoje');
+  assert.match(await page.locator('#panels .today-card').innerText(), /1 de 7 exercícios concluídos/);
+  assert.equal(await page.locator('#panels .today-card').getByRole('button', {name: 'Continuar treino', exact: true}).count(), 1);
+
+  assert.deepEqual(errors, []);
+});
+
+test('confirmar série mantém a rolagem onde estava', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Tríceps na polia com corda'}).first();
+  await cartao.scrollIntoViewIfNeeded();
+  const linha = cartao.locator('.set-row:not(.is-warmup)').first();
+  await linha.locator('.set-field-load input').fill('25');
+  await linha.locator('.set-field-reps input').fill('12');
+  const rolagemAntes = await page.evaluate(() => window.scrollY);
+  assert.ok(rolagemAntes > 200, `o cenário precisa estar rolado: ${rolagemAntes}`);
+
+  await linha.getByRole('button', {name: /^Concluir série 1$/}).click();
+  await page.waitForTimeout(700);
+  const rolagemDepois = await page.evaluate(() => window.scrollY);
+  assert.ok(Math.abs(rolagemDepois - rolagemAntes) < 150, `a página pulou ao confirmar: ${rolagemAntes} → ${rolagemDepois}`);
+  assert.match(await cartao.locator('.set-row:not(.is-warmup)').first().getAttribute('class'), /is-complete/);
+
+  assert.deepEqual(errors, []);
+});
+
+test('finalizar com pendências oferece voltar ou encerrar parcialmente, e resume no fim', {timeout: 180000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  await page.getByRole('button', {name: 'Finalizar treino do dia', exact: true}).click();
+  await page.locator('#app-modal').waitFor({state: 'visible'});
+  const aviso = await page.locator('#app-modal').innerText();
+  assert.match(aviso, /exercício\(s\) incompleto\(s\)/i, aviso);
+  assert.match(aviso, /série\(s\) sem confirmação/i, aviso);
+  assert.equal(await page.locator('#app-modal').getByRole('button', {name: 'Voltar ao treino', exact: true}).count(), 1);
+  await page.locator('#app-modal').getByRole('button', {name: 'Finalizar parcialmente', exact: true}).click();
+  await page.waitForTimeout(900);
+
+  const resumo = await page.locator('#app-modal').innerText();
+  assert.match(resumo, /Treino encerrado como parcial/i, resumo);
+  assert.match(resumo, /Duração/);
+  assert.match(resumo, /Séries confirmadas/);
+  assert.match(resumo, /Volume registrado/);
+  assert.equal(await page.locator('#app-modal').getByRole('button', {name: 'Ver evolução', exact: true}).count(), 1);
+  await page.locator('#app-modal').getByRole('button', {name: 'Voltar para Hoje', exact: true}).click();
+  await page.waitForTimeout(400);
+  assert.equal(await page.evaluate(() => document.querySelector('#panels [role="tabpanel"]')?.id), 'panel-today');
+
+  const documento = await readStoredDocument(page);
+  assert.equal(documento.sessions.find(session => session.workoutId === 'push_a').status, 'partial');
+
+  assert.deepEqual(errors, []);
+});
+
+test('copiar anterior e repetir 1ª nunca confirmam série nem sobrescrevem confirmada', {timeout: 180000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const primeira = cartao.locator('.set-row:not(.is-warmup)').nth(0);
+  await primeira.locator('.set-field-load input').fill('32');
+  await primeira.locator('.set-field-reps input').fill('13');
+  await primeira.locator('.set-field-rir select').selectOption('2');
+  await primeira.getByRole('button', {name: /^Concluir série 1$/}).click();
+  await page.waitForTimeout(500);
+
+  await cartao.getByRole('button', {name: '⧉ Repetir 1ª série', exact: true}).click();
+  await page.waitForTimeout(600);
+  const segunda = cartao.locator('.set-row:not(.is-warmup)').nth(1);
+  assert.equal(await segunda.locator('.set-field-load input').inputValue(), '32');
+  assert.equal(await segunda.locator('.set-field-reps input').inputValue(), '13');
+  assert.doesNotMatch(await segunda.getAttribute('class'), /is-complete/, 'repetir não confirma a série');
+
+  const documento = await readStoredDocument(page);
+  const registro = documento.sessions.find(session => session.workoutId === 'push_a').exercises
+    .find(log => log.exerciseId === 'cable_crossover');
+  const series = registro.sets.filter(set => set.type === 'work');
+  assert.equal(series[0].status, 'completed');
+  assert.ok(series[0].completedAt, 'a série confirmada guarda o horário');
+  assert.equal(series[1].status, '', 'a série copiada continua sem status');
+  assert.equal(series[1].completedAt, '', 'a série copiada nunca herda o horário');
+
   assert.deepEqual(errors, []);
 });

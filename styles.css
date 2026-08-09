@@ -1959,6 +1959,70 @@ details[open] > summary::after {
   color: #f0c78e;
 }
 
+
+/* --------------------------------------------------------- tela Hoje e fluxo */
+
+.todayprog {
+  margin: 12px 2px 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.today-card .progwrap {
+  margin-top: 6px;
+}
+
+.pendingcard {
+  border-left-color: var(--orange);
+}
+
+.discomfort {
+  margin: 10px 0 0;
+  padding: 9px 11px;
+  border: 1px solid var(--orangedim);
+  border-radius: 10px;
+  background: rgba(217, 160, 102, .1);
+  color: #f0d0a5;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.donebox {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid var(--green);
+  border-radius: 12px;
+  background: rgba(34, 197, 94, .08);
+}
+
+.donebox strong {
+  display: block;
+  color: #bbf7d0;
+  font-size: 13px;
+}
+
+.donebox p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.donebox .secondary-button {
+  width: 100%;
+  margin-top: 9px;
+}
+
+.summarybest {
+  margin-top: 12px;
+}
+
+.summarybest strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
 /* --------------------------------------------------------------- responsivo */
 
 @media (max-width: 560px) {
