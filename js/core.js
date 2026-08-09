@@ -10,6 +10,17 @@
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const MAX_SESSIONS = 5000;
   const MAX_SERIES_PER_EXERCISE = 64;
+  const STATE_LIMITS = Object.freeze({
+    sessions: MAX_SESSIONS,
+    cardio: 5000,
+    homeRoutines: 5000,
+    measurements: 2000,
+    progressionDecisions: 10000,
+    legacyCycles: 100,
+    archives: 100,
+    migrationLog: 200,
+    quarantine: 20
+  });
   const FORBIDDEN_KEYS = new Set(['__proto__', 'prototype', 'constructor']);
   const SESSION_STATUSES = new Set(['planned', 'started', 'paused', 'completed', 'partial', 'skipped', 'rescheduled', 'cancelled']);
   const SET_STATUSES = new Set(['completed', 'interrupted', 'not_done', 'pain', 'bad_technique', 'excessive_load', 'equipment_unavailable']);
@@ -136,6 +147,7 @@
       largeText: value.largeText === true,
       keepAwake: value.keepAwake !== false,
       autoStartRest: value.autoStartRest === true,
+      videoMode: ['external', 'inline', 'ask'].includes(value.videoMode) ? value.videoMode : 'external',
       defaultWeek: Math.max(1, Math.min(8, Number(value.defaultWeek) || 1)),
       vacuumFrequency,
       vacuumRepetitions,
@@ -183,6 +195,53 @@
       completedAt: validIso(value.completedAt),
       nextRestSeconds: Math.max(0, Math.min(1800, Number(value.nextRestSeconds) || 0))
     };
+  }
+
+  function isSetConfirmed(set) {
+    return isRecord(set) && SET_STATUSES.has(set.status) && Boolean(validIso(set.completedAt));
+  }
+
+  function assertStateLimits(raw) {
+    const value = isRecord(raw) ? raw : {};
+    Object.entries(STATE_LIMITS).forEach(([field, limit]) => {
+      if (Array.isArray(value[field]) && value[field].length > limit) {
+        throw new Error(`O campo ${field} excede o limite seguro de ${limit} registros; nada foi truncado.`);
+      }
+    });
+    if (Array.isArray(value.archives)) {
+      value.archives.forEach((archive, index) => {
+        if (isRecord(archive) && Array.isArray(archive.sessions) && archive.sessions.length > MAX_SESSIONS) {
+          throw new Error(`O ciclo arquivado ${index + 1} excede ${MAX_SESSIONS} sessões; nada foi truncado.`);
+        }
+      });
+    }
+    const sessions = Array.isArray(value.sessions) ? value.sessions : [];
+    const archivedSessions = Array.isArray(value.archives)
+      ? value.archives.flatMap(item => (isRecord(item) && Array.isArray(item.sessions) ? item.sessions : []))
+      : [];
+    sessions.concat(archivedSessions).forEach((session, sessionIndex) => {
+      if (!isRecord(session)) return;
+      if (Array.isArray(session.exercises)) {
+        session.exercises.forEach((exercise, exerciseIndex) => {
+          if (isRecord(exercise) && Array.isArray(exercise.sets) && exercise.sets.length > MAX_SERIES_PER_EXERCISE) {
+            throw new Error(`A sessão ${sessionIndex + 1}, exercício ${exerciseIndex + 1}, excede ${MAX_SERIES_PER_EXERCISE} séries; nada foi truncado.`);
+          }
+        });
+      }
+    });
+    return value;
+  }
+
+  function assertCurrentStateStructure(raw) {
+    const value = assertSafeParsed(raw);
+    if (value.app !== APP_ID) throw new Error('Este documento não pertence ao Treino Hard.');
+    if (Number(value.schemaVersion) !== SCHEMA_VERSION) throw new Error('O documento local não está no esquema atual e precisa ser migrado.');
+    if (!isRecord(value.settings) || !isRecord(value.cycle)) throw new Error('O documento local tem configurações ou ciclo inválidos.');
+    Object.keys(STATE_LIMITS).forEach(field => {
+      if (!Array.isArray(value[field])) throw new Error(`O documento local tem o campo ${field} em formato inválido.`);
+    });
+    assertStateLimits(value);
+    return value;
   }
 
   function normalizeSideFeedback(raw) {
@@ -426,6 +485,7 @@
 
   function normalizeState(raw) {
     const value = isRecord(raw) ? raw : {};
+    assertStateLimits(value);
     const fallback = defaultState(value.createdAt);
     const sessions = Array.isArray(value.sessions) ? value.sessions.slice(0, MAX_SESSIONS).map(normalizeSession).filter(Boolean) : [];
     const measurements = [];
@@ -474,6 +534,13 @@
     const source = isRecord(payload.state) ? payload.state : payload;
     const unexpected = Object.keys(source).filter(key => !TOP_LEVEL_STATE_FIELDS.has(key) && !['exportedAt', 'format'].includes(key));
     if (Number(payload.schemaVersion) >= 11 && unexpected.length) throw new Error(`Campos inesperados no backup: ${unexpected.slice(0, 5).join(', ')}.`);
+    if (Number(payload.schemaVersion) >= 11) {
+      if (!isRecord(source.settings) || !isRecord(source.cycle)) throw new Error('O backup tem configurações ou ciclo em formato inválido.');
+      Object.keys(STATE_LIMITS).forEach(field => {
+        if (!Array.isArray(source[field])) throw new Error(`O backup tem o campo ${field} em formato inválido.`);
+      });
+      assertStateLimits(source);
+    }
     return source;
   }
 
@@ -704,14 +771,17 @@
 
   function doubleProgressionRecommendation(exercise, exerciseLog, week) {
     if (!exercise || exercise.type !== 'strength' || !exerciseLog) return {code: 'none', message: 'Sem recomendação disponível.'};
-    const prescription = Data.prescriptionFor(exercise, week, exerciseLog.highRepPreference);
+    const stored = normalizePrescriptionSnapshot(exerciseLog.prescriptionSnapshot);
+    const prescription = stored.sets > 0 && stored.min > 0 && stored.max >= stored.min
+      ? stored
+      : Data.prescriptionFor(exercise, week, exerciseLog.highRepPreference);
     if (prescription.deload) return {code: 'none', message: 'Semana de deload: não sugerimos aumento de carga.'};
     const workSets = exerciseLog.sets.filter(set => set.type === 'work').slice(0, prescription.sets);
     if (workSets.length < prescription.sets) return {code: 'review', message: 'Faltam séries de trabalho para uma recomendação comparável.'};
     if (workSets.some(set => ['pain', 'bad_technique', 'excessive_load', 'interrupted'].includes(set.status))) {
       return {code: 'review', message: 'Houve dor, técnica inadequada, carga excessiva ou interrupção. Revise a execução antes de pensar em aumentar.'};
     }
-    if (workSets.some(set => set.status !== 'completed' || !set.reps)) return {code: 'review', message: 'Conclua e registre todas as séries de trabalho antes de avaliar a progressão.'};
+    if (workSets.some(set => set.status !== 'completed' || !set.reps || !isSetConfirmed(set))) return {code: 'review', message: 'Conclua e confirme todas as séries de trabalho antes de avaliar a progressão.'};
     const reps = workSets.map(set => Number(set.reps));
     const rirs = workSets.map(set => rirNumber(set.rir));
     if (rirs.some(value => value == null)) return {code: 'review', message: 'RIR não informado. O resultado foi salvo, mas não é seguro sugerir aumento somente pelas repetições.'};
@@ -768,7 +838,11 @@
 
   const ENCRYPTED_FORMAT = 'treino-hard-encrypted-backup';
   const ENCRYPTED_FORMAT_VERSION = 1;
-  const PBKDF2_ITERATIONS = 310000;
+  // OWASP recomenda 600 mil iterações para PBKDF2-HMAC-SHA-256. No ambiente
+  // de referência (Chrome/Node em 09/08/2026), esta derivação levou em média
+  // 107 ms; o custo permanece aceitável para uma exportação/importação manual.
+  // A leitura continua aceitando envelopes v1 legítimos com fatores anteriores.
+  const PBKDF2_ITERATIONS = 600000;
   const SALT_BYTES = 16;
   const IV_BYTES = 12;
   const MIN_PASSWORD_LENGTH = 8;
@@ -876,15 +950,27 @@
   }
 
   async function decryptBackup(document, password) {
-    if (!isEncryptedBackup(document)) throw new Error('Este arquivo não é um backup criptografado do Treino Hard.');
+    if (!isRecord(document) || !isRecord(document.kdf) || !isRecord(document.cipher) || typeof document.ciphertext !== 'string') {
+      throw new Error('Este arquivo não é um backup criptografado do Treino Hard.');
+    }
     if (document.app !== APP_ID) throw new Error('Este arquivo não pertence ao Treino Hard.');
-    if (Number(document.formatVersion) !== ENCRYPTED_FORMAT_VERSION) throw new Error('O formato do backup criptografado não é reconhecido por esta versão.');
+    if (document.format !== ENCRYPTED_FORMAT) throw new Error('O formato do backup criptografado não é reconhecido por esta versão.');
+    if (!Number.isInteger(document.formatVersion) || document.formatVersion !== ENCRYPTED_FORMAT_VERSION) {
+      throw new Error('A versão do formato criptografado não é suportada por este aplicativo.');
+    }
+    if (!Number.isInteger(document.schemaVersion) || document.schemaVersion !== SCHEMA_VERSION) {
+      throw new Error('O esquema externo do backup criptografado não é suportado por este aplicativo.');
+    }
     if (document.kdf.name !== 'PBKDF2' || document.kdf.hash !== 'SHA-256') throw new Error('Derivação de chave não suportada.');
     if (document.cipher.name !== 'AES-GCM') throw new Error('Cifra não suportada.');
+    if (!Number.isInteger(document.cipher.length) || document.cipher.length !== 256) throw new Error('Comprimento de chave da cifra não suportado.');
+    if (!Number.isInteger(document.cipher.tagBits) || document.cipher.tagBits !== 128) throw new Error('Tamanho da tag de autenticação não suportado.');
     const secret = typeof password === 'string' ? password : '';
     if (!secret) throw new Error('Informe a senha do backup.');
-    const iterations = Number(document.kdf.iterations);
+    const iterations = document.kdf.iterations;
     if (!Number.isInteger(iterations) || iterations < 100000 || iterations > 5000000) throw new Error('Número de iterações fora do intervalo aceito.');
+    if (typeof document.kdf.salt !== 'string') throw new Error('Salt do backup com codificação inválida.');
+    if (typeof document.cipher.iv !== 'string') throw new Error('Vetor de inicialização do backup com codificação inválida.');
     const cryptoObject = subtleCrypto();
     const salt = base64ToBytes(document.kdf.salt);
     const iv = base64ToBytes(document.cipher.iv);
@@ -893,7 +979,10 @@
     let plaintext;
     try {
       plaintext = await cryptoObject.subtle.decrypt(
-        {name: 'AES-GCM', iv, tagLength: 128, additionalData: headerAad(encryptedHeader(salt, iv, iterations))},
+        // Os campos acima foram validados estritamente. Usar o próprio cabeçalho
+        // recebido garante que qualquer alteração nos metadados aceitos também
+        // invalide a autenticação, sem mudar o AAD dos backups v1 já emitidos.
+        {name: 'AES-GCM', iv, tagLength: document.cipher.tagBits, additionalData: headerAad(document)},
         key,
         base64ToBytes(document.ciphertext)
       );
@@ -916,6 +1005,7 @@
     MAX_IMPORT_BYTES,
     MAX_SESSIONS,
     MAX_SERIES_PER_EXERCISE,
+    STATE_LIMITS,
     SESSION_STATUSES,
     SET_STATUSES,
     VALID_RIR,
@@ -937,6 +1027,9 @@
     normalizeSettings,
     defaultState,
     normalizeSet,
+    isSetConfirmed,
+    assertStateLimits,
+    assertCurrentStateStructure,
     normalizeExerciseLog,
     normalizePrescriptionSnapshot,
     normalizeSession,

@@ -34,8 +34,11 @@
 
   const storage = new Storage.AppStorage();
   let state = null;
+  let lastConsistentState = null;
   let currentTab = 'today';
   let tabFocusIndex = 0;
+  let selectedSessionId = '';
+  let lastForegroundDate = Core.localDateKey();
   let persistedRevision = 0;
   let saveQueue = Promise.resolve();
   let editVersion = 0;
@@ -151,15 +154,24 @@
     dom.notice.replaceChildren();
   }
 
+  function rememberConsistentState(value) {
+    lastConsistentState = value ? Core.deepClone(value) : null;
+  }
+
   function applyPreferences() {
     document.body.classList.toggle('large-text', state.settings.largeText);
   }
 
-  function ensureCurrentWeekSessions() {
-    const monday = startOfWeek(new Date());
+  function ensureCurrentWeekSessions(referenceDate) {
+    const now = referenceDate instanceof Date ? referenceDate : new Date();
+    const today = Core.localDateKey(now);
+    const monday = startOfWeek(now);
     let changed = false;
     Data.WORKOUTS.forEach((workout, index) => {
       const date = localDateFromOffset(monday, index);
+      // Uma instalação, importação ou reinício de ciclo no meio da semana não
+      // cria pendências fictícias para dias anteriores ao primeiro uso.
+      if (date < today) return;
       const exists = state.sessions.some(session => session.workoutId === workout.id && session.plannedDate === date);
       if (!exists) {
         state.sessions.push(Core.createSession(workout.id, date, state.cycle.currentWeek));
@@ -171,17 +183,26 @@
 
   async function persist(reason, rerender) {
     const requestVersion = ++editVersion;
+    const candidate = Core.deepClone(state);
     setSaveState('Salvando…', false);
     saveQueue = saveQueue.catch(() => undefined).then(async () => {
-      const saved = await storage.writeDocument(state, persistedRevision, {});
+      candidate.revision = persistedRevision;
+      const saved = await storage.writeDocument(candidate, persistedRevision, {});
       persistedRevision = saved.revision;
       state.revision = saved.revision;
       state.updatedAt = saved.updatedAt;
+      rememberConsistentState(saved);
       if (requestVersion === editVersion) setSaveState('Salvo neste aparelho', false);
       return saved;
     }).catch(error => {
       setSaveState('Falha ao salvar', true);
       showNotice(error.message || String(error), 'error', error.code === 'REVISION_CONFLICT' ? [button('Recarregar dados', 'reload-external', 'secondary-button')] : []);
+      if (requestVersion === editVersion && lastConsistentState) {
+        state = Core.deepClone(lastConsistentState);
+        persistedRevision = state.revision;
+        applyPreferences();
+        renderActivePanel();
+      }
       throw error;
     });
     try {
@@ -339,6 +360,7 @@
     try {
       state = await storage.init();
       persistedRevision = state.revision;
+      rememberConsistentState(state);
       applyPreferences();
       const planned = ensureCurrentWeekSessions();
       dom.loading.remove();
@@ -372,6 +394,11 @@
       .sort((a, b) => a.plannedDate.localeCompare(b.plannedDate) || a.createdAt.localeCompare(b.createdAt));
   }
 
+  function allSessions() {
+    const sessions = state.archives.flatMap(archive => archive.sessions).concat(state.sessions);
+    return [...new Map(sessions.map(session => [session.id, session])).values()];
+  }
+
   function sessionForToday() {
     const today = Core.localDateKey();
     if (new Date().getDay() === 0) return null;
@@ -380,6 +407,10 @@
   }
 
   function sessionForWorkout(workoutId) {
+    const selected = selectedSessionId
+      ? state.sessions.find(session => session.id === selectedSessionId && session.workoutId === workoutId)
+      : null;
+    if (selected) return selected;
     const today = Core.localDateKey();
     const monday = Core.localDateKey(startOfWeek(new Date()));
     const sundayAfter = localDateFromOffset(startOfWeek(new Date()), 6);
@@ -393,7 +424,7 @@
   function sessionProgress(session) {
     if (!session) return {done: 0, total: 0, percent: 0};
     const sets = session.exercises.flatMap(exercise => exercise.sets.filter(set => set.type === 'work'));
-    const completedSets = sets.filter(set => Boolean(set.status)).length;
+    const completedSets = sets.filter(Core.isSetConfirmed).length;
     const mobility = session.exercises.filter(exercise => !exercise.sets.length);
     const completedMobility = mobility.filter(exercise => exercise.completed || exercise.skipped).length;
     const total = sets.length + mobility.length;
@@ -453,7 +484,7 @@
           ])
         ]),
         progress.done ? progressBar(progress, 'itens registrados') : null,
-        element('div', {className: 'button-row'}, [button(progress.done ? 'Continuar treino' : 'Iniciar treino', 'open-workout', 'primary-button', {workoutId: session.workoutId})])
+        element('div', {className: 'button-row'}, [button(progress.done ? 'Continuar treino' : 'Iniciar treino', 'open-workout', 'primary-button', {workoutId: session.workoutId, sessionId: session.id})])
       ]));
     }
     if (!sunday && next) children.push(element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label} — ${formatDate(next.plannedDate)}.`}));
@@ -507,13 +538,16 @@
     return `${snapshot.sets} × ${snapshot.label} · ${rir}`;
   }
 
-  function renderVideoStatus(exercise, log) {
-    // Exercícios de mobilidade não declaram variantes; sem esta guarda o painel
-    // inteiro de Pernas A/B deixa de renderizar.
-    const variants = Array.isArray(exercise.variants) ? exercise.variants : [];
-    const variant = variants.find(item => item.id === log.variationId);
-    const videoKey = variant && variant.videoKey ? variant.videoKey : exercise.videoKey;
-    const video = Data.VIDEOS[videoKey] || Data.VIDEOS[exercise.id];
+  function videoClassificationLabel(video) {
+    return {
+      technical_guide: 'Guia técnico',
+      objective_demo: 'Demonstração objetiva',
+      visual_reference: 'Referência visual'
+    }[video && video.classification] || 'Vídeo de apoio';
+  }
+
+  function renderVideoByKey(videoKey, label) {
+    const video = Data.VIDEOS[videoKey];
     // Ausência de vídeo é uma nota discreta, não um bloco chamativo.
     if (!video || video.status !== 'accepted' || !video.youtubeId) {
       return element('p', {className: 'video-pending', text: navigator.onLine ? 'Vídeo pendente de curadoria.' : 'Vídeo pendente de curadoria · exige internet.'});
@@ -525,11 +559,20 @@
     }, [
       element('span', {className: 'vplay', text: '▶'}),
       element('span', {className: 'vcopy'}, [
-        element('strong', {text: 'Ver execução'}),
-        element('span', {className: 'vs', text: video.classification === 'technical' ? 'Guia técnico' : video.classification === 'demonstration' ? 'Demonstração objetiva' : 'Referência visual'})
+        element('strong', {text: label || 'Ver execução'}),
+        element('span', {className: 'vs', text: `${videoClassificationLabel(video)} · ${video.language || 'idioma não informado'}`})
       ]),
       element('span', {className: 'ext', text: '↗'})
     ]);
+  }
+
+  function renderVideoStatus(exercise, log) {
+    // Exercícios de mobilidade não declaram variantes; sem esta guarda o painel
+    // inteiro de Pernas A/B deixa de renderizar.
+    const variants = Array.isArray(exercise.variants) ? exercise.variants : [];
+    const variant = variants.find(item => item.id === log.variationId);
+    const videoKey = variant && variant.videoKey ? variant.videoKey : exercise.videoKey;
+    return renderVideoByKey(Data.VIDEOS[videoKey] ? videoKey : exercise.id);
   }
 
   function renderMobilityExercise(session, workoutExercise, exerciseLog, order) {
@@ -560,7 +603,7 @@
   }
 
   function renderSetRow(session, exerciseLog, set, setIndex) {
-    const completed = Boolean(set.status);
+    const completed = Core.isSetConfirmed(set);
     const idBase = `${session.id}-${exerciseLog.id}-${set.id}`;
     const restValues = [60, 90, 120, 150, 180];
     const restSelect = element('select', {className: 'select', attrs: {id: `${idBase}-rest`}, dataset: {action: 'set-rest-select', sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id}}, [
@@ -765,6 +808,16 @@
         element('p', {text: `Configuração atual: ${state.settings.vacuumFrequency} dias por semana, ${state.settings.vacuumRepetitions} repetições de ${state.settings.vacuumDuration}s.`}),
         element('p', {text: 'O vacuum pode ser realizado em casa, preferencialmente quando o estômago não estiver cheio, por conforto. O jejum não é apresentado como requisito nem como método comprovadamente superior. Vacuum não é método de queima localizada de gordura.'})
       ]),
+      element('section', {className: 'card'}, [
+        element('h3', {text: 'Vídeo correto para cada posição'}),
+        element('p', {className: 'fine-print', text: 'Escolha a mesma posição que será registrada; um único vídeo genérico não representa as quatro variações.'}),
+        element('div', {className: 'field-grid is-two'}, [
+          renderVideoByKey('vacuum_lying', 'Vacuum deitado'),
+          renderVideoByKey('vacuum_all_fours', 'Vacuum em quatro apoios'),
+          renderVideoByKey('vacuum_seated', 'Vacuum sentado'),
+          renderVideoByKey('vacuum_standing', 'Vacuum em pé')
+        ])
+      ]),
       form,
       element('section', {className: 'card'}, [element('h3', {text: 'Histórico da rotina'}), history])
     ]);
@@ -776,7 +829,7 @@
 
   function comparisonRecords() {
     const groups = new Map();
-    state.sessions.filter(session => ['completed', 'partial'].includes(session.status)).forEach(session => {
+    allSessions().filter(session => ['completed', 'partial'].includes(session.status)).forEach(session => {
       const workout = Data.WORKOUT_BY_ID[session.workoutId];
       session.exercises.forEach(log => {
         const exercise = Data.findExercise(session.workoutId, log.exerciseId);
@@ -786,7 +839,7 @@
         const key = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
         if (!groups.has(key)) groups.set(key, {key, exercise, variationId: log.variationId, machineId: log.machineId, side: log.side, range, points: []});
         const workSets = log.sets.filter(set => set.type === 'work');
-        const completed = workSets.filter(set => set.status === 'completed' && set.reps);
+        const completed = workSets.filter(set => set.status === 'completed' && set.reps && Core.isSetConfirmed(set));
         if (!workSets.length) return;
         const loads = completed.map(set => Number(set.load) || 0);
         const reps = completed.map(set => Number(set.reps) || 0);
@@ -796,11 +849,11 @@
           sessionId: session.id,
           workout: workout.label,
           week: session.week,
-          maxLoad: loads.length ? Math.max(...loads) : 0,
-          volume: completed.reduce((sum, set) => sum + (Number(set.load) || 0) * (Number(set.reps) || 0), 0),
-          reps: reps.length ? Math.max(...reps) : 0,
+          maxLoad: loads.length ? Math.max(...loads) : null,
+          volume: completed.length ? completed.reduce((sum, set) => sum + (Number(set.load) || 0) * (Number(set.reps) || 0), 0) : null,
+          reps: reps.length ? Math.max(...reps) : null,
           rir: rirs.length ? rirs.reduce((sum, value) => sum + value, 0) / rirs.length : null,
-          pain: workSets.filter(set => set.status === 'pain').length + (log.feeling === 'pain' ? 1 : 0),
+          pain: workSets.filter(set => set.status === 'pain' && Core.isSetConfirmed(set)).length + (log.feeling === 'pain' ? 1 : 0),
           bestSet: completed.sort((a, b) => (Number(b.load) || 0) - (Number(a.load) || 0) || (Number(b.reps) || 0) - (Number(a.reps) || 0))[0] || null
         });
       });
@@ -821,11 +874,11 @@
 
   function previousComparablePerformance(currentSession, currentLog) {
     const currentKey = exerciseSeriesKey(currentLog);
-    const candidates = state.sessions.filter(session => session.id !== currentSession.id && ['completed', 'partial'].includes(session.status) && (session.actualDate || session.plannedDate) <= (currentSession.actualDate || currentSession.plannedDate)).sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate));
+    const candidates = allSessions().filter(session => session.id !== currentSession.id && ['completed', 'partial'].includes(session.status) && (session.actualDate || session.plannedDate) <= (currentSession.actualDate || currentSession.plannedDate)).sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate));
     for (const session of candidates) {
       const log = session.exercises.find(item => exerciseSeriesKey(item) === currentKey);
       if (!log) continue;
-      const workSets = log.sets.filter(set => set.type === 'work' && (set.load || set.reps));
+      const workSets = log.sets.filter(set => set.type === 'work' && Core.isSetConfirmed(set) && (set.load || set.reps));
       if (!workSets.length) continue;
       const decision = state.progressionDecisions.slice().reverse().find(item => item.sessionId === session.id && item.seriesKey === currentKey) || null;
       return {session, log, workSets, decision};
@@ -988,6 +1041,13 @@
       element('section', {className: 'card'}, [
         element('h3', {text: 'Histórico preservado'}),
         element('div', {className: 'summary-grid'}, [summaryCard('Ciclos novos arquivados', String(state.archives.length), `${archivedSessions} sessões`), summaryCard('Ciclos ABC legados', String(state.legacyCycles.length), `${legacyRecords} registros preservados`)]),
+        state.archives.length ? element('div', {className: 'timeline'}, state.archives.slice().reverse().map(archive => element('details', {className: 'timeline-item'}, [
+          element('summary', {text: `${formatDateTime(archive.archivedAt)} · ${archive.sessions.length} sessão(ões) · ciclo encerrado na semana ${archive.cycle.currentWeek}`}),
+          element('div', {className: 'split-list'}, archive.sessions.slice().sort((a, b) => a.plannedDate.localeCompare(b.plannedDate)).map(session => element('div', {className: 'split-row'}, [
+            element('strong', {text: `${formatDate(session.actualDate || session.plannedDate)} · ${(Data.WORKOUT_BY_ID[session.workoutId] && Data.WORKOUT_BY_ID[session.workoutId].label) || session.workoutId}`}),
+            element('span', {text: `${SESSION_LABELS[session.status] || session.status} · semana ${session.week}${session.durationSeconds ? ` · ${formatDuration(session.durationSeconds)}` : ''}`})
+          ])))
+        ]))) : element('p', {className: 'fine-print', text: 'Nenhum ciclo novo foi arquivado ainda.'}),
         state.legacyCycles.length ? element('div', {className: 'split-list'}, state.legacyCycles.map(cycle => element('div', {className: 'split-row'}, [element('strong', {text: cycle.label}), element('span', {text: `schema ${cycle.sourceSchema} · ${cycle.records.length} registros · ${cycle.records.filter(record => record.mappingStatus === 'ambiguous').length} ambíguos`})]))) : null
       ])
     ]);
@@ -1026,6 +1086,11 @@
         element('h3', {text: 'Agenda e experiência'}),
         element('div', {className: 'field-grid'}, [
           field('Modo da agenda', element('select', {className: 'select', dataset: {action: 'setting-mode'}}, [option('calendar', 'Calendário semanal', state.settings.mode === 'calendar'), option('sequence', 'Sequência de pendências', state.settings.mode === 'sequence')])),
+          field('Vídeos de apoio', element('select', {className: 'select', dataset: {action: 'setting-video-mode'}}, [
+            option('external', 'Abrir no YouTube (usa sua conta/Premium)', state.settings.videoMode === 'external'),
+            option('inline', 'Assistir dentro do app', state.settings.videoMode === 'inline'),
+            option('ask', 'Perguntar a cada vídeo', state.settings.videoMode === 'ask')
+          ]), 'field', 'O app não recebe senha nem token. A opção externa usa a sessão já aberta no YouTube.'),
           settingToggle('autoStartRest', 'Iniciar intervalo ao confirmar série', 'Nunca inicia ao sair de um campo; apenas após o botão “Concluir série”.'),
           settingToggle('sound', 'Som do cronômetro', 'Toca somente após uma interação que permita áudio.'),
           settingToggle('vibration', 'Vibração', 'Quando o aparelho e o navegador permitirem.'),
@@ -1106,6 +1171,7 @@
       const restored = await storage.restoreBackup(backupId, state);
       state = restored;
       persistedRevision = restored.revision;
+      rememberConsistentState(restored);
       closeModal();
       applyPreferences();
       renderTabs();
@@ -1161,7 +1227,7 @@
   function sessionFullyRecorded(session) {
     return session.exercises.every(log => {
       if (!log.sets.length) return log.completed || log.skipped;
-      return log.sets.filter(set => set.type === 'work').every(set => Boolean(set.status));
+      return log.sets.filter(set => set.type === 'work').every(Core.isSetConfirmed);
     });
   }
 
@@ -1173,11 +1239,10 @@
       if (!exercise || exercise.type !== 'strength') return;
       const range = `${log.prescriptionSnapshot.min}-${log.prescriptionSnapshot.max}`;
       const seriesKey = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
-      if (state.progressionDecisions.some(item => item.sessionId === session.id && item.seriesKey === seriesKey)) return;
       const recommendation = Core.doubleProgressionRecommendation(exercise, log, session.week);
       const workSets = log.sets.filter(set => set.type === 'work');
-      state.progressionDecisions.push({
-        id: Core.uid('progression'),
+      const existing = state.progressionDecisions.find(item => item.sessionId === session.id && item.seriesKey === seriesKey);
+      const payload = {
         sessionId: session.id,
         exerciseId: log.exerciseId,
         seriesKey,
@@ -1187,10 +1252,18 @@
         load: workSets.map(set => Number(set.load) || 0).sort((a, b) => b - a)[0] || '',
         result: workSets.map(set => set.reps || '—').join(' / '),
         rir: workSets.map(set => set.rir || 'não informado').join(' / '),
-        decision: 'pending',
-        nextLoad: '',
         savedAt: new Date().toISOString()
-      });
+      };
+      if (existing) {
+        const changed = ['recommendation', 'message', 'load', 'result', 'rir'].some(field => String(existing[field]) !== String(payload[field]));
+        Object.assign(existing, payload);
+        if (changed) {
+          existing.decision = 'pending';
+          existing.nextLoad = '';
+        }
+      } else {
+        state.progressionDecisions.push(Object.assign({id: Core.uid('progression'), decision: 'pending', nextLoad: ''}, payload));
+      }
     });
   }
 
@@ -1241,7 +1314,7 @@
 
   function refreshExerciseCompletion(log) {
     const workSets = log.sets.filter(set => set.type === 'work');
-    log.completed = workSets.length > 0 && workSets.every(set => Boolean(set.status));
+    log.completed = workSets.length > 0 && workSets.every(Core.isSetConfirmed);
   }
 
   async function completeSet(session, log, set) {
@@ -1392,17 +1465,61 @@
     else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
   }
 
+  function playableVideo(video) {
+    return Boolean(video && video.status === 'accepted' && video.youtubeId && video.url);
+  }
+
+  function externalVideoUrl(video) {
+    if (!playableVideo(video) || !video.startSeconds) return video && video.url ? video.url : '';
+    const url = new URL(video.url);
+    url.searchParams.set('t', `${video.startSeconds}s`);
+    return url.href;
+  }
+
   function openVideo(videoKey) {
     const video = Data.VIDEOS[videoKey];
-    if (!video || video.status !== 'accepted' || !video.youtubeId) {
+    if (!playableVideo(video)) {
       showNotice('Vídeo pendente de curadoria; nenhum player incorreto será aberto.', 'warning');
       return;
     }
+    if (!navigator.onLine) {
+      showNotice('Os vídeos de apoio exigem internet. O restante do treino continua disponível offline.', 'warning');
+      return;
+    }
+    if (state.settings.videoMode === 'external') { openVideoExternally(videoKey); return; }
+    if (state.settings.videoMode === 'inline') { openVideoInline(videoKey); return; }
+    confirmationModal('Como deseja assistir?', 'Abrir no YouTube aproveita a conta já autenticada no navegador ou aplicativo. O Treino Hard não acessa suas credenciais.', 'video-open-external', {videoKey}, 'Abrir no YouTube');
+    const row = dom.modalContent.querySelector('.button-row');
+    if (row) row.insertBefore(button('Assistir dentro do app', 'video-open-inline', 'secondary-button', {videoKey}), row.lastChild);
+  }
+
+  function openVideoExternally(videoKey) {
+    const video = Data.VIDEOS[videoKey];
+    if (!playableVideo(video)) return;
+    const anchor = element('a', {attrs: {href: externalVideoUrl(video), target: '_blank', rel: 'noopener noreferrer'}});
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    if (!dom.modal.hidden) closeModal();
+  }
+
+  function openVideoInline(videoKey) {
+    const video = Data.VIDEOS[videoKey];
+    if (!playableVideo(video)) return;
+    if (video.embedCompatible === false) {
+      showNotice('Este vídeo não permite reprodução incorporada. Abrindo no YouTube, onde a conta Premium do navegador pode ser utilizada.', 'warning');
+      openVideoExternally(videoKey);
+      return;
+    }
+    if (!dom.modal.hidden) closeModal();
     modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     dom.videoTitle.textContent = video.title || 'Vídeo de apoio';
-    const iframe = element('iframe', {attrs: {src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.youtubeId)}`, title: video.title || 'Vídeo de apoio', allow: 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture', allowfullscreen: true}});
+    const parameters = new URLSearchParams({rel: '0'});
+    if (video.startSeconds) parameters.set('start', String(video.startSeconds));
+    if (/^https?:$/.test(location.protocol)) parameters.set('origin', location.origin);
+    const iframe = element('iframe', {attrs: {src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.youtubeId)}?${parameters}`, title: video.title || 'Vídeo de apoio', allow: 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture', referrerpolicy: 'strict-origin-when-cross-origin', allowfullscreen: true}});
     dom.videoStage.replaceChildren(iframe);
-    dom.videoExternal.href = video.url;
+    dom.videoExternal.href = externalVideoUrl(video);
     dom.videoExternal.hidden = false;
     dom.videoModal.hidden = false;
     dom.videoModal.setAttribute('aria-hidden', 'false');
@@ -1439,9 +1556,22 @@
       dom.installButton.hidden = true;
       announce('Aplicativo instalado.');
     });
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && state && state.sessions.some(session => session.status === 'started')) requestWakeLock();
-    });
+    document.addEventListener('visibilitychange', () => { void handleForegroundReturn(); });
+  }
+
+  async function handleForegroundReturn() {
+    if (document.visibilityState !== 'visible' || !state) return;
+    try {
+      const today = Core.localDateKey();
+      if (today !== lastForegroundDate) {
+        lastForegroundDate = today;
+        if (ensureCurrentWeekSessions()) await persist('A agenda foi atualizada para a nova data.', true);
+        else renderActivePanel();
+      }
+      if (state.sessions.some(session => session.status === 'started')) await requestWakeLock();
+    } catch (error) {
+      showNotice(`Não foi possível atualizar a agenda ao voltar ao aplicativo: ${error.message || error}`, 'error');
+    }
   }
 
   async function handleClick(event) {
@@ -1449,12 +1579,14 @@
     if (!target) return;
     const action = target.dataset.action;
     if (target.tagName === 'A' && action !== 'open-video') return;
-    if (action === 'activate-tab') { activateTab(target.dataset.tab, false); return; }
+    if (action === 'activate-tab') { selectedSessionId = ''; activateTab(target.dataset.tab, false); return; }
     if (action === 'cycle-week-set') { await changeCycleWeek(Number(target.dataset.week)); return; }
-    if (action === 'open-workout') { activateTab(target.dataset.workoutId, true); return; }
+    if (action === 'open-workout') { selectedSessionId = target.dataset.sessionId || ''; activateTab(target.dataset.workoutId, true); return; }
     if (action === 'close-modal') { closeModal(); return; }
     if (action === 'close-video') { closeVideo(); return; }
     if (action === 'open-video') { openVideo(target.dataset.videoKey); return; }
+    if (action === 'video-open-external') { openVideoExternally(target.dataset.videoKey); return; }
+    if (action === 'video-open-inline') { openVideoInline(target.dataset.videoKey); return; }
     if (action === 'timer-stop') { stopTimer(); return; }
     if (action === 'timer-add') { if (timerDeadline) { timerDeadline += 30000; updateTimer(); } return; }
     if (action === 'timer-undo') { await undoLastSet(); return; }
@@ -1523,7 +1655,7 @@
     if (action === 'mobility-skip') { await toggleMobility(session, target.dataset.exerciseId, 'skipped'); return; }
     if (action === 'variation-pick') {
       const log = findExerciseLog(session, target.dataset.exerciseId);
-      if (log) requestVariationChange(session, log, target.dataset.variationId);
+      if (log) await requestVariationChange(session, log, target.dataset.variationId);
       return;
     }
     if (action === 'variation-confirm') { await confirmVariation(target.dataset.sessionId, target.dataset.exerciseId, target.dataset.variationId); }
@@ -1538,6 +1670,7 @@
     if (action === 'evolution-key') { evolutionSelection.key = target.value; renderActivePanel(); return; }
     if (action === 'evolution-metric') { evolutionSelection.metric = target.value; renderActivePanel(); return; }
     if (action === 'setting-mode') { state.settings.mode = target.value === 'sequence' ? 'sequence' : 'calendar'; await persist('Modo de agenda atualizado.', true); return; }
+    if (action === 'setting-video-mode') { state.settings.videoMode = ['external', 'inline', 'ask'].includes(target.value) ? target.value : 'external'; await persist('Preferência de vídeo atualizada.', true); return; }
     if (action === 'setting-toggle') { state.settings[target.dataset.setting] = target.checked; applyPreferences(); await persist('Preferência atualizada.', true); return; }
     if (action === 'setting-number') {
       const key = target.dataset.setting;
@@ -1582,7 +1715,7 @@
     }
     if (action === 'mobility-flag') { log.mobilityFeedback[target.dataset.side][target.dataset.flag] = target.checked; await persist('Feedback de mobilidade atualizado.', false); return; }
     if (action === 'mobility-note') { log.mobilityFeedback.note = Core.cleanText(target.value, 300); await persist('Observação de mobilidade atualizada.', false); return; }
-    if (action === 'variation-change') { requestVariationChange(session, log, target.value); return; }
+    if (action === 'variation-change') { await requestVariationChange(session, log, target.value); return; }
     if (action === 'high-rep-toggle') { updateHighRepPreference(session, log, target.checked); await persist('Faixa preferencial atualizada.', true); }
   }
 
@@ -1590,7 +1723,11 @@
     if (fieldName === 'load') set.load = Core.numericString(value, {max: 5000, decimals: 2});
     else if (fieldName === 'reps') set.reps = Core.integerString(value, 1000);
     else if (fieldName === 'rir') set.rir = Core.VALID_RIR.has(value) ? value : '';
-    else if (fieldName === 'status') set.status = Core.SET_STATUSES.has(value) ? value : '';
+    else if (fieldName === 'status') {
+      const nextStatus = Core.SET_STATUSES.has(value) ? value : '';
+      if (nextStatus !== set.status) set.completedAt = '';
+      set.status = nextStatus;
+    }
     else if (fieldName === 'nextRestSeconds') set.nextRestSeconds = Math.max(0, Math.min(1800, Number(value) || 0));
     else if (fieldName === 'note') set.note = Core.cleanText(value, 200);
   }
@@ -1692,11 +1829,17 @@
 
   async function reopenSession(session) {
     await storage.createSnapshot(state, 'Antes de reabrir sessão');
-    session.status = session.startedAt ? 'started' : 'planned';
+    const now = new Date();
+    const previousDuration = Math.max(0, Number(session.durationSeconds) || 0);
+    session.status = session.startedAt ? 'paused' : 'planned';
+    if (session.status === 'paused') {
+      session.startedAt = new Date(now.getTime() - previousDuration * 1000).toISOString();
+      session.pausedAt = now.toISOString();
+      session.pausedSeconds = 0;
+    }
     session.completedAt = '';
-    session.durationSeconds = 0;
-    session.updatedAt = new Date().toISOString();
-    if (session.status === 'started') requestWakeLock();
+    session.durationSeconds = previousDuration;
+    session.updatedAt = now.toISOString();
     await persist('Sessão reaberta.', true);
   }
 
@@ -1715,12 +1858,12 @@
     return Boolean(log.feedback || log.feeling || log.machineId || log.sets.some(set => set.load || set.reps || set.rir || set.status || set.note));
   }
 
-  function requestVariationChange(session, log, nextVariation) {
+  async function requestVariationChange(session, log, nextVariation) {
     const exercise = Data.findExercise(session.workoutId, log.exerciseId);
     if (!exercise || !exercise.variants.some(item => item.id === nextVariation) || nextVariation === log.variationId) return;
     if (!hasExerciseData(log)) {
       log.variationId = nextVariation;
-      persist('Variação atualizada; o histórico comparável permanecerá separado.', true);
+      await persist('Variação atualizada; o histórico comparável permanecerá separado.', true);
       return;
     }
     renderActivePanel();
@@ -1840,7 +1983,10 @@
     await storage.createSnapshot(state, `Antes de alterar para semana ${nextWeek}`);
     state.cycle.currentWeek = nextWeek;
     let updated = 0;
-    state.sessions.forEach(session => { if (replacePlannedSessionPrescription(session, nextWeek)) updated += 1; });
+    const today = Core.localDateKey();
+    state.sessions.forEach(session => {
+      if (session.plannedDate >= today && replacePlannedSessionPrescription(session, nextWeek)) updated += 1;
+    });
     await persist(`Semana alterada para ${nextWeek}; ${updated} sessão(ões) ainda vazia(s) foram atualizadas.`, true);
   }
 
@@ -1870,6 +2016,7 @@
     restored.revision = persistedRevision;
     state = await storage.writeDocument(restored, persistedRevision, {});
     persistedRevision = state.revision;
+    rememberConsistentState(state);
     closeModal();
     applyPreferences();
     renderActivePanel();
@@ -1891,9 +2038,18 @@
     return Core.localDateKey().replace(/-/g, '');
   }
 
+  function serializedBackupFits(text) {
+    const bytes = new Blob([text]).size;
+    if (bytes <= Core.MAX_IMPORT_BYTES) return true;
+    showNotice(`O backup teria ${(bytes / 1024 / 1024).toLocaleString('pt-BR', {maximumFractionDigits: 1})} MB e excederia o limite de reimportação de ${Math.round(Core.MAX_IMPORT_BYTES / 1024 / 1024)} MB. Nada foi baixado; exporte o CSV e reduza o histórico somente após guardar uma cópia externa.`, 'error');
+    return false;
+  }
+
   function exportJson() {
     const backup = Core.buildBackup(state);
-    downloadText(JSON.stringify(backup, null, 2), `treino-hard-backup-${fileDateStamp()}.json`, 'application/json');
+    const text = JSON.stringify(backup, null, 2);
+    if (!serializedBackupFits(text)) return;
+    downloadText(text, `treino-hard-backup-${fileDateStamp()}.json`, 'application/json');
     lastBackupState = 'JSON exportado agora';
     announce('Backup JSON exportado.');
     if (currentTab === 'today') renderActivePanel();
@@ -1902,16 +2058,15 @@
   function buildCsv() {
     const headers = ['tipo_registro', 'sessao_id', 'data', 'horario', 'treino', 'semana', 'status_sessao', 'exercicio', 'variacao', 'maquina', 'lado', 'serie', 'tipo_serie', 'carga_kg', 'repeticoes', 'rir', 'status_serie', 'descanso_segundos', 'dor', 'feedback', 'cardio_minutos', 'cardio_distancia_km', 'cardio_esforco', 'medida', 'valor_medida', 'unidade', 'observacao'];
     const rows = [headers];
-    state.sessions.forEach(session => {
+    allSessions().forEach(session => {
       const workout = Data.WORKOUT_BY_ID[session.workoutId];
       session.exercises.forEach(log => {
         const exercise = Data.findExercise(session.workoutId, log.exerciseId);
-        if (!exercise) return;
         if (!log.sets.length) {
-          rows.push(['mobilidade', session.id, session.actualDate || session.plannedDate, session.startedAt ? new Date(session.startedAt).toLocaleTimeString('pt-BR') : '', workout.label, session.week, session.status, exercise.name, log.variationId, log.machineId, log.side, '', 'mobilidade', '', '', '', log.completed ? 'completed' : log.skipped ? 'not_done' : '', '', log.mobilityFeedback.left.pain || log.mobilityFeedback.right.pain ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', log.mobilityFeedback.note]);
+          rows.push(['mobilidade', session.id, session.actualDate || session.plannedDate, session.startedAt ? new Date(session.startedAt).toLocaleTimeString('pt-BR') : '', workout ? workout.label : session.workoutId, session.week, session.status, exercise ? exercise.name : log.exerciseId, log.variationId, log.machineId, log.side, '', 'mobilidade', '', '', '', log.completed ? 'completed' : log.skipped ? 'not_done' : '', '', log.mobilityFeedback.left.pain || log.mobilityFeedback.right.pain ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', log.mobilityFeedback.note]);
           return;
         }
-        log.sets.forEach((set, index) => rows.push(['musculacao', session.id, session.actualDate || session.plannedDate, set.completedAt ? new Date(set.completedAt).toLocaleTimeString('pt-BR') : '', workout.label, session.week, session.status, exercise.name, log.variationId, log.machineId, log.side, index + 1, set.type, set.load, set.reps, set.rir, set.status, set.nextRestSeconds, set.status === 'pain' || log.feeling === 'pain' ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', set.note]));
+        log.sets.forEach((set, index) => rows.push(['musculacao', session.id, session.actualDate || session.plannedDate, set.completedAt ? new Date(set.completedAt).toLocaleTimeString('pt-BR') : '', workout ? workout.label : session.workoutId, session.week, session.status, exercise ? exercise.name : log.exerciseId, log.variationId, log.machineId, log.side, index + 1, set.type, set.load, set.reps, set.rir, set.status, set.nextRestSeconds, set.status === 'pain' || log.feeling === 'pain' ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', set.note]));
       });
     });
     state.cardio.forEach(item => rows.push(['cardio', item.relatedSessionId, item.date, item.startTime, '', '', item.status, '', '', '', '', '', '', '', '', '', '', '', item.status === 'not_pain' || item.legDayFlags.rightCalfPain || item.legDayFlags.kneePain || item.legDayFlags.anklePain ? 'sim' : 'não', item.discomfort, item.durationMinutes, item.distanceKm, item.effort, '', '', '', item.note]));
@@ -1987,8 +2142,12 @@
     confirmInput.value = '';
     if (!matches) { showNotice('As senhas não coincidem. Nada foi exportado.', 'warning'); return; }
     try {
+      const plainText = JSON.stringify(Core.buildBackup(state));
+      if (!serializedBackupFits(plainText)) return;
       const encrypted = await Core.encryptBackup(state, password);
-      downloadText(JSON.stringify(encrypted, null, 2), `treino-hard-backup-cifrado-${fileDateStamp()}.json`, 'application/json');
+      const text = JSON.stringify(encrypted, null, 2);
+      if (!serializedBackupFits(text)) return;
+      downloadText(text, `treino-hard-backup-cifrado-${fileDateStamp()}.json`, 'application/json');
       closeModal();
       lastBackupState = 'Backup criptografado exportado agora';
       announce('Backup criptografado exportado. Guarde a senha: ela não é salva.');
@@ -2031,6 +2190,7 @@
       imported.revision = persistedRevision;
       state = await storage.writeDocument(imported, persistedRevision, {});
       persistedRevision = state.revision;
+      rememberConsistentState(state);
       pendingImport = null;
       closeModal();
       applyPreferences();
@@ -2067,6 +2227,7 @@
     if (!latest) { showNotice('Não foi possível reler o documento local.', 'error'); return; }
     state = latest;
     persistedRevision = latest.revision;
+    rememberConsistentState(latest);
     applyPreferences();
     hideNotice();
     renderActivePanel();

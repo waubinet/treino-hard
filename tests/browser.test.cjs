@@ -61,7 +61,7 @@ async function openApp(t, options) {
   page.on('console', message => {
     if (message.type() === 'error') errors.push(`console: ${message.text()}`);
   });
-  if (settings.fixedTime) await page.clock.setFixedTime(settings.fixedTime);
+  await page.clock.setFixedTime(settings.fixedTime || new Date(2026, 7, 10, 8, 0, 0));
   if (!settings.skipGoto) {
     await page.goto(baseUrl, {waitUntil: 'domcontentloaded'});
     await waitAppReady(page);
@@ -87,6 +87,30 @@ function readStoredDocument(page) {
       get.onerror = () => reject(get.error);
     };
   }));
+}
+
+// Espera uma gravação nova chegar ao IndexedDB. Evita depender de pausas
+// arbitrárias nos cenários em que o conteúdo persistido é a própria evidência.
+async function waitForStoredRevision(page, previousRevision, timeout) {
+  await page.waitForFunction(expected => new Promise((resolve, reject) => {
+    const request = indexedDB.open('treino-hard-v3');
+    request.onerror = () => reject(request.error || new Error('IndexedDB indisponível.'));
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction('documents', 'readonly');
+      const get = transaction.objectStore('documents').get('current');
+      get.onsuccess = () => {
+        const revision = Number(get.result && get.result.revision) || 0;
+        database.close();
+        resolve(revision > expected);
+      };
+      get.onerror = () => {
+        database.close();
+        reject(get.error);
+      };
+    };
+  }), Number(previousRevision) || 0, {timeout: timeout || 15000});
+  return readStoredDocument(page);
 }
 
 function openTab(page, label) {
@@ -122,6 +146,9 @@ async function fillWorkSets(page, reps) {
     // Status fica no bloco recolhido "Mais" de cada série.
     await openSetMore(row);
     await row.locator('select').nth(1).selectOption('completed');
+    // Uma sessão reaberta pode já conter uma confirmação anterior. Em ambos os
+    // casos o clique explícito é obrigatório para renovar/manter completedAt.
+    await row.getByRole('button', {name: /^(?:Concluir|Atualizar) série$/}).click();
   }
   return total;
 }
@@ -162,6 +189,8 @@ test('fluxos essenciais funcionam em Chrome, responsivo e offline', {timeout: 90
   page.on('console', message => {
     if (message.type() === 'error') errors.push(`console: ${message.text()}`);
   });
+
+  await page.clock.setFixedTime(new Date(2026, 7, 10, 8, 0, 0));
 
   await page.goto(baseUrl, {waitUntil: 'domcontentloaded'});
   await page.locator('#save-state').waitFor({state: 'visible'});
@@ -215,7 +244,7 @@ test('fluxos essenciais funcionam em Chrome, responsivo e offline', {timeout: 90
   await page.waitForFunction(() => document.querySelector('.status-pill')?.textContent.trim() === 'Parcial');
   assert.equal(await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).isVisible(), true);
   await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
-  await page.waitForFunction(() => document.querySelector('.status-pill')?.textContent.trim() === 'Iniciado');
+  await page.waitForFunction(() => document.querySelector('.status-pill')?.textContent.trim() === 'Pausado');
 
   await page.getByRole('tab', {name: 'Puxar A', exact: true}).click();
   await page.getByRole('button', {name: 'Pular', exact: true}).click();
@@ -312,7 +341,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   );
 
   await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
-  await waitStatus(page, 'Iniciado');
+  await waitStatus(page, 'Pausado');
   await page.getByRole('button', {name: 'Cancelar', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Cancelar sessão', exact: true}).click();
   await waitStatus(page, 'Cancelado');
@@ -321,7 +350,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   assert.equal(await statusPill(page).innerText(), 'Cancelado');
 
   await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
-  await waitStatus(page, 'Iniciado');
+  await waitStatus(page, 'Pausado');
   await completeMobilityItems(page);
   const filled = await fillWorkSets(page, 14);
   assert.equal(filled, 17, 'Empurrar A deve expor 17 séries de trabalho');
@@ -414,6 +443,205 @@ test('modo sequência não avança, não conclui nem reordena sessões sozinho',
   await openTab(page, 'Hoje');
   assert.match(await page.locator('.today-card h3').innerText(), /Empurrar B/, 'com quarta remarcada a pendência mais antiga passa a ser quinta');
 
+  assert.deepEqual(errors, []);
+});
+
+test('status escolhido só conta depois da confirmação explícita da série', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t);
+
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  let stored = await readStoredDocument(page);
+  const sessionId = stored.sessions.find(session => session.workoutId === 'push_a').id;
+  let row = page.locator('.set-row:not(.is-warmup)').first();
+  await row.locator('input').nth(1).fill('12');
+  await openSetMore(row);
+  const beforeStatusRevision = stored.revision;
+  await row.locator('select').nth(1).selectOption('completed');
+  stored = await waitForStoredRevision(page, beforeStatusRevision);
+
+  let session = stored.sessions.find(item => item.id === sessionId);
+  let exercise = session.exercises.find(item => item.exerciseId === 'chest_press_machine');
+  let set = exercise.sets.find(item => item.type === 'work');
+  assert.equal(set.status, 'completed', 'a escolha pode ser preservada como rascunho');
+  assert.equal(set.completedAt, '', 'sem o botão, a série não pode ganhar confirmação temporal');
+  assert.equal(exercise.completed, false);
+
+  // Força uma nova renderização para conferir o progresso calculado do estado
+  // persistido, e não apenas as classes antigas da linha no DOM.
+  await openTab(page, 'Hoje');
+  await openTab(page, 'Empurrar A');
+  row = page.locator('.set-row:not(.is-warmup)').first();
+  assert.doesNotMatch(await row.getAttribute('class'), /is-complete/);
+  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^0 de 17 itens · 0%$/);
+
+  await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
+  await page.locator('#app-notice').waitFor({state: 'visible'});
+  assert.match(await page.locator('#app-notice').innerText(), /itens sem status/i);
+  assert.equal(await statusPill(page).innerText(), 'Iniciado');
+
+  const beforeConfirmationRevision = stored.revision;
+  await row.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  stored = await waitForStoredRevision(page, beforeConfirmationRevision);
+  session = stored.sessions.find(item => item.id === sessionId);
+  exercise = session.exercises.find(item => item.exerciseId === 'chest_press_machine');
+  set = exercise.sets.find(item => item.type === 'work');
+  assert.match(set.completedAt, /^2026-08-10T/);
+  assert.match(await page.locator('.set-row:not(.is-warmup)').first().getAttribute('class'), /is-complete/);
+  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^1 de 17 itens · 6%$/);
+
+  assert.deepEqual(errors, []);
+});
+
+test('instalação e reinício na sexta não inventam pendências retroativas', {timeout: 120000}, async t => {
+  const friday = new Date(2026, 7, 14, 8, 0, 0);
+  assert.equal(friday.getDay(), 5, 'a data escolhida precisa ser uma sexta-feira');
+  const {page, errors} = await openApp(t, {fixedTime: friday});
+
+  let stored = await readStoredDocument(page);
+  assert.deepEqual(
+    stored.sessions.map(session => `${session.workoutId}@${session.plannedDate}`),
+    ['pull_b@2026-08-14', 'legs_b@2026-08-15'],
+    'o primeiro uso na sexta só pode planejar sexta e sábado'
+  );
+  assert.equal(stored.sessions.some(session => session.plannedDate < '2026-08-14'), false);
+  await openTab(page, 'Hoje');
+  assert.match(await page.locator('.today-card h3').innerText(), /Puxar B/);
+
+  const beforeResetRevision = stored.revision;
+  await openTab(page, 'Ciclos');
+  await page.getByRole('button', {name: 'Zerar e iniciar novo ciclo', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Arquivar e começar na semana 1', exact: true}).click();
+  stored = await waitForStoredRevision(page, beforeResetRevision);
+
+  assert.equal(stored.archives.length, 1);
+  assert.deepEqual(
+    stored.archives[0].sessions.map(session => `${session.workoutId}@${session.plannedDate}`),
+    ['pull_b@2026-08-14', 'legs_b@2026-08-15'],
+    'o arquivo deve refletir somente o que realmente existia antes do reinício'
+  );
+  assert.deepEqual(
+    stored.sessions.map(session => `${session.workoutId}@${session.plannedDate}`),
+    ['pull_b@2026-08-14', 'legs_b@2026-08-15'],
+    'reiniciar na sexta também só pode criar sexta e sábado'
+  );
+  assert.equal(stored.sessions.some(session => session.plannedDate < '2026-08-14'), false);
+
+  assert.deepEqual(errors, []);
+});
+
+test('Hoje em modo sequência abre a sessão antiga exata quando há outra ficha igual na semana nova', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: new Date(2026, 7, 10, 8, 0, 0)});
+  const firstWeek = await readStoredDocument(page);
+  const overdue = firstWeek.sessions.find(session => session.workoutId === 'push_a' && session.plannedDate === '2026-08-10');
+  assert.ok(overdue);
+
+  await page.clock.setFixedTime(new Date(2026, 7, 17, 8, 0, 0));
+  await reloadApp(page);
+  const secondWeek = await readStoredDocument(page);
+  const newer = secondWeek.sessions.find(session => session.workoutId === 'push_a' && session.plannedDate === '2026-08-17');
+  assert.ok(newer, 'a segunda semana precisa ter sua própria sessão de Empurrar A');
+  assert.notEqual(newer.id, overdue.id);
+  assert.equal(secondWeek.sessions.length, 12);
+
+  await openTab(page, 'Ajustes');
+  const beforeModeRevision = secondWeek.revision;
+  await page.locator('select[data-action="setting-mode"]').selectOption('sequence');
+  await waitForStoredRevision(page, beforeModeRevision);
+  await openTab(page, 'Hoje');
+
+  const todayCard = page.locator('.today-card');
+  assert.match(await todayCard.locator('h3').innerText(), /Empurrar A/);
+  assert.match(await todayCard.innerText(), /Pendente desde 10\/08\/2026/);
+  const openButton = todayCard.locator('button[data-action="open-workout"]');
+  assert.equal(await openButton.getAttribute('data-session-id'), overdue.id, 'o acionador deve carregar o ID da pendência mais antiga');
+  assert.notEqual(await openButton.getAttribute('data-session-id'), newer.id);
+
+  await openButton.click();
+  assert.equal(await page.locator('#tab-push_a').getAttribute('aria-selected'), 'true');
+  assert.match(await page.locator('#panel-push_a > article.card').first().locator('h3').innerText(), /10 de agosto de 2026/i);
+  assert.equal(await page.getByRole('button', {name: 'Iniciar treino', exact: true}).getAttribute('data-session-id'), overdue.id);
+
+  const untouched = await readStoredDocument(page);
+  assert.equal(untouched.sessions.find(session => session.id === newer.id).status, 'planned', 'abrir a pendência antiga não pode tocar na sessão nova');
+  assert.deepEqual(errors, []);
+});
+
+test('mudança manual de semana não reescreve pendências passadas', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: new Date(2026, 7, 10, 8, 0, 0)});
+  await page.clock.setFixedTime(new Date(2026, 7, 13, 8, 0, 0));
+  await reloadApp(page);
+  const before = await readStoredDocument(page);
+  assert.equal(before.sessions.length, 6);
+  assert.equal(before.sessions.every(session => session.week === 1), true);
+
+  await page.locator('button[data-action="cycle-week-set"][data-week="2"]').click();
+  const changed = await waitForStoredRevision(page, before.revision);
+  assert.equal(changed.cycle.currentWeek, 2);
+
+  const past = changed.sessions.filter(session => session.plannedDate < '2026-08-13');
+  const currentAndFuture = changed.sessions.filter(session => session.plannedDate >= '2026-08-13');
+  assert.deepEqual(past.map(session => session.plannedDate), ['2026-08-10', '2026-08-11', '2026-08-12']);
+  assert.equal(past.every(session => session.status === 'planned' && session.week === 1), true, 'segunda a quarta precisam preservar a prescrição original');
+  assert.deepEqual(currentAndFuture.map(session => session.plannedDate), ['2026-08-13', '2026-08-14', '2026-08-15']);
+  assert.equal(currentAndFuture.every(session => session.status === 'planned' && session.week === 2), true, 'somente hoje e o futuro vazio acompanham a semana nova');
+
+  assert.deepEqual(errors, []);
+});
+
+test('reabrir sessão não inclui o intervalo em que ela permaneceu fechada', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: new Date(2026, 7, 10, 8, 0, 0)});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  await page.clock.setFixedTime(new Date(2026, 7, 10, 9, 0, 0));
+  let before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  let stored = await waitForStoredRevision(page, before.revision);
+  const sessionId = stored.sessions.find(session => session.workoutId === 'push_a').id;
+  assert.equal(stored.sessions.find(session => session.id === sessionId).durationSeconds, 3600);
+
+  // O app fica fechado por mais de um dia. Ao reabrir, o registro deve voltar
+  // pausado e ancorado somente na duração já contabilizada.
+  await page.clock.setFixedTime(new Date(2026, 7, 11, 10, 0, 0));
+  await reloadApp(page);
+  await openTab(page, 'Empurrar A');
+  before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
+  stored = await waitForStoredRevision(page, before.revision);
+  let session = stored.sessions.find(item => item.id === sessionId);
+  assert.equal(session.status, 'paused');
+  assert.equal(session.durationSeconds, 3600);
+  assert.equal(session.pausedAt, new Date(2026, 7, 11, 10, 0, 0).toISOString());
+  assert.equal(Date.parse(session.pausedAt) - Date.parse(session.startedAt), 3600 * 1000, 'a sessão reaberta deve representar apenas a hora já acumulada');
+
+  before = stored;
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  stored = await waitForStoredRevision(page, before.revision);
+  session = stored.sessions.find(item => item.id === sessionId);
+  assert.equal(session.durationSeconds, 3600, 'finalizar sem retomar deve manter exatamente a duração anterior');
+
+  before = stored;
+  await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
+  stored = await waitForStoredRevision(page, before.revision);
+  before = stored;
+  await page.getByRole('button', {name: 'Retomar', exact: true}).click();
+  await waitForStoredRevision(page, before.revision);
+  await page.clock.setFixedTime(new Date(2026, 7, 11, 10, 30, 0));
+  before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  stored = await waitForStoredRevision(page, before.revision);
+  session = stored.sessions.find(item => item.id === sessionId);
+  assert.equal(session.durationSeconds, 5400, 'apenas os 30 minutos retomados devem ser somados');
+
+  await reloadApp(page);
+  assert.equal((await readStoredDocument(page)).sessions.find(item => item.id === sessionId).durationSeconds, 5400);
   assert.deepEqual(errors, []);
 });
 
@@ -713,6 +941,66 @@ function parseCsvRow(line) {
   cells.push(current);
   return cells;
 }
+
+test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 150000}, async t => {
+  const {page, errors} = await openApp(t);
+  const directory = scratchDir(t);
+
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  const row = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
+  await row.locator('input').nth(0).fill('62');
+  await row.locator('input').nth(1).fill('12');
+  let before = await readStoredDocument(page);
+  await row.getByRole('button', {name: 'Concluir série', exact: true}).click();
+  await waitForStoredRevision(page, before.revision);
+
+  before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  let stored = await waitForStoredRevision(page, before.revision);
+  const archivedSessionId = stored.sessions.find(session => session.workoutId === 'push_a').id;
+  assert.equal(stored.sessions.find(session => session.id === archivedSessionId).status, 'partial');
+
+  await openTab(page, 'Ciclos');
+  before = stored;
+  await page.getByRole('button', {name: 'Zerar e iniciar novo ciclo', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Arquivar e começar na semana 1', exact: true}).click();
+  stored = await waitForStoredRevision(page, before.revision);
+  assert.equal(stored.archives.length, 1);
+  assert.ok(stored.archives[0].sessions.some(session => session.id === archivedSessionId));
+  assert.equal(stored.sessions.some(session => session.id === archivedSessionId), false, 'a sessão antiga sai apenas da agenda ativa');
+
+  await openTab(page, 'Ciclos');
+  const archivedDetails = page.locator('#panel-cycles details.timeline-item').first();
+  await archivedDetails.locator('summary').click();
+  const archivedRow = archivedDetails.locator('.split-row').filter({hasText: 'Empurrar A'}).first();
+  assert.match(await archivedRow.innerText(), /10\/08\/2026/);
+  assert.match(await archivedRow.innerText(), /Parcial/);
+
+  await openTab(page, 'Evolução');
+  const comparisonSelect = page.locator('select[data-action="evolution-key"]');
+  const archivedOption = comparisonSelect.locator('option').filter({hasText: 'Supino reto na máquina'}).first();
+  assert.equal(await archivedOption.count(), 1, 'o exercício arquivado precisa continuar disponível no filtro');
+  const archivedKey = await archivedOption.getAttribute('value');
+  await comparisonSelect.selectOption(archivedKey);
+  await page.waitForTimeout(150);
+  const comparisonRows = page.locator('#panel-evolution section.card').filter({hasText: 'Sessões desta comparação'}).first();
+  assert.match(await comparisonRows.innerText(), /10\/08\/2026/);
+  assert.match(await comparisonRows.innerText(), /melhor série 62 kg × 12/);
+  assert.equal(await page.locator('#panel-evolution .chart-svg circle.chart-point').count(), 1, 'o ponto arquivado precisa alimentar o gráfico');
+
+  await openTab(page, 'Ajustes');
+  const csv = await downloadToDisk(page, directory, () => page.getByRole('button', {name: 'Exportar CSV', exact: true}).click());
+  const csvRows = csv.text.replace(/^﻿/, '').split('\r\n').filter(Boolean).slice(1).map(parseCsvRow);
+  const archivedSet = csvRows.find(cells => cells[1] === archivedSessionId && cells[7] === 'Supino reto na máquina' && cells[12] === 'work' && cells[13] === '62');
+  assert.ok(archivedSet, 'o CSV precisa conter a série da sessão arquivada');
+  assert.equal(archivedSet[14], '12');
+  assert.equal(archivedSet[16], 'completed');
+
+  assert.deepEqual(errors, []);
+});
 
 // Cria um estado com dados de todos os módulos para os testes de exportação.
 async function seedSampleData(page) {

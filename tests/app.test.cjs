@@ -3,6 +3,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {webcrypto} = require('node:crypto');
+const {TextEncoder, TextDecoder} = require('node:util');
 
 const ROOT = path.resolve(__dirname, '..');
 const MODULES = [
@@ -66,11 +68,18 @@ function boot(initialStorage = {}) {
       return createSvgNode(name);
     }
   };
+  const crypto = {
+    randomUUID: () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, '0')}`,
+    getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
+    subtle: webcrypto.subtle
+  };
   const context = vm.createContext({
     console,
     localStorage,
     document,
-    crypto: {randomUUID: () => `00000000-0000-4000-8000-${String(++uuid).padStart(12, '0')}`}
+    crypto,
+    TextEncoder,
+    TextDecoder
   });
   MODULES.forEach(file => {
     const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
@@ -89,6 +98,64 @@ function boot(initialStorage = {}) {
   };
 }
 
+function cloneIntoContext(app, value) {
+  app.context.__jsonFixture = JSON.stringify(value);
+  const cloned = app.run('JSON.parse(__jsonFixture)');
+  delete app.context.__jsonFixture;
+  return cloned;
+}
+
+function alteredBase64(value, byteIndex = 0) {
+  const bytes = Buffer.from(value, 'base64');
+  bytes[Math.min(byteIndex, bytes.length - 1)] ^= 0x01;
+  return bytes.toString('base64');
+}
+
+async function encryptedRawJson(app, plaintext, password, options = {}) {
+  const iterations = options.iterations || app.Core.PBKDF2_ITERATIONS;
+  const schemaVersion = options.schemaVersion || app.Core.SCHEMA_VERSION;
+  const salt = webcrypto.getRandomValues(new Uint8Array(16));
+  const iv = webcrypto.getRandomValues(new Uint8Array(12));
+  const saltBase64 = Buffer.from(salt).toString('base64');
+  const ivBase64 = Buffer.from(iv).toString('base64');
+  const header = {
+    app: app.Core.APP_ID,
+    format: app.Core.ENCRYPTED_FORMAT,
+    formatVersion: app.Core.ENCRYPTED_FORMAT_VERSION,
+    schemaVersion,
+    kdf: {name: 'PBKDF2', hash: 'SHA-256', iterations, salt: saltBase64},
+    cipher: {name: 'AES-GCM', length: 256, tagBits: 128, iv: ivBase64}
+  };
+  const aad = new TextEncoder().encode([
+    header.app, header.format, header.formatVersion, header.schemaVersion,
+    header.kdf.name, header.kdf.hash, header.kdf.iterations, header.kdf.salt,
+    header.cipher.name, header.cipher.length, header.cipher.tagBits, header.cipher.iv
+  ].join('|'));
+  const material = await webcrypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(password),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  const key = await webcrypto.subtle.deriveKey(
+    {name: 'PBKDF2', salt, iterations, hash: 'SHA-256'},
+    material,
+    {name: 'AES-GCM', length: 256},
+    false,
+    ['encrypt']
+  );
+  const ciphertext = await webcrypto.subtle.encrypt(
+    {name: 'AES-GCM', iv, tagLength: 128, additionalData: aad},
+    key,
+    new TextEncoder().encode(plaintext)
+  );
+  return Object.assign({}, header, {
+    createdAt: '2026-08-09T00:00:00.000Z',
+    ciphertext: Buffer.from(ciphertext).toString('base64')
+  });
+}
+
 function completedLog(app, exerciseId, week, reps, rir, status = 'completed') {
   app.context.__exerciseId = exerciseId;
   app.context.__week = week;
@@ -102,6 +169,7 @@ function completedLog(app, exerciseId, week, reps, rir, status = 'completed') {
       set.reps = String(__reps);
       set.rir = __rir;
       set.status = __status;
+      set.completedAt = '2026-08-08T12:00:00.000Z';
     });
     return THFCore.doubleProgressionRecommendation(exercise, log, __week);
   })()`);
@@ -263,6 +331,109 @@ test('progressão dupla aumenta, mantém ou pede revisão conforme repetições,
   assert.equal(app.Core.rirNumber('5+'), 5);
 });
 
+test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanecem separadas', () => {
+  const app = boot();
+  const videos = plain(app.run('THFData.VIDEOS'));
+  const accepted = Object.entries(videos).filter(([, video]) => video.status === 'accepted');
+  const approvedClasses = new Set(['technical_guide', 'objective_demo', 'visual_reference']);
+
+  assert.ok(accepted.length >= 29, 'a primeira rodada audiovisual precisa manter os candidatos efetivamente assistidos');
+  accepted.forEach(([key, video]) => {
+    assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
+    assert.equal(video.exactMatch, true, `${key}: correspondência exata`);
+    assert.match(video.youtubeId, /^[\w-]{11}$/, `${key}: ID do YouTube`);
+    assert.match(video.url, /^https:\/\/www\.youtube\.com\/watch\?v=/, `${key}: URL canônica`);
+    assert.ok(video.title && video.channel && video.duration && video.language, `${key}: metadados públicos`);
+    assert.match(video.reviewedAt, /^2026-08-09$/, `${key}: data da revisão visual`);
+    assert.equal(video.availability, 'available_external', `${key}: disponibilidade externa`);
+    assert.ok(video.positives && video.limitations && video.decision, `${key}: justificativa e limitações`);
+    assert.equal(video.embedCompatible, null, `${key}: embed só muda após teste real no app`);
+  });
+
+  const row = app.run(`THFData.CATALOG.seated_row_triangle.variants.map(item => [item.id, item.videoKey])`);
+  assert.deepEqual(plain(row), [
+    ['cable_triangle', 'seated_row_triangle'],
+    ['machine_supported', 'seated_row_supported']
+  ]);
+  const choices = app.run(`THFData.CATALOG.row_machine_choice.variants.map(item => [item.id, item.videoKey])`);
+  assert.deepEqual(plain(choices), [
+    ['seated_cable_triangle', 'seated_row_triangle'],
+    ['articulated_supported', 'row_articulated_supported'],
+    ['articulated_unsupported', 'row_articulated_unsupported']
+  ]);
+  assert.equal(videos.triceps_overhead.status, 'pending', 'equipamento não definido não pode receber vídeo genérico');
+  assert.equal(videos.vacuum.status, 'pending', 'vacuum genérico não representa as quatro posições');
+});
+
+test('confirmação explícita e snapshot histórico governam a progressão', () => {
+  const app = boot();
+  const result = app.run(`(() => {
+    const exercise = THFData.CATALOG.chest_press_machine;
+    const log = THFCore.createExerciseLog(exercise, 3);
+    log.sets.filter(set => set.type === 'work').forEach(set => {
+      set.reps = '12';
+      set.rir = '2';
+      set.status = 'completed';
+    });
+    const beforeConfirmation = THFCore.doubleProgressionRecommendation(exercise, log, 7);
+    log.sets.filter(set => set.type === 'work').forEach(set => { set.completedAt = '2026-08-08T12:00:00.000Z'; });
+    const afterConfirmation = THFCore.doubleProgressionRecommendation(exercise, log, 7);
+    return {beforeConfirmation, afterConfirmation, snapshot: log.prescriptionSnapshot};
+  })()`);
+  assert.equal(result.beforeConfirmation.code, 'review');
+  assert.match(result.beforeConfirmation.message, /confirme/);
+  assert.equal(result.afterConfirmation.code, 'increase', 'a recomendação deve usar a faixa 10–12 guardada na sessão, não a semana 7 atual');
+  assert.deepEqual(plain([result.snapshot.min, result.snapshot.max]), [10, 12]);
+  assert.equal(app.run(`THFCore.isSetConfirmed({status: 'completed', completedAt: ''})`), false);
+  assert.equal(app.run(`THFCore.isSetConfirmed({status: 'completed', completedAt: '2026-08-08T12:00:00.000Z'})`), true);
+});
+
+test('normalização rejeita limites excedidos sem truncar os registros mais novos', () => {
+  const app = boot();
+  assert.throws(
+    () => app.run(`(() => {
+      const state = THFCore.defaultState();
+      state.sessions = Array(THFCore.MAX_SESSIONS + 1).fill({});
+      return THFCore.normalizeState(state);
+    })()`),
+    /excede o limite seguro.*nada foi truncado/
+  );
+  assert.throws(
+    () => app.run(`(() => {
+      const state = THFCore.defaultState();
+      const session = THFCore.createSession('push_a', '2026-08-03', 1);
+      session.exercises[0].sets = Array.from({length: THFCore.MAX_SERIES_PER_EXERCISE + 1}, (_, index) => ({id: 'set-' + index}));
+      state.sessions = [session];
+      return THFCore.normalizeState(state);
+    })()`),
+    /excede 64 séries.*nada foi truncado/
+  );
+});
+
+test('documento atual estruturalmente corrompido é preservado na recuperação', async () => {
+  const seed = boot();
+  const corrupted = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  corrupted.sessions = 'corrompido';
+  const raw = JSON.stringify(corrupted);
+  const app = boot({treinohard_document_v11: raw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const value = await storage.readDocument();
+  assert.equal(value, null);
+  assert.match(storage.lastError, /sessions.*formato inválido/);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), raw, 'o documento original não pode ser sobrescrito durante a leitura');
+  const recovery = JSON.parse(app.store.get('treinohard_recovery_v11'));
+  assert.equal(recovery.raw, raw);
+});
+
+test('preferência de vídeo é opcional, compatível e usa abertura externa por padrão', () => {
+  const app = boot();
+  assert.equal(app.run(`THFCore.normalizeSettings({}).videoMode`), 'external');
+  assert.equal(app.run(`THFCore.normalizeSettings({videoMode: 'inline'}).videoMode`), 'inline');
+  assert.equal(app.run(`THFCore.normalizeSettings({videoMode: 'ask'}).videoMode`), 'ask');
+  assert.equal(app.run(`THFCore.normalizeSettings({videoMode: 'oauth'}).videoMode`), 'external');
+});
+
 test('chave de comparação separa variação, máquina, lado e faixa', () => {
   const app = boot();
   const base = app.Core.comparableSeriesKey('leg_curl', 'seated', 'Flexora 1', 'bilateral', '10–12');
@@ -386,6 +557,142 @@ test('migração 10 para 11 e fluxo completo produzem estado normalizado', () =>
     assert.equal(state.legacyCycles[0].records[0].canonicalId, 'pulldown_neutral', key);
     assert.equal(state.migrationLog.some(item => item.from === 10 && item.to === 11), true, key);
   });
+});
+
+test('backup criptografado usa Web Crypto, não vaza conteúdo e faz ida e volta completa', async () => {
+  const app = boot();
+  const password = 'senha-muito-segura-2026';
+  const state = app.run(`(() => {
+    const value = THFCore.defaultState('2026-08-09T00:00:00.000Z');
+    const session = THFCore.createSession('push_a', '2026-08-10', 3);
+    session.note = 'conteúdo privado que não pode aparecer em claro';
+    value.sessions = [session];
+    return value;
+  })()`);
+
+  const first = await app.Core.encryptBackup(state, password);
+  const second = await app.Core.encryptBackup(state, password);
+  const serialized = JSON.stringify(first);
+
+  assert.equal(first.app, app.Core.APP_ID);
+  assert.equal(first.format, app.Core.ENCRYPTED_FORMAT);
+  assert.equal(first.formatVersion, app.Core.ENCRYPTED_FORMAT_VERSION);
+  assert.equal(first.schemaVersion, app.Core.SCHEMA_VERSION);
+  assert.deepEqual(plain(first.kdf), {
+    name: 'PBKDF2',
+    hash: 'SHA-256',
+    iterations: 600000,
+    salt: first.kdf.salt
+  });
+  assert.deepEqual(plain(first.cipher), {
+    name: 'AES-GCM',
+    length: 256,
+    tagBits: 128,
+    iv: first.cipher.iv
+  });
+  assert.equal(Buffer.from(first.kdf.salt, 'base64').length, 16);
+  assert.equal(Buffer.from(first.cipher.iv, 'base64').length, 12);
+  assert.equal(serialized.includes(password), false, 'a senha nunca pode entrar no envelope');
+  assert.equal(serialized.includes('conteúdo privado'), false, 'o conteúdo do backup não pode ficar em claro');
+  assert.notEqual(second.kdf.salt, first.kdf.salt, 'cada exportação precisa de salt novo');
+  assert.notEqual(second.cipher.iv, first.cipher.iv, 'cada exportação precisa de IV novo');
+  assert.notEqual(second.ciphertext, first.ciphertext, 'duas exportações não podem repetir o ciphertext');
+
+  const decrypted = await app.Core.decryptBackup(first, password);
+  assert.equal(decrypted.format, 'treino-hard-backup');
+  assert.equal(decrypted.schemaVersion, app.Core.SCHEMA_VERSION);
+  assert.deepEqual(plain(decrypted.state), plain(app.Core.normalizeState(state)));
+});
+
+test('backup criptografado rejeita senha errada, ciphertext, IV, salt e truncamento', async () => {
+  const app = boot();
+  const password = 'senha-muito-segura-2026';
+  const envelope = await app.Core.encryptBackup(app.Core.defaultState('2026-08-09T00:00:00.000Z'), password);
+  const source = plain(envelope);
+  const cases = [
+    ['ciphertext adulterado', Object.assign({}, source, {ciphertext: alteredBase64(source.ciphertext, 7)})],
+    ['IV alterado', Object.assign({}, source, {cipher: Object.assign({}, source.cipher, {iv: alteredBase64(source.cipher.iv)})})],
+    ['salt alterado', Object.assign({}, source, {kdf: Object.assign({}, source.kdf, {salt: alteredBase64(source.kdf.salt)})})],
+    ['ciphertext truncado', Object.assign({}, source, {ciphertext: source.ciphertext.slice(0, -4)})],
+    ['iterações adulteradas', Object.assign({}, source, {kdf: Object.assign({}, source.kdf, {iterations: source.kdf.iterations + 1})})]
+  ];
+
+  await assert.rejects(
+    () => app.Core.decryptBackup(envelope, 'senha-incorreta-2026'),
+    /Senha incorreta ou arquivo adulterado/
+  );
+  for (const [label, candidate] of cases) {
+    await assert.rejects(
+      () => app.Core.decryptBackup(cloneIntoContext(app, candidate), password),
+      /Senha incorreta ou arquivo adulterado/,
+      label
+    );
+  }
+});
+
+test('JSON interno inválido falha após autenticação e esquema futuro segue para a validação normal', async () => {
+  const app = boot();
+  const password = 'senha-muito-segura-2026';
+  const malformed = await encryptedRawJson(app, '{"app":"treino-hard-fofo",', password);
+  await assert.rejects(
+    () => app.Core.decryptBackup(cloneIntoContext(app, malformed), password),
+    /conteúdo interno.*não é JSON válido/i
+  );
+
+  const futureDocument = {
+    app: app.Core.APP_ID,
+    format: 'treino-hard-backup',
+    schemaVersion: 99,
+    exportedAt: '2026-08-09T00:00:00.000Z',
+    state: {app: app.Core.APP_ID, schemaVersion: 99}
+  };
+  const futureEnvelope = await encryptedRawJson(app, JSON.stringify(futureDocument), password);
+  const decrypted = await app.Core.decryptBackup(cloneIntoContext(app, futureEnvelope), password);
+  assert.equal(decrypted.schemaVersion, 99, 'a criptografia não deve normalizar nem rebaixar o esquema interno');
+  assert.throws(
+    () => app.Core.importPreview(decrypted),
+    /versão mais nova/,
+    'a mesma validação do JSON comum deve recusar o esquema futuro depois da descriptografia'
+  );
+});
+
+test('backup v1 anterior com 310 mil iterações continua compatível', async () => {
+  const app = boot();
+  const password = 'senha-muito-segura-2026';
+  const normalBackup = plain(app.Core.buildBackup(app.Core.defaultState('2026-08-08T00:00:00.000Z')));
+  const legacyEnvelope = await encryptedRawJson(app, JSON.stringify(normalBackup), password, {iterations: 310000});
+  const decrypted = await app.Core.decryptBackup(cloneIntoContext(app, legacyEnvelope), password);
+
+  assert.equal(legacyEnvelope.kdf.iterations, 310000);
+  assert.equal(decrypted.schemaVersion, app.Core.SCHEMA_VERSION);
+  assert.equal(decrypted.state.createdAt, '2026-08-08T00:00:00.000Z');
+});
+
+test('AAD autentica e valida todos os metadados externos do envelope v1', async () => {
+  const app = boot();
+  const password = 'senha-muito-segura-2026';
+  const envelope = plain(await app.Core.encryptBackup(app.Core.defaultState(), password));
+  const alteredHeaders = [
+    ['aplicativo', Object.assign({}, envelope, {app: 'outro-aplicativo'}), /não pertence/],
+    ['formato', Object.assign({}, envelope, {format: 'outro-formato'}), /formato.*não é reconhecido/i],
+    ['versão do formato', Object.assign({}, envelope, {formatVersion: 2}), /versão do formato.*não é suportada/i],
+    ['esquema externo', Object.assign({}, envelope, {schemaVersion: 99}), /esquema externo.*não é suportado/i],
+    ['KDF', Object.assign({}, envelope, {kdf: Object.assign({}, envelope.kdf, {name: 'scrypt'})}), /derivação.*não suportada/i],
+    ['hash', Object.assign({}, envelope, {kdf: Object.assign({}, envelope.kdf, {hash: 'SHA-1'})}), /derivação.*não suportada/i],
+    ['tipo das iterações', Object.assign({}, envelope, {kdf: Object.assign({}, envelope.kdf, {iterations: String(envelope.kdf.iterations)})}), /iterações.*fora do intervalo/i],
+    ['tipo do salt', Object.assign({}, envelope, {kdf: Object.assign({}, envelope.kdf, {salt: 123})}), /salt.*codificação inválida/i],
+    ['cifra', Object.assign({}, envelope, {cipher: Object.assign({}, envelope.cipher, {name: 'AES-CBC'})}), /cifra não suportada/i],
+    ['comprimento da chave', Object.assign({}, envelope, {cipher: Object.assign({}, envelope.cipher, {length: 128})}), /comprimento.*não suportado/i],
+    ['tag', Object.assign({}, envelope, {cipher: Object.assign({}, envelope.cipher, {tagBits: 96})}), /tag.*não suportado/i],
+    ['tipo do IV', Object.assign({}, envelope, {cipher: Object.assign({}, envelope.cipher, {iv: 123})}), /vetor de inicialização.*codificação inválida/i]
+  ];
+  for (const [label, candidate, message] of alteredHeaders) {
+    await assert.rejects(
+      () => app.Core.decryptBackup(cloneIntoContext(app, candidate), password),
+      message,
+      label
+    );
+  }
 });
 
 test('schemas futuros são rejeitados sem sobrescrever o documento local', async () => {

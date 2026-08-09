@@ -132,7 +132,11 @@
           if (!database.objectStoreNames.contains(BACKUP_STORE)) database.createObjectStore(BACKUP_STORE, {keyPath: 'id'});
           if (!database.objectStoreNames.contains(RECOVERY_STORE)) database.createObjectStore(RECOVERY_STORE, {keyPath: 'id'});
         };
-        request.onsuccess = () => resolve(request.result);
+        request.onsuccess = () => {
+          const database = request.result;
+          database.onversionchange = () => database.close();
+          resolve(database);
+        };
         request.onerror = () => reject(request.error || new Error('Não foi possível abrir o banco local.'));
         request.onblocked = () => reject(new Error('A atualização do banco foi bloqueada por outra aba.'));
       });
@@ -151,30 +155,41 @@
     }
 
     async readDocument() {
+      let rawDocument = '';
       try {
         if (this.mode === 'indexeddb') {
           const transaction = this.db.transaction(DOCUMENT_STORE, 'readonly');
           const result = await requestPromise(transaction.objectStore(DOCUMENT_STORE).get(DOCUMENT_KEY));
+          rawDocument = result ? JSON.stringify(result) : '';
           if (result && Number(result.schemaVersion) > Core.SCHEMA_VERSION) {
             this.writeBlocked = true;
             throw new Error('Documento local criado por versão futura; o aplicativo entrou em modo somente leitura e não gravou nada.');
           }
-          return result ? Core.normalizeState(result) : null;
+          if (!result) return null;
+          if (Number(result.schemaVersion) < Core.SCHEMA_VERSION) return Core.migratePayload(result);
+          Core.assertCurrentStateStructure(result);
+          return Core.normalizeState(result);
         }
         if (this.mode === 'localstorage') {
           const text = localStorage.getItem(FALLBACK_KEY);
           if (!text) return null;
+          rawDocument = text;
           const parsed = JSON.parse(text);
           if (Number(parsed.schemaVersion) > Core.SCHEMA_VERSION) {
             this.writeBlocked = true;
             throw new Error('Documento local criado por versão futura; o aplicativo entrou em modo somente leitura e não gravou nada.');
           }
+          if (Number(parsed.schemaVersion) < Core.SCHEMA_VERSION) return Core.migratePayload(parsed);
+          Core.assertCurrentStateStructure(parsed);
           return Core.normalizeState(parsed);
         }
-        return this.memory ? Core.normalizeState(this.memory) : null;
+        if (!this.memory) return null;
+        rawDocument = JSON.stringify(this.memory);
+        Core.assertCurrentStateStructure(this.memory);
+        return Core.normalizeState(this.memory);
       } catch (error) {
         this.lastError = error.message || String(error);
-        if (!this.writeBlocked) await this.saveRecovery({id: Core.uid('corrupt'), savedAt: new Date().toISOString(), reason: this.lastError, raw: this.rawCurrentDocument()});
+        if (!this.writeBlocked) await this.saveRecovery({id: Core.uid('corrupt'), savedAt: new Date().toISOString(), reason: this.lastError, raw: rawDocument || this.rawCurrentDocument()});
         return null;
       }
     }
@@ -245,6 +260,7 @@
         const transaction = this.db.transaction(SNAPSHOT_STORE, 'readwrite');
         transaction.objectStore(SNAPSHOT_STORE).put(snapshot);
         await transactionPromise(transaction);
+        await this.trimSnapshots();
       } else if (this.mode === 'localstorage') {
         localStorage.setItem(FALLBACK_SNAPSHOT_KEY, JSON.stringify(snapshot));
       } else {
@@ -261,6 +277,16 @@
       }
       if (this.mode === 'localstorage') return parseJson(localStorage.getItem(FALLBACK_SNAPSHOT_KEY), null);
       return this.memorySnapshot || null;
+    }
+
+    async trimSnapshots() {
+      if (this.mode !== 'indexeddb') return;
+      const transaction = this.db.transaction(SNAPSHOT_STORE, 'readwrite');
+      const store = transaction.objectStore(SNAPSHOT_STORE);
+      const all = await requestPromise(store.getAll());
+      const ordered = all.sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt)) || String(b.id).localeCompare(String(a.id)));
+      ordered.slice(10).forEach(item => store.delete(item.id));
+      await transactionPromise(transaction);
     }
 
     async restoreLatestSnapshot(currentState) {
