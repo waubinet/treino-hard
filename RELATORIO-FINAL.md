@@ -2,9 +2,11 @@
 
 ## Estado
 
-**Versão 3.5.1 integralmente validada localmente em 2026-08-31.** Esquema de
-dados **12** e cache `treino-hard-v3.5.1`. A confirmação do commit funcional no
-GitHub Pages e o smoke público serão acrescentados depois da publicação.
+**Versão 3.5.1 integralmente validada e publicada em 2026-08-31.** Esquema de
+dados **12**, cache `treino-hard-v3.5.1` e commit funcional
+`6834706a33236ecedacb27524aad204ed238ad74`. O GitHub Pages confirmou o commit
+com status `built`; o smoke público reproduziu a migração 11 → 12, preservou as
+sessões e terminou em “Salvo neste aparelho”, com zero erros de console/página.
 
 ## Resultado da rodada
 
@@ -43,7 +45,7 @@ GitHub Pages e o smoke público serão acrescentados depois da publicação.
 - Chrome/Playwright: **52/52** cenários aprovados em uma única execução final,
   **0 falhas**, exit code 0, em **674.259,166 ms**;
 - erros de console/página aceitos: **0**;
-- GitHub Pages: pendente até a publicação desta candidata;
+- GitHub Pages: commit funcional exato confirmado e smoke público aprovado;
 - detalhes completos: `TESTES.md`;
 - pendências honestas: `PENDENCIAS.md`.
 

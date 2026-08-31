@@ -1,8 +1,9 @@
 # Pendências reais
 
-Atualizado em **2026-08-31**. Candidata **3.5.1**, esquema **12**, validada
-localmente. A confirmação do commit público e do smoke no GitHub Pages será
-registrada após a publicação.
+Atualizado em **2026-08-31**. Versão **3.5.1**, esquema **12**, publicada em
+`https://waubinet.github.io/treino-hard/`. O commit funcional
+`6834706a33236ecedacb27524aad204ed238ad74` recebeu status `built` no GitHub
+Pages e passou no smoke público, incluindo a reprodução da migração 11 → 12.
 
 A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
 travada pelos testes de conformidade.

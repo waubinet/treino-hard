@@ -2,10 +2,10 @@
 
 ## Estado da versão 3.5.1
 
-Validado localmente em **2026-08-31**, esquema persistido **12**, cache
-`treino-hard-v3.5.1`. A evidência pública será preenchida depois que o commit
-funcional for integrado em `main`, publicado pelo GitHub Pages e testado com
-cache-busting.
+Validado localmente e publicado em **2026-08-31**, esquema persistido **12**,
+cache `treino-hard-v3.5.1`. O commit funcional
+`6834706a33236ecedacb27524aad204ed238ad74` foi integrado em `main`, recebeu
+status `built` no GitHub Pages e passou no smoke público com cache-busting.
 
 Resultados do gate local:
 
@@ -18,7 +18,10 @@ Resultados do gate local:
   em Google Chrome real via Playwright, **0 falhas**, exit code 0;
 - suíte completa de navegador: **674.259,166 ms**;
 - erros de console/página aceitos: **0**;
-- smoke público: **pendente até a publicação desta candidata**.
+- URL pública: **HTTP 200**, estado “Salvo neste aparelho”, versão 3.5.1,
+  esquema 12, cache `treino-hard-v3.5.1` e **0 erros** no Chrome. O smoke
+  rebaixou temporariamente um documento fictício para o esquema 11 e comprovou
+  revisão avançada e sessões preservadas após o reload.
 
 ## Ambiente e comandos
 
@@ -30,7 +33,7 @@ Resultados do gate local:
 | dados | IndexedDB; testes explícitos de `localStorage` e somente leitura |
 | branch validada | `codex/3.5.1-mobile-migration` |
 | commit-base | `a1f7d07b1a74c732b2c6e3007cddafc3833e2060` |
-| commit funcional publicado | pendente |
+| commit funcional publicado | `6834706a33236ecedacb27524aad204ed238ad74` |
 | URL pública | `https://waubinet.github.io/treino-hard/` |
 
 ```powershell
