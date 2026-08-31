@@ -2,9 +2,12 @@
 
 ## Estado
 
-**Versão 3.5.0 integralmente validada localmente em 2026-08-31.** Esquema de
-dados **12** e cache `treino-hard-v3.5.0`. A confirmação do commit funcional no
-GitHub Pages e o smoke público serão acrescentados depois da publicação.
+**Versão 3.5.0 integralmente validada e publicada em 2026-08-31.** Esquema de
+dados **12**, cache `treino-hard-v3.5.0` e commit funcional
+`9224b2d0299962fd6a340679e74918b6a2103935`. O GitHub Pages confirmou esse
+commit com status `built`; a URL pública passou no Chrome com HTTP 200, 13 abas,
+estado de salvamento ativo, versão/esquema/cache corretos e zero erros de
+console ou página.
 
 ## Resultado da rodada
 
@@ -38,6 +41,7 @@ GitHub Pages e o smoke público serão acrescentados depois da publicação.
 - Chrome/Playwright: **51/51** cenários aprovados em uma única execução final,
   **0 falhas**, exit code 0, em **617.727,4458 ms**;
 - erros de console/página aceitos: **0**;
+- GitHub Pages: commit funcional exato confirmado e smoke público aprovado;
 - detalhes completos: `TESTES.md`;
 - pendências honestas: `PENDENCIAS.md`.
 
