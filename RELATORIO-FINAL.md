@@ -1,64 +1,49 @@
-# Relatório final — Treino Hard (Fofo) 3.4.0
+# Relatório final — Treino Hard (Fofo) 3.5.0
 
 ## Estado
 
-**Versão 3.4.0 integralmente validada e publicada em 2026-08-30.** Esquema de
-dados **11**, cache `treino-hard-v3.4.0` e commit funcional
-`e597944e25002f6942269f3a6f22afa19c3242f8`. O GitHub Pages confirmou esse commit
-com status `built`; a URL pública passou no Chrome com HTTP 200, 13 abas, estado
-de salvamento ativo, versão/esquema corretos e zero erros de console ou página.
+**Versão 3.5.0 integralmente validada localmente em 2026-08-31.** Esquema de
+dados **12** e cache `treino-hard-v3.5.0`. A confirmação do commit funcional no
+GitHub Pages e o smoke público serão acrescentados depois da publicação.
 
-## Resultado da auditoria
+## Resultado da rodada
 
-A revisão fechou os riscos de integridade, persistência, concorrência e uso real
-que ainda estavam abertos na 3.4.0:
-
-- documentos atuais, snapshots, backups e coleções auxiliares passam por
-  validação profunda antes de substituir dados; conteúdo corrompido é preservado
-  como recuperação e, se isso não for possível, o app bloqueia novas escritas;
-- IndexedDB usa revisão exata; o fallback local usa staging, Web Lock e diário de
-  transação. Sem Web Locks ou sem persistência durável, o app permanece somente
-  leitura e nunca apresenta memória como salvamento;
-- IDs duplicados, sessões fora da ficha canônica, campos inesperados, textos que
-  exigiriam truncamento, prototype pollution e esquemas futuros são recusados;
-- sessões arquivadas continuam em histórico, evolução, CSV, herança de máquina e
-  feedback. A tela Hoje e o modo sequência selecionam apenas sessões correntes;
-- finalizar uma sessão fecha corretamente a pausa aberta; cliques repetidos não
-  duplicam finalização ou decisões de progressão;
-- digitar carga e repetições rapidamente não remonta o DOM nem concatena valores;
-  foco semântico, rolagem e blocos “Mais” abertos sobrevivem a remontagens;
-- o resumo de encerramento é aguardado pelo estado real da interface, e avisos
-  secundários da PWA não substituem erros críticos de armazenamento;
-- o service worker busca assets de forma coerente, avisa falhas, pede confirmação
-  antes de atualizar e preserva os dados durante a troca de cache;
-- placeholders, textos pequenos, safe areas e rodapé foram ajustados para
-  contraste, texto ampliado e dispositivos móveis;
-- somente vídeos em português do Brasil, de criador/canal brasileiro e com
-  proveniência verificada podem aparecer como aprovados. O catálogo atual tem
-  **41 entradas: 10 aprovadas, 31 pendentes e 0 rejeitadas**.
+- O degrau real pode ser configurado por exercício, variação e máquina nos
+  detalhes do exercício, consultado/removido em Ajustes e é preservado no novo
+  esquema 12. Os dois lados do mesmo aparelho compartilham o valor.
+- A recomendação de progressão usa esse degrau somente para chegar a uma carga
+  disponível; nenhuma carga é alterada automaticamente.
+- Evolução mostra séries diretas confirmadas por grupo muscular contra a ficha
+  planejada e mantém participações secundárias explicitamente separadas.
+- Exercícios unilaterais não duplicam volume: dois lados formam uma série
+  corporal equivalente e um único lado confirmado pode aparecer como fração.
+- O gráfico reúne faixas diferentes da periodização na mesma linha quando
+  exercício, variação, máquina e lado são iguais. A faixa permanece visível em
+  cada ponto e continua fazendo parte da comparação estrita da progressão.
+- Migração 11 → 12, validação profunda e deduplicação preservam os documentos
+  anteriores e recusam configurações inválidas ou excessivas.
 
 ## O que não foi alterado
 
 - ficha canônica, ordem dos seis treinos, número de séries e periodização;
-- esquema persistido 11 — nenhuma migração 12 foi introduzida;
-- progressão continua sendo recomendação; o app não altera carga sozinho;
-- vídeos pendentes não são apresentados como recomendação;
-- o app continua estático, local, sem conta e sem servidor de dados.
+- vídeos e seus estados de curadoria;
+- progressão como recomendação, nunca como alteração automática de carga;
+- arquitetura estática e local, sem conta e sem servidor de dados.
 
-## Evidência técnica
+## Evidência técnica local
 
 - sintaxe JavaScript e manifesto: aprovados;
 - `git diff --check`: aprovado;
-- núcleo: **78/78** testes aprovados;
-- Chrome/Playwright: **50/50** cenários aprovados em uma única execução,
-  **0 falhas**, exit code 0;
-- GitHub Pages: commit funcional exato confirmado e smoke público aprovado;
+- núcleo: **81/81** testes aprovados;
+- Chrome/Playwright: **51/51** cenários aprovados em uma única execução final,
+  **0 falhas**, exit code 0, em **617.727,4458 ms**;
+- erros de console/página aceitos: **0**;
 - detalhes completos: `TESTES.md`;
 - pendências honestas: `PENDENCIAS.md`.
 
 ## Pendências não bloqueantes
 
-Faltam leitor de tela real, instalação pelo prompt nativo, importação de um
-backup real após cópia externa e decisões futuras sobre degraus configuráveis e
-volume por músculo. Nenhuma dessas lacunas foi promovida artificialmente a
+Faltam leitor de tela real, instalação pelo prompt nativo e importação de um
+backup real do usuário após cópia externa. A revisão futura do mapa muscular é
+necessária se a ficha canônica mudar. Nenhuma dessas lacunas foi promovida a
 “aprovada”.

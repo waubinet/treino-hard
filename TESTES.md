@@ -1,11 +1,11 @@
 # Plano e evidências de teste
 
-## Estado da versão 3.4.0
+## Estado da versão 3.5.0
 
-Validado localmente e publicado em **2026-08-30**, esquema persistido **11**,
-cache `treino-hard-v3.4.0`. O commit funcional
-`e597944e25002f6942269f3a6f22afa19c3242f8` foi integrado em `main`, recebeu
-status `built` no GitHub Pages e passou no smoke público com cache-busting.
+Validado localmente em **2026-08-31**, esquema persistido **12**, cache
+`treino-hard-v3.5.0`. A evidência pública será preenchida depois que o commit
+funcional for integrado em `main`, publicado pelo GitHub Pages e testado com
+cache-busting.
 
 Resultados do gate local:
 
@@ -13,13 +13,12 @@ Resultados do gate local:
   `js/measurements.js`, `js/app.js`, `sw.js` e do teste de navegador: **aprovada**;
 - `manifest.webmanifest`: **JSON válido**;
 - `git diff --check`: **aprovado**, sem erro de whitespace;
-- `node --test --test-reporter=tap tests/app.test.cjs`: **78/78 aprovados**;
-- `node --test --test-reporter=tap tests/browser.test.cjs`: **50/50 aprovados**
+- `node --test tests/app.test.cjs`: **81/81 aprovados**;
+- `node --test tests/browser.test.cjs`: **51/51 aprovados**
   em Google Chrome real via Playwright, **0 falhas**, exit code 0;
-- suíte completa de navegador: **831.593,5065 ms**;
+- suíte completa de navegador: **617.727,4458 ms**;
 - erros de console/página aceitos: **0**;
-- URL pública: **HTTP 200**, 13 abas, estado “Salvo neste aparelho”, versão
-  3.4.0/esquema 11 no rodapé e **0 erros** no Chrome.
+- smoke público: **pendente até a publicação desta candidata**.
 
 ## Ambiente e comandos
 
@@ -29,9 +28,9 @@ Resultados do gate local:
 | navegador | Google Chrome local controlado pelo Playwright |
 | app | estático, servido em `127.0.0.1` por porta efêmera |
 | dados | IndexedDB; testes explícitos de `localStorage` e somente leitura |
-| branch validada | `codex/3.4-integrity` |
-| commit-base | `e2a5ef0ab0c6dc6d9785504c32da9edeb637a043` |
-| commit funcional publicado | `e597944e25002f6942269f3a6f22afa19c3242f8` |
+| branch validada | `codex/3.5-training-insights` |
+| commit-base | `324963d317a8efa6a6145bea08d291b8dff2f6da` |
+| commit funcional publicado | pendente |
 | URL pública | `https://waubinet.github.io/treino-hard/` |
 
 ```powershell
@@ -42,7 +41,7 @@ node --check js\measurements.js
 node --check js\app.js
 node --check sw.js
 node --test --test-reporter=tap tests\app.test.cjs
-$env:NODE_PATH = 'C:\Users\waubi\AppData\Local\npm-cache\_npx\e41f203b7505f1fb\node_modules'
+$env:NODE_PATH = 'C:\Users\waubi\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules'
 node --test --test-reporter=tap tests\browser.test.cjs
 ```
 
@@ -52,20 +51,22 @@ casos offline/PWA, reduzindo acúmulo de sockets sem retirar a cobertura real.
 
 ## Cobertura comprovada
 
-Os 78 testes de núcleo cobrem catálogo e ficha canônica, periodização,
+Os 81 testes de núcleo cobrem catálogo e ficha canônica, periodização,
 progressão dupla, comparabilidade por máquina/variação/lado/faixa, migrações,
 limites sem truncamento silencioso, IDs únicos, documentos corrompidos,
 recuperação, staging, concorrência, snapshots, backups, criptografia,
-prototype pollution, CSV, medidas, silhueta e inventário brasileiro de vídeos.
+prototype pollution, CSV, medidas, silhueta, inventário brasileiro de vídeos,
+degrau configurável por aparelho e volume direto/secundário por músculo.
 
-Os 50 cenários em Chrome cobrem:
+Os 51 cenários em Chrome cobrem:
 
 - início, pausa, retomada, finalização parcial/completa, reabertura, cancelamento
   e remarcação, incluindo duração e pausa acumulada;
 - modos calendário e sequência, semanas, deload, arquivamento e continuidade;
 - carga, repetições, RIR, confirmação explícita, status, foco, rolagem,
-  descanso, desfazer, histórico por máquina e séries adversas;
-- caminhada, vacuum, medidas bilaterais, ciclos, evolução, JSON, CSV,
+  descanso, desfazer, histórico por máquina, degrau personalizado e séries adversas;
+- caminhada, vacuum, medidas bilaterais, ciclos, volume muscular, evolução sem
+  fragmentação por faixa, JSON, CSV,
   snapshots, backups comuns e criptografados;
 - corrupção, importação hostil, esquema futuro, duas abas, queda de IndexedDB,
   falha de quota e ausência total de persistência em modo somente leitura;

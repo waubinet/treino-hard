@@ -1,9 +1,8 @@
 # Pendências reais
 
-Atualizado em **2026-08-30**. Versão **3.4.0**, esquema **11**, publicada em
-`https://waubinet.github.io/treino-hard/`. O commit funcional
-`e597944e25002f6942269f3a6f22afa19c3242f8` recebeu status `built` no GitHub
-Pages e passou no smoke público em Chrome.
+Atualizado em **2026-08-31**. Candidata **3.5.0**, esquema **12**, validada
+localmente. A confirmação do commit público e do smoke no GitHub Pages será
+registrada após a publicação.
 
 A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
 travada pelos testes de conformidade.
@@ -42,19 +41,11 @@ demonstração e conferir exercício, equipamento, pegada, posição, trajetóri
 amplitude e lateralidade — e isso não foi feito aqui. Nenhum item foi promovido a
 `accepted` por título, canal ou miniatura.
 
-## Treino e progressão
+## Evolução e volume
 
-- [ ] **Degrau de carga por aparelho é presumido, não configurável.** `loadStep`
-      vive no catálogo (5 kg em máquinas e polias, 2 kg em halteres, 2,5 kg na
-      barra W) e não pode ser corrigido pelo usuário quando a academia usa outro
-      valor — um leg press de anilhas de 20 kg, por exemplo. Tornar editável por
-      máquina exige campo persistido e, portanto, esquema 12.
-- [ ] **Volume por músculo não existe.** Nenhum exercício do catálogo declara
-      músculos primários e secundários, então não há como somar volume direto
-      nem fracionado. É o próximo lote de análise e precisa de auditoria
-      exercício por exercício antes de qualquer número aparecer na tela.
-- [ ] Evolução e ciclos ainda agrupam as séries pela chave que inclui a faixa;
-      os gráficos herdam a fragmentação que a tela do treino já não tem.
+- [ ] Revisar futuramente o mapa de músculos primários/secundários se a ficha
+      canônica mudar. A versão 3.5.0 exibe participação secundária separada e não
+      afirma equivalência biológica com série direta.
 
 ## Acessibilidade
 

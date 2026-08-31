@@ -1089,7 +1089,11 @@
   function renderStrengthExercise(session, workoutExercise, logs, order) {
     const exerciseLog = activeSideLog(session, logs);
     const snapshot = exerciseLog.prescriptionSnapshot;
-    const recommendation = Core.doubleProgressionRecommendation(workoutExercise, exerciseLog, session.week);
+    const configuredStep = Core.configuredLoadStep(state.settings, workoutExercise, exerciseLog);
+    const loadStepKey = Core.equipmentLoadStepKey(workoutExercise.id, exerciseLog.variationId, exerciseLog.machineId);
+    const customLoadStep = state.settings.equipmentLoadSteps.find(item =>
+      Core.equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId) === loadStepKey);
+    const recommendation = Core.doubleProgressionRecommendation(workoutExercise, exerciseLog, session.week, configuredStep);
     const previous = previousComparablePerformance(session, exerciseLog);
     const variants = Array.isArray(workoutExercise.variants) ? workoutExercise.variants : [];
     const warmupSets = exerciseLog.sets.filter(set => set.type === 'warmup');
@@ -1188,6 +1192,12 @@
         element('summary', {text: 'Detalhes do exercício'}),
         element('div', {className: 'details-body'}, [
           field('Identificação da máquina', element('input', {className: 'input', attrs: {type: 'text', maxlength: '80', placeholder: 'Ex.: articulada 2'}, props: {value: exerciseLog.machineId}, dataset: {action: 'exercise-field', field: 'machineId', sessionId: session.id, exerciseId: exerciseLog.id}}), 'field full', 'Use um nome estável para não misturar máquinas.'),
+          field('Degrau de carga desta configuração (kg)', element('input', {
+            className: 'input',
+            attrs: {type: 'number', inputmode: 'decimal', min: '0.01', max: '1000', step: '0.01', placeholder: `Padrão: ${Core.formatLoad(workoutExercise.loadStep)} kg`},
+            props: {value: customLoadStep ? String(customLoadStep.step) : ''},
+            dataset: {action: 'equipment-load-step', sessionId: session.id, exerciseId: exerciseLog.id}
+          }), 'field full', `Atual: ${Core.formatLoad(configuredStep)} kg. Deixe vazio para usar a presunção do catálogo; a sugestão nunca altera sua carga automaticamente.`),
           workoutExercise.allowHighReps ? element('label', {className: 'check-field'}, [element('input', {attrs: {type: 'checkbox'}, props: {checked: exerciseLog.highRepPreference}, dataset: {action: 'high-rep-toggle', sessionId: session.id, exerciseId: exerciseLog.id}}), element('span', {text: 'Preferir faixa leve de 12–20 repetições quando aplicável'})]) : null,
           workoutExercise.bracing ? element('p', {className: 'notes-p', text: Data.BRACING_TEXT}) : null,
           previous && previous.decision ? element('p', {className: 'notes-p', text: `Recomendação registrada: ${previous.decision.message}`}) : null
@@ -1347,8 +1357,9 @@
         if (!exercise || exercise.type !== 'strength') return;
         const snapshot = log.prescriptionSnapshot;
         const range = snapshot && snapshot.min ? `${snapshot.min}-${snapshot.max}` : 'range-unspecified';
-        const key = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
-        if (!groups.has(key)) groups.set(key, {key, exercise, variationId: log.variationId, machineId: log.machineId, side: log.side, range, points: []});
+        const key = Core.loadHistoryKey(log.exerciseId, log.variationId, log.machineId, log.side);
+        if (!groups.has(key)) groups.set(key, {key, exercise, variationId: log.variationId, machineId: log.machineId, side: log.side, ranges: new Set(), points: []});
+        groups.get(key).ranges.add(range);
         const workSets = log.sets.filter(set => set.type === 'work');
         const completed = workSets.filter(set => set.status === 'completed' && set.reps && Core.isSetConfirmed(set));
         if (!workSets.length) return;
@@ -1360,6 +1371,7 @@
           sessionId: session.id,
           workout: workout.label,
           week: session.week,
+          range,
           maxLoad: loads.length ? Math.max(...loads) : null,
           volume: completed.length ? completed.reduce((sum, set) => sum + (Number(set.load) || 0) * (Number(set.reps) || 0), 0) : null,
           reps: reps.length ? Math.max(...reps) : null,
@@ -1371,7 +1383,7 @@
     });
     return [...groups.values()].map(group => {
       const variant = group.exercise.variants.find(item => item.id === group.variationId);
-      group.label = `${group.exercise.name} · ${variant ? variant.label : group.variationId || 'variação padrão'} · ${group.machineId || 'máquina não identificada'} · ${group.side === 'bilateral' ? 'bilateral' : group.side} · ${group.range} rep.`;
+      group.label = `${group.exercise.name} · ${variant ? variant.label : group.variationId || 'variação padrão'} · ${group.machineId || 'máquina não identificada'} · ${group.side === 'bilateral' ? 'bilateral' : group.side}`;
       group.points.sort((a, b) => a.date.localeCompare(b.date));
       return group;
     }).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
@@ -1502,7 +1514,7 @@
     coords.forEach(item => {
       const circle = svgNode('circle', {cx: item.x, cy: item.y, r: 5, class: 'chart-point', tabindex: '0'});
       circle.appendChild(svgNode('title'));
-      circle.firstChild.textContent = `${formatDate(item.point.date)}: ${Number(item.point[metric]).toLocaleString('pt-BR', {maximumFractionDigits: 2})}`;
+      circle.firstChild.textContent = `${formatDate(item.point.date)} · faixa ${item.point.range} rep.: ${Number(item.point[metric]).toLocaleString('pt-BR', {maximumFractionDigits: 2})}`;
       svg.appendChild(circle);
     });
     const minLabel = svgNode('text', {x: 4, y: height - padding + 4, class: 'chart-label'});
@@ -1513,24 +1525,61 @@
     return svg;
   }
 
+  function formatSetCount(value) {
+    return Number(value || 0).toLocaleString('pt-BR', {maximumFractionDigits: 2});
+  }
+
+  function renderMuscleVolumeCard() {
+    const week = state.cycle.currentWeek;
+    const planned = Core.plannedMuscleVolume(week);
+    const recorded = Core.recordedMuscleVolume(state.sessions, week);
+    const recordedById = Object.fromEntries(recorded.map(item => [item.id, item]));
+    const rows = planned.filter(item => item.direct || item.secondary).map(item => {
+      const done = recordedById[item.id] || {direct: 0, secondary: 0};
+      const maximum = Math.max(1, item.direct, done.direct);
+      return element('div', {className: 'muscle-volume-row'}, [
+        element('div', {className: 'muscle-volume-heading'}, [
+          element('strong', {text: item.label}),
+          element('span', {text: `${formatSetCount(done.direct)} de ${formatSetCount(item.direct)} séries diretas`})
+        ]),
+        element('progress', {className: 'muscle-volume-progress', attrs: {max: String(maximum), value: String(done.direct), 'aria-label': `${item.label}: ${formatSetCount(done.direct)} de ${formatSetCount(item.direct)} séries diretas confirmadas`}}),
+        element('small', {text: `Participação secundária: ${formatSetCount(done.secondary)} de ${formatSetCount(item.secondary)} séries. Não é convertida em “meia série”.`})
+      ]);
+    });
+    return element('section', {className: 'card muscle-volume-card'}, [
+      element('h3', {text: `Volume por grupo muscular · S${week}`}),
+      element('p', {text: 'Compara as séries diretas confirmadas no ciclo ativo com a ficha planejada para a semana selecionada.'}),
+      element('div', {className: 'muscle-volume-list'}, rows),
+      element('p', {className: 'fine-print', text: 'Aquecimentos, mobilidade e séries não concluídas ficam fora. Em exercícios unilaterais, os dois lados formam uma série equivalente; se só um lado foi feito, aparece uma fração. Compostos podem contar diretamente para mais de um grupo, então não some as linhas como se fossem séries distintas. Participações secundárias são mostradas à parte e não recebem peso arbitrário.'})
+    ]);
+  }
+
   function renderEvolutionPanel() {
     const groups = comparisonRecords();
-    if (!groups.length) return panelShell('evolution', 'Evolução', 'Comparações exigem exercício, variação, máquina, lado e faixa iguais.', element('div', {className: 'empty-state'}, [element('h3', {text: 'Sem sessões concluídas comparáveis'}), element('p', {text: 'Finalize ao menos uma sessão com séries de trabalho registradas.'})]));
+    if (!groups.length) return panelShell('evolution', 'Evolução', 'Comparações preservam exercício, variação, máquina e lado; a faixa aparece em cada ponto.', [
+      renderMuscleVolumeCard(),
+      element('div', {className: 'empty-state'}, [element('h3', {text: 'Sem sessões concluídas comparáveis'}), element('p', {text: 'Finalize ao menos uma sessão com séries de trabalho registradas.'})])
+    ]);
     if (!groups.some(group => group.key === evolutionSelection.key)) evolutionSelection.key = groups[0].key;
     const group = groups.find(item => item.key === evolutionSelection.key);
     const metricLabels = {maxLoad: 'Carga máxima (kg)', volume: 'Volume (kg × rep.)', reps: 'Maior número de repetições', rir: 'RIR médio'};
     const selector = element('div', {className: 'metric-controls'}, [
-      field('Série comparável', element('select', {className: 'select', dataset: {action: 'evolution-key'}}, groups.map(item => option(item.key, item.label, item.key === group.key)))),
+      field('Configuração comparável', element('select', {className: 'select', dataset: {action: 'evolution-key'}}, groups.map(item => option(item.key, item.label, item.key === group.key)))),
       field('Métrica', element('select', {className: 'select', dataset: {action: 'evolution-metric'}}, Object.entries(metricLabels).map(([value, label]) => option(value, label, evolutionSelection.metric === value))))
     ]);
     const painCount = group.points.reduce((sum, point) => sum + point.pain, 0);
     const rows = group.points.slice().reverse().map(point => element('div', {className: 'split-row'}, [
-      element('strong', {text: `${formatDate(point.date)} · ${point.workout} · S${point.week}`}),
+      element('strong', {text: `${formatDate(point.date)} · ${point.workout} · S${point.week} · faixa ${point.range} rep.`}),
       element('span', {text: `${metricLabels[evolutionSelection.metric]}: ${point[evolutionSelection.metric] == null ? 'não informado' : Number(point[evolutionSelection.metric]).toLocaleString('pt-BR', {maximumFractionDigits: 2})}${point.bestSet ? ` · melhor série ${point.bestSet.load || '—'} kg × ${point.bestSet.reps}` : ''}`})
     ]));
-    return panelShell('evolution', 'Evolução', 'Nenhuma linha conecta máquinas ou variações diferentes.', [
+    return panelShell('evolution', 'Evolução', 'Nenhuma linha conecta máquinas, variações ou lados diferentes; mudanças de faixa permanecem na mesma linha e são identificadas em cada ponto.', [
+      renderMuscleVolumeCard(),
       selector,
-      element('section', {className: 'chart-card'}, [element('h3', {text: metricLabels[evolutionSelection.metric]}), lineChart(group.points, evolutionSelection.metric, metricLabels[evolutionSelection.metric])]),
+      element('section', {className: 'chart-card'}, [
+        element('h3', {text: metricLabels[evolutionSelection.metric]}),
+        element('p', {className: 'fine-print', text: `Faixas presentes: ${[...group.ranges].join(', ')} rep. A faixa contextualiza o ponto, mas não cria outro gráfico para o mesmo aparelho.`}),
+        lineChart(group.points, evolutionSelection.metric, metricLabels[evolutionSelection.metric])
+      ]),
       element('div', {className: painCount ? 'warning-box' : 'info-box'}, [element('p', {text: `Frequência registrada de dor/desconforto nesta série comparável: ${painCount} ocorrência(s). Esse número descreve registros; não é diagnóstico.`})]),
       element('section', {className: 'card'}, [element('h3', {text: 'Sessões desta comparação'}), element('div', {className: 'split-list'}, rows)]),
       renderProgressionHistory()
@@ -1665,6 +1714,32 @@
     ]);
   }
 
+  function renderLoadStepSettings() {
+    const entries = state.settings.equipmentLoadSteps.slice().sort((a, b) => {
+      const first = Data.CATALOG[a.exerciseId] ? Data.CATALOG[a.exerciseId].name : a.exerciseId;
+      const second = Data.CATALOG[b.exerciseId] ? Data.CATALOG[b.exerciseId].name : b.exerciseId;
+      return first.localeCompare(second, 'pt-BR') || a.machineId.localeCompare(b.machineId, 'pt-BR');
+    });
+    const rows = entries.map(item => {
+      const exercise = Data.CATALOG[item.exerciseId];
+      const variant = exercise && exercise.variants.find(entry => entry.id === item.variationId);
+      const key = Core.equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId);
+      return element('div', {className: 'split-row load-step-setting'}, [
+        element('div', {}, [
+          element('strong', {text: exercise ? exercise.name : item.exerciseId}),
+          element('small', {text: `${variant ? variant.label : 'variação padrão'} · ${item.machineId || 'máquina não identificada'}`})
+        ]),
+        element('span', {text: `${Core.formatLoad(item.step)} kg`}),
+        button('Usar padrão', 'equipment-load-step-remove', 'secondary-button', {loadStepKey: key})
+      ]);
+    });
+    return element('section', {className: 'section-card'}, [
+      element('h3', {text: 'Degraus de carga personalizados'}),
+      element('p', {text: 'Configure o degrau nos detalhes de um exercício depois de identificar a máquina. O mesmo valor vale para os dois lados de exercícios unilaterais.'}),
+      rows.length ? element('div', {className: 'split-list'}, rows) : element('p', {className: 'fine-print', text: 'Nenhum degrau personalizado. As sugestões usam as presunções declaradas no catálogo.'})
+    ]);
+  }
+
   function renderSettingsPanel() {
     return panelShell('settings', 'Ajustes', 'Preferências, modo de agenda, backups e privacidade.', [
       renderAboutCard(),
@@ -1684,6 +1759,7 @@
           settingToggle('keepAwake', 'Manter tela ativa durante treino', 'Usa o bloqueio de tela do navegador quando disponível.')
         ])
       ]),
+      renderLoadStepSettings(),
       element('section', {className: 'section-card'}, [
         element('h3', {text: 'Rotina em casa'}),
         element('div', {className: 'field-grid is-three'}, [
@@ -1839,7 +1915,12 @@
       const range = `${log.prescriptionSnapshot.min}-${log.prescriptionSnapshot.max}`;
       const seriesKey = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
       currentSeriesKeys.add(seriesKey);
-      const recommendation = Core.doubleProgressionRecommendation(exercise, log, session.week);
+      const recommendation = Core.doubleProgressionRecommendation(
+        exercise,
+        log,
+        session.week,
+        Core.configuredLoadStep(state.settings, exercise, log)
+      );
       const workSets = log.sets.filter(isProgressionEligibleSet);
       const existing = state.progressionDecisions.find(item => item.sessionId === session.id && item.seriesKey === seriesKey);
       const payload = {
@@ -2331,6 +2412,14 @@
     }
     if (action === 'backup-restore-confirm') { await restoreAutomaticBackup(target.dataset.backupId); return; }
     if (action === 'recovery-export') { exportRecoveryItem(target.dataset.recoveryId); return; }
+    if (action === 'equipment-load-step-remove') {
+      const key = target.dataset.loadStepKey || '';
+      const previousLength = state.settings.equipmentLoadSteps.length;
+      state.settings.equipmentLoadSteps = state.settings.equipmentLoadSteps.filter(item =>
+        Core.equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId) !== key);
+      if (state.settings.equipmentLoadSteps.length !== previousLength) await persist('Degrau personalizado removido; o padrão voltou a valer.', true);
+      return;
+    }
     if (action === 'cycle-reset-request') {
       confirmationModal('Zerar periodização', 'O ciclo atual e todas as sessões serão arquivados. Um snapshot será criado antes da mudança. Medidas, caminhada, rotina em casa e histórico legado permanecerão.', 'cycle-reset-confirm', {}, 'Arquivar e começar na semana 1');
       return;
@@ -2442,6 +2531,34 @@
       const [min, max] = limits[key];
       state.settings[key] = Math.max(min, Math.min(max, Number(target.value) || min));
       await persist('Configuração da rotina atualizada.', true);
+      return;
+    }
+    if (action === 'equipment-load-step') {
+      const stepSession = findSession(target.dataset.sessionId);
+      const stepLog = findExerciseLog(stepSession, target.dataset.exerciseId);
+      const stepExercise = stepSession && stepLog ? Data.findExercise(stepSession.workoutId, stepLog.exerciseId) : null;
+      if (!stepSession || !stepLog || !stepExercise) return;
+      const key = Core.equipmentLoadStepKey(stepExercise.id, stepLog.variationId, stepLog.machineId);
+      const remaining = state.settings.equipmentLoadSteps.filter(item =>
+        Core.equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId) !== key);
+      const raw = String(target.value || '').trim();
+      if (raw) {
+        const normalized = Core.numericString(raw, {max: 1000, decimals: 2});
+        if (!normalized || Number(normalized) <= 0) {
+          showNotice('Informe um degrau entre 0,01 e 1.000 kg, com no máximo duas casas decimais.', 'warning');
+          renderActivePanel(captureFocusDescriptor(target));
+          return;
+        }
+        remaining.push({
+          exerciseId: stepExercise.id,
+          variationId: stepLog.variationId,
+          machineId: stepLog.machineId,
+          step: Number(normalized),
+          updatedAt: new Date().toISOString()
+        });
+      }
+      state.settings.equipmentLoadSteps = remaining;
+      await persist(raw ? 'Degrau desta configuração atualizado.' : 'Degrau personalizado removido; o padrão voltou a valer.', true);
       return;
     }
     if (action === 'progression-decision') {

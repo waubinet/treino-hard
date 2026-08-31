@@ -2310,6 +2310,59 @@ details[open] > summary::after {
   }
 }
 
+.muscle-volume-list {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.muscle-volume-row {
+  display: grid;
+  gap: 6px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.muscle-volume-row:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.muscle-volume-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.muscle-volume-heading span,
+.muscle-volume-row small,
+.load-step-setting small {
+  color: var(--muted);
+}
+
+.muscle-volume-progress {
+  width: 100%;
+  height: 12px;
+  accent-color: var(--red);
+}
+
+.load-step-setting > div {
+  display: grid;
+  gap: 3px;
+}
+
+@media (max-width: 520px) {
+  .muscle-volume-heading {
+    display: grid;
+    gap: 3px;
+  }
+
+  .load-step-setting {
+    align-items: stretch;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

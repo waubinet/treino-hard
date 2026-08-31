@@ -69,8 +69,53 @@
     ez_bar_curl: 2.5
   });
 
+  // Taxonomia editorial para apresentar volume por grupo muscular. "Primário"
+  // alimenta a contagem de séries diretas; "secundário" aparece separado e
+  // nunca é convertido automaticamente em meia série. Um exercício composto
+  // pode contar como série direta para mais de um grupo, portanto a soma das
+  // linhas não representa o total de séries distintas da ficha.
+  const MUSCLE_GROUPS = Object.freeze({
+    chest: Object.freeze({id: 'chest', label: 'Peito'}),
+    back: Object.freeze({id: 'back', label: 'Costas'}),
+    shoulders: Object.freeze({id: 'shoulders', label: 'Ombros'}),
+    triceps: Object.freeze({id: 'triceps', label: 'Tríceps'}),
+    biceps: Object.freeze({id: 'biceps', label: 'Bíceps'}),
+    quadriceps: Object.freeze({id: 'quadriceps', label: 'Quadríceps'}),
+    hamstrings: Object.freeze({id: 'hamstrings', label: 'Posteriores de coxa'}),
+    glutes: Object.freeze({id: 'glutes', label: 'Glúteos'}),
+    calves: Object.freeze({id: 'calves', label: 'Panturrilhas'})
+  });
+
+  const MUSCLE_TARGETS = Object.freeze({
+    chest_press_machine: {primary: ['chest'], secondary: ['shoulders', 'triceps']},
+    incline_press_machine: {primary: ['chest'], secondary: ['shoulders', 'triceps']},
+    cable_crossover: {primary: ['chest'], secondary: []},
+    machine_fly: {primary: ['chest'], secondary: []},
+    shoulder_press_machine: {primary: ['shoulders'], secondary: ['triceps']},
+    lateral_raise_dumbbell: {primary: ['shoulders'], secondary: []},
+    triceps_skull_dumbbell: {primary: ['triceps'], secondary: []},
+    triceps_overhead: {primary: ['triceps'], secondary: []},
+    triceps_rope: {primary: ['triceps'], secondary: []},
+    pulldown_supinated: {primary: ['back'], secondary: ['biceps']},
+    pulldown_neutral: {primary: ['back'], secondary: ['biceps']},
+    seated_row_triangle: {primary: ['back'], secondary: ['biceps', 'shoulders']},
+    unilateral_row_machine: {primary: ['back'], secondary: ['biceps', 'shoulders']},
+    row_machine_choice: {primary: ['back'], secondary: ['biceps', 'shoulders']},
+    reverse_fly_machine: {primary: ['shoulders'], secondary: ['back']},
+    ez_bar_curl: {primary: ['biceps'], secondary: []},
+    hammer_curl_standing: {primary: ['biceps'], secondary: []},
+    squat: {primary: ['quadriceps', 'glutes'], secondary: ['hamstrings']},
+    leg_press_45: {primary: ['quadriceps', 'glutes'], secondary: ['hamstrings']},
+    leg_extension: {primary: ['quadriceps'], secondary: []},
+    leg_curl: {primary: ['hamstrings'], secondary: []},
+    calf_standing_or_leg_press: {primary: ['calves'], secondary: []},
+    deadlift_barbell: {primary: ['glutes', 'hamstrings', 'back'], secondary: ['quadriceps']},
+    calf_seated: {primary: ['calves'], secondary: []}
+  });
+
   function strength(id, name, category, sets, options) {
     const config = options || {};
+    const muscles = MUSCLE_TARGETS[id] || {primary: [], secondary: []};
     return Object.freeze({
       id,
       name,
@@ -78,6 +123,10 @@
       category,
       workSets: sets,
       loadStep: config.loadStep || LOAD_STEPS[id] || 5,
+      muscles: Object.freeze({
+        primary: Object.freeze(muscles.primary.slice()),
+        secondary: Object.freeze(muscles.secondary.slice())
+      }),
       restSeconds: config.restSeconds || (category === 'accessory' ? 90 : 120),
       warmupSets: config.warmupSets || 0,
       warmupOptional: Boolean(config.warmupOptional),
@@ -686,6 +735,8 @@
     WEEK_LABELS,
     MOBILITY_SEQUENCE,
     BRACING_TEXT,
+    MUSCLE_GROUPS,
+    MUSCLE_TARGETS,
     CATALOG,
     WORKOUTS,
     WORKOUT_BY_ID,

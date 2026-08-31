@@ -2,6 +2,47 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.5.0] — carga por aparelho e evolução consolidada — 2026-08-31
+
+Esquema persistido elevado de **11 para 12** exclusivamente para guardar o degrau
+de carga personalizado por exercício, variação e máquina. A ficha canônica, a
+ordem dos exercícios, as séries e a periodização permanecem intactas.
+
+### Degrau de carga configurável
+
+- Os detalhes de cada exercício permitem informar o degrau real daquela máquina.
+  Deixar vazio mantém a presunção do catálogo; Ajustes lista os valores e permite
+  voltar ao padrão.
+- A configuração é compartilhada entre lado esquerdo e direito do mesmo aparelho,
+  mas nunca entre máquinas ou variações diferentes.
+- A progressão usa o degrau configurado apenas para arredondar a sugestão à carga
+  disponível. O aplicativo continua sem alterar a carga automaticamente.
+
+### Volume por grupo muscular
+
+- Evolução ganhou um painel da semana atual com séries diretas confirmadas versus
+  planejadas para peito, costas, ombros, tríceps, bíceps, quadríceps, posteriores,
+  glúteos e panturrilhas.
+- Participações secundárias são exibidas à parte e não são transformadas em “meia
+  série”. Aquecimentos, mobilidade e séries não confirmadas ficam fora.
+- Nos registros unilaterais, os dois lados formam uma série corporal equivalente;
+  só um lado confirmado aparece como fração, sem duplicar o volume.
+
+### Gráficos de evolução
+
+- Mudanças de faixa da periodização deixaram de criar opções e gráficos separados
+  para o mesmo exercício + variação + máquina + lado.
+- Cada ponto e cada linha de sessão continuam declarando a faixa daquele dia; a
+  comparabilidade usada pela decisão de progressão permanece mais estrita e inclui
+  a faixa.
+
+### Integridade e testes
+
+- Migração explícita 11 → 12, normalização, validação profunda, deduplicação e
+  limites para até 500 configurações de degrau.
+- **81/81 testes de núcleo** e **51/51 cenários em Chrome real**, sem falha nem
+  erro de console/página aceito no gate local final.
+
 ## [3.4.0] — histórico comparável, integridade e progressão — 2026-08-30
 
 Esquema **11** inalterado. Ficha e periodização permanecem intactas; a

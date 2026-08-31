@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Estado atual: versão **3.4.0**, esquema **11**, cache `treino-hard-v3.4.0`.
+- Estado atual: versão **3.5.0**, esquema **12**, cache `treino-hard-v3.5.0`.
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Arquitetura
@@ -39,11 +39,11 @@ ficha impressa, planilha, tabela horizontal ou formulário administrativo.
 ## Invariantes
 
 - Aplicação local, estática, sem conta e sem servidor.
-- `SCHEMA_VERSION = 11`. Só muda quando o formato gravado muda de verdade.
+- `SCHEMA_VERSION = 12`. Só muda quando o formato gravado muda de verdade.
 - `APP_VERSION`, `SCHEMA_VERSION` e o nome do cache são coisas distintas e visíveis
   em Ajustes → "Sobre esta versão".
 - IndexedDB preferencial, `localStorage` como fallback, memória como último recurso.
-- Migração 9 → 10 → 11 preserva ciclos legados; IDs ambíguos (`a_remada_smith`,
+- Migração 9 → 10 → 11 → 12 preserva ciclos legados; IDs ambíguos (`a_remada_smith`,
   `a_remada_unilateral`, `c_flexor_sentado`) **continuam ambíguos** e nunca viram
   exercício atual.
 - Falha de gravação nunca aparece como sucesso.
@@ -54,8 +54,15 @@ ficha impressa, planilha, tabela horizontal ou formulário administrativo.
   variação + máquina + lado) responde "quanto levantei aqui"; `comparableSeriesKey`
   acrescenta a faixa e agrupa séries equivalentes. Trocar a faixa da periodização
   **não** pode apagar o histórico de carga da máquina.
-- `loadStep` por exercício é uma **presunção** sobre o equipamento, não medição.
-  Serve só para a sugestão cair num degrau que existe no aparelho.
+- `loadStep` por exercício é a **presunção padrão** sobre o equipamento. O usuário
+  pode sobrescrevê-la por exercício + variação + máquina; o valor vale nos dois
+  lados e serve só para a sugestão cair num degrau real, sem alterar carga sozinho.
+- O gráfico de evolução agrupa exercício + variação + máquina + lado. A faixa de
+  repetições contextualiza cada ponto, mas não fragmenta a linha. A recomendação
+  de progressão continua comparando também a faixa por `comparableSeriesKey`.
+- Volume por grupo muscular mostra séries diretas confirmadas e participação
+  secundária separadamente. Não converta participação secundária em fração
+  arbitrária; unilateral incompleto pode aparecer como meia série corporal.
 - Deload aparece no histórico, mas não gera melhor marca nem sugestão de aumento.
 - O cronômetro só inicia por ação explícita, nunca por `blur` de campo.
 - Caminhada separada; vacuum em casa, fora do volume; bracing é orientação, não série.
@@ -115,7 +122,7 @@ Chrome e os cenários de concorrência falham por timeout.
 
 - CSP sem `unsafe-inline` e sem `unsafe-eval`; `frame-src` só `youtube-nocookie.com`.
 - Chaves `__proto__`, `prototype` e `constructor` são recusadas na importação, junto
-  com profundidade acima de 20 e campos inesperados do esquema 11.
+  com profundidade acima de 20 e campos inesperados do esquema 12.
 - Fórmulas do CSV são neutralizadas com apóstrofo.
 - Vídeos: estado `accepted` / `pending` / `rejected` descreve o **conteúdo**;
   `availability` (`available`, `external_only`, `removed_or_private`, `unknown`)

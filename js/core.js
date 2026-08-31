@@ -5,11 +5,12 @@
   const APP_ID = 'treino-hard-fofo';
   // Versão do aplicativo: muda a cada publicação funcional.
   // O esquema persistido só muda quando o formato gravado realmente muda.
-  const APP_VERSION = '3.4.0';
-  const SCHEMA_VERSION = 11;
+  const APP_VERSION = '3.5.0';
+  const SCHEMA_VERSION = 12;
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const MAX_SESSIONS = 5000;
   const MAX_SERIES_PER_EXERCISE = 64;
+  const MAX_EQUIPMENT_LOAD_STEPS = 500;
   const STATE_LIMITS = Object.freeze({
     sessions: MAX_SESSIONS,
     cardio: 5000,
@@ -135,6 +136,42 @@
     return JSON.parse(JSON.stringify(value));
   }
 
+  // O degrau pertence à configuração física do exercício (exercício,
+  // variação e identificação da máquina), não ao lado executado nem à faixa da
+  // periodização. Assim uma remada unilateral usa o mesmo degrau nos dois lados.
+  function equipmentLoadStepKey(exerciseId, variationId, machineId) {
+    return [
+      cleanId(exerciseId, 'unknown'),
+      cleanId(variationId, 'default') || 'default',
+      cleanText(machineId, 80).toLocaleLowerCase('pt-BR') || 'machine-unspecified'
+    ].join('|');
+  }
+
+  function normalizeEquipmentLoadSteps(raw) {
+    const entries = Array.isArray(raw) ? raw.slice(0, MAX_EQUIPMENT_LOAD_STEPS) : [];
+    const normalized = new Map();
+    entries.forEach(item => {
+      if (!isRecord(item)) return;
+      const exerciseId = cleanId(item.exerciseId, '');
+      const exercise = Data.CATALOG[exerciseId];
+      if (!exercise || exercise.type !== 'strength') return;
+      const variationId = cleanId(item.variationId, '');
+      if (variationId && !exercise.variants.some(variant => variant.id === variationId)) return;
+      const machineId = cleanText(item.machineId, 80);
+      const stepText = numericString(item.step, {max: 1000, decimals: 2});
+      if (!stepText || Number(stepText) <= 0) return;
+      const entry = {
+        exerciseId,
+        variationId,
+        machineId,
+        step: Number(stepText),
+        updatedAt: validIso(item.updatedAt) || new Date().toISOString()
+      };
+      normalized.set(equipmentLoadStepKey(exerciseId, variationId, machineId), entry);
+    });
+    return [...normalized.values()];
+  }
+
   function normalizeSettings(raw) {
     const value = isRecord(raw) ? raw : {};
     const vacuumFrequency = Math.max(1, Math.min(7, Number(value.vacuumFrequency) || 3));
@@ -148,6 +185,7 @@
       keepAwake: value.keepAwake !== false,
       autoStartRest: value.autoStartRest === true,
       videoMode: ['external', 'inline', 'ask'].includes(value.videoMode) ? value.videoMode : 'external',
+      equipmentLoadSteps: normalizeEquipmentLoadSteps(value.equipmentLoadSteps),
       defaultWeek: Math.max(1, Math.min(8, Number(value.defaultWeek) || 1)),
       vacuumFrequency,
       vacuumRepetitions,
@@ -399,7 +437,9 @@
       });
     };
 
-    knownKeys(value.settings, ['mode', 'sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest', 'videoMode', 'defaultWeek', 'vacuumFrequency', 'vacuumRepetitions', 'vacuumDuration', 'vacuumPosition'], 'configurações');
+    const settingsKeys = ['mode', 'sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest', 'videoMode', 'defaultWeek', 'vacuumFrequency', 'vacuumRepetitions', 'vacuumDuration', 'vacuumPosition'];
+    if (Number(value.schemaVersion) >= 12) settingsKeys.push('equipmentLoadSteps');
+    knownKeys(value.settings, settingsKeys, 'configurações');
     requireEnum(value.settings, 'mode', ['calendar', 'sequence'], 'configurações', false);
     ['sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest'].forEach(key => requireBoolean(value.settings, key, 'configurações'));
     requireEnum(value.settings, 'videoMode', ['external', 'inline', 'ask'], 'configurações', false);
@@ -408,6 +448,28 @@
     requireNumber(value.settings, 'vacuumRepetitions', 'configurações', 1, 10, true, false);
     requireNumber(value.settings, 'vacuumDuration', 'configurações', 5, 120, false, false);
     requireEnum(value.settings, 'vacuumPosition', ['lying', 'all_fours', 'seated', 'standing'], 'configurações', false);
+    if (Number(value.schemaVersion) >= 12) {
+      if (!Array.isArray(value.settings.equipmentLoadSteps)) fail('configurações.equipmentLoadSteps em formato inválido');
+      if (value.settings.equipmentLoadSteps.length > MAX_EQUIPMENT_LOAD_STEPS) fail(`configurações.equipmentLoadSteps excede ${MAX_EQUIPMENT_LOAD_STEPS} registros`);
+      const loadStepKeys = new Set();
+      value.settings.equipmentLoadSteps.forEach((item, index) => {
+        const label = `configuração de degrau ${index + 1}`;
+        requireRecord(item, label);
+        knownKeys(item, ['exerciseId', 'variationId', 'machineId', 'step', 'updatedAt'], label);
+        requireId(item, 'exerciseId', label, true);
+        const exercise = Data.CATALOG[item.exerciseId];
+        if (!exercise || exercise.type !== 'strength') fail(`${label}.exerciseId desconhecido`);
+        requireId(item, 'variationId', label, false);
+        if (item.variationId && !exercise.variants.some(variant => variant.id === item.variationId)) fail(`${label}.variationId não pertence ao exercício`);
+        requireText(item, 'machineId', label, 80, false);
+        requireNumber(item, 'step', label, 0.01, 1000, false, false);
+        if (Number(numericString(item.step, {max: 1000, decimals: 2})) !== Number(item.step)) fail(`${label}.step precisa ter no máximo duas casas decimais`);
+        requireIso(item, 'updatedAt', label, true);
+        const key = equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId);
+        if (loadStepKeys.has(key)) fail(`${label} duplicada para a mesma configuração de aparelho`);
+        loadStepKeys.add(key);
+      });
+    }
     knownKeys(value.cycle, ['id', 'startedAt', 'currentWeek', 'status'], 'ciclo atual');
     requireId(value.cycle, 'id', 'ciclo atual', true);
     requireIso(value.cycle, 'startedAt', 'ciclo atual', true);
@@ -885,12 +947,13 @@
   function validateNewStateEnvelope(payload) {
     assertSafeParsed(payload);
     if (payload.app !== APP_ID) throw new Error('Este arquivo não pertence ao Treino Hard.');
-    if (Number(payload.schemaVersion) > SCHEMA_VERSION) throw new Error('O backup foi criado por uma versão mais nova do aplicativo.');
+    const declaredVersion = Number(payload.schemaVersion);
+    if (declaredVersion > SCHEMA_VERSION) throw new Error('O backup foi criado por uma versão mais nova do aplicativo.');
     const source = isRecord(payload.state) ? payload.state : payload;
     const unexpected = Object.keys(source).filter(key => !TOP_LEVEL_STATE_FIELDS.has(key) && !['exportedAt', 'format'].includes(key));
     if (Number(payload.schemaVersion) >= 11 && unexpected.length) throw new Error(`Campos inesperados no backup: ${unexpected.slice(0, 5).join(', ')}.`);
     if (Number(payload.schemaVersion) >= 11) {
-      if (source.app !== APP_ID || Number(source.schemaVersion) !== SCHEMA_VERSION) {
+      if (source.app !== APP_ID || Number(source.schemaVersion) !== declaredVersion) {
         throw new Error('O estado interno do backup não corresponde ao aplicativo ou esquema declarado.');
       }
       if (!isRecord(source.settings) || !isRecord(source.cycle)) throw new Error('O backup tem configurações ou ciclo em formato inválido.');
@@ -993,6 +1056,7 @@
     });
     state.measurements = (Array.isArray(payload.measurements) ? payload.measurements : []).map(normalizeMeasurement).filter(Boolean);
     state.settings = normalizeSettings(payload.settings);
+    delete state.settings.equipmentLoadSteps;
     state.migrationLog.push({at: new Date().toISOString(), from: Number(payload.schemaVersion) || 9, to: 10, summary: `${legacy.records.length} registros ABC preservados como ciclo legado.`});
     return Object.assign(state, {schemaVersion: 10});
   }
@@ -1009,6 +1073,23 @@
         summary: 'Adicionados histórico de progressão, quarentena e chaves explícitas de equipamento.'
       })
     });
+    const normalized = normalizeState(migrated);
+    normalized.schemaVersion = 11;
+    delete normalized.settings.equipmentLoadSteps;
+    return normalized;
+  }
+
+  function migrate11To12(state11) {
+    const migrated = Object.assign({}, state11, {
+      schemaVersion: 12,
+      settings: Object.assign({}, state11.settings, {equipmentLoadSteps: []}),
+      migrationLog: (Array.isArray(state11.migrationLog) ? state11.migrationLog : []).concat({
+        at: new Date().toISOString(),
+        from: 11,
+        to: 12,
+        summary: 'Adicionados degraus de carga configuráveis por exercício, variação e aparelho.'
+      })
+    });
     return normalizeState(migrated);
   }
 
@@ -1017,9 +1098,12 @@
     if (payload.app && payload.app !== APP_ID) throw new Error('Este arquivo não pertence ao Treino Hard.');
     const version = Math.max(1, Number(payload.schemaVersion) || 1);
     if (version > SCHEMA_VERSION) throw new Error('O backup foi criado por uma versão mais nova do aplicativo.');
-    if (version >= 11) return normalizeState(validateNewStateEnvelope(payload));
-    if (version === 10 && (isRecord(payload.state) || Array.isArray(payload.sessions))) return migrate10To11(isRecord(payload.state) ? payload.state : payload);
-    return migrate10To11(migrate9To10(payload));
+    if (version >= 12) return normalizeState(validateNewStateEnvelope(payload));
+    if (version === 11) return migrate11To12(validateNewStateEnvelope(payload));
+    if (version === 10 && (isRecord(payload.state) || Array.isArray(payload.sessions))) {
+      return migrate11To12(migrate10To11(isRecord(payload.state) ? payload.state : payload));
+    }
+    return migrate11To12(migrate10To11(migrate9To10(payload)));
   }
 
   function importPreview(payload) {
@@ -1134,9 +1218,83 @@
     ].join('|');
   }
 
-  function loadStepFor(exercise) {
+  function loadStepFor(exercise, configuredStep) {
+    const override = Number(configuredStep);
+    if (Number.isFinite(override) && override > 0 && override <= 1000) return Number(override.toFixed(2));
     const step = Number(exercise && exercise.loadStep);
     return Number.isFinite(step) && step > 0 ? step : 5;
+  }
+
+  function configuredLoadStep(settings, exercise, exerciseLog) {
+    const entries = settings && Array.isArray(settings.equipmentLoadSteps) ? settings.equipmentLoadSteps : [];
+    const key = equipmentLoadStepKey(
+      exercise && exercise.id,
+      exerciseLog && exerciseLog.variationId,
+      exerciseLog && exerciseLog.machineId
+    );
+    const entry = entries.find(item => equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId) === key);
+    return loadStepFor(exercise, entry && entry.step);
+  }
+
+  function muscleVolumeRows() {
+    return Object.values(Data.MUSCLE_GROUPS).map(group => ({
+      id: group.id,
+      label: group.label,
+      direct: 0,
+      secondary: 0
+    }));
+  }
+
+  function addMuscleSets(rows, exercise, count) {
+    if (!exercise || !exercise.muscles || !Number.isFinite(count) || count <= 0) return;
+    const byId = Object.fromEntries(rows.map(row => [row.id, row]));
+    exercise.muscles.primary.forEach(id => { if (byId[id]) byId[id].direct += count; });
+    exercise.muscles.secondary.forEach(id => { if (byId[id]) byId[id].secondary += count; });
+  }
+
+  function roundedSetCount(value) {
+    return Number(Number(value || 0).toFixed(2));
+  }
+
+  function plannedMuscleVolume(week) {
+    const rows = muscleVolumeRows();
+    Data.WORKOUTS.forEach(workout => workout.exercises.forEach(exercise => {
+      if (exercise.type !== 'strength') return;
+      const prescription = Data.prescriptionFor(exercise, week, false);
+      addMuscleSets(rows, exercise, Number(prescription.sets) || 0);
+    }));
+    return rows.map(row => Object.assign(row, {
+      direct: roundedSetCount(row.direct),
+      secondary: roundedSetCount(row.secondary)
+    }));
+  }
+
+  function recordedMuscleVolume(sessions, week) {
+    const rows = muscleVolumeRows();
+    (Array.isArray(sessions) ? sessions : [])
+      .filter(session => ['completed', 'partial'].includes(session && session.status)
+        && (!week || Number(session.week) === Number(week)))
+      .forEach(session => {
+        const grouped = new Map();
+        (Array.isArray(session.exercises) ? session.exercises : []).forEach(log => {
+          if (!grouped.has(log.exerciseId)) grouped.set(log.exerciseId, []);
+          grouped.get(log.exerciseId).push(log);
+        });
+        grouped.forEach((logs, exerciseId) => {
+          const exercise = Data.findExercise(session.workoutId, exerciseId);
+          if (!exercise || exercise.type !== 'strength') return;
+          const counts = logs.map(log => (Array.isArray(log.sets) ? log.sets : [])
+            .filter(set => set.type === 'work' && set.status === 'completed' && isSetConfirmed(set)).length);
+          const equivalentSets = exercise.unilateral
+            ? counts.reduce((sum, count) => sum + count, 0) / Math.max(1, counts.length)
+            : (counts[0] || 0);
+          addMuscleSets(rows, exercise, equivalentSets);
+        });
+      });
+    return rows.map(row => Object.assign(row, {
+      direct: roundedSetCount(row.direct),
+      secondary: roundedSetCount(row.secondary)
+    }));
   }
 
   // Próximo degrau REAL acima da carga usada. Nunca devolve um valor
@@ -1167,7 +1325,7 @@
     return Number.isInteger(number) && number >= 0 && number <= 5 ? number : null;
   }
 
-  function doubleProgressionRecommendation(exercise, exerciseLog, week) {
+  function doubleProgressionRecommendation(exercise, exerciseLog, week, configuredStep) {
     if (!exercise || exercise.type !== 'strength' || !exerciseLog) return {code: 'none', message: 'Sem recomendação disponível.'};
     const stored = normalizePrescriptionSnapshot(exerciseLog.prescriptionSnapshot);
     const prescription = stored.sets > 0 && stored.min > 0 && stored.max >= stored.min
@@ -1185,7 +1343,7 @@
     if (rirs.some(value => value == null)) return {code: 'review', message: 'RIR não informado. O resultado foi salvo, mas não é seguro sugerir aumento somente pelas repetições.'};
     const rirWithinTarget = rirs.every(value => value >= prescription.rirMin && value <= prescription.rirMax);
     if (reps.every(value => value >= prescription.max) && rirWithinTarget) {
-      const step = loadStepFor(exercise);
+      const step = loadStepFor(exercise, configuredStep);
       const loads = workSets.map(set => Number(set.load) || 0);
       const uniform = loads.every(value => value > 0 && value === loads[0]);
       const nextLoad = uniform ? nextLoadSuggestion(loads[0], step) : null;
@@ -1417,6 +1575,7 @@
     MAX_IMPORT_BYTES,
     MAX_SESSIONS,
     MAX_SERIES_PER_EXERCISE,
+    MAX_EQUIPMENT_LOAD_STEPS,
     STATE_LIMITS,
     SESSION_STATUSES,
     SET_STATUSES,
@@ -1437,6 +1596,7 @@
     stableId,
     deepClone,
     normalizeSettings,
+    normalizeEquipmentLoadSteps,
     defaultState,
     normalizeSet,
     isSetConfirmed,
@@ -1453,6 +1613,7 @@
     migrateLegacyData,
     migrate9To10,
     migrate10To11,
+    migrate11To12,
     migratePayload,
     importPreview,
     createExerciseLog,
@@ -1460,11 +1621,15 @@
     createSession,
     comparableSeriesKey,
     loadHistoryKey,
+    equipmentLoadStepKey,
     loadStepFor,
+    configuredLoadStep,
     nextLoadSuggestion,
     formatLoad,
     rirNumber,
     doubleProgressionRecommendation,
+    plannedMuscleVolume,
+    recordedMuscleVolume,
     workoutVolume,
     csvCell,
     buildBackup,

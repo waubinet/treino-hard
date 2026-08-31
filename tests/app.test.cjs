@@ -799,11 +799,11 @@ test('primário de esquema anterior só é migrado depois de recuperação durá
   storage.mode = 'localstorage';
 
   const migrated = await storage.readDocument();
-  assert.equal(migrated.schemaVersion, 11);
+  assert.equal(migrated.schemaVersion, 12);
   assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
   const saved = await storage.writeDocument(migrated, migrated.revision, {});
-  assert.equal(saved.schemaVersion, 11);
-  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).schemaVersion, 11);
+  assert.equal(saved.schemaVersion, 12);
+  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).schemaVersion, 12);
 
   const blockedApp = boot(
     {treinohard_document_v11: raw},
@@ -935,10 +935,10 @@ test('ciclo legado e cópias locais corrompidos são recusados antes de substitu
   assert.equal(app.store.get(app.Storage.FALLBACK_KEY), currentRaw);
 });
 
-test('envelope v11 não pode esconder estado interno de outro app ou esquema', () => {
+test('envelope atual não pode esconder estado interno de outro app ou esquema', () => {
   const app = boot();
   const state = plain(app.Core.defaultState('2026-08-08T12:00:00.000Z'));
-  const envelope = {app: app.Core.APP_ID, schemaVersion: 11, format: 'treino-hard-backup', state};
+  const envelope = {app: app.Core.APP_ID, schemaVersion: 12, format: 'treino-hard-backup', state};
   for (const mutation of [
     value => { value.state.app = 'outro-app'; },
     value => { value.state.schemaVersion = 99; }
@@ -1055,11 +1055,11 @@ test('inicialização migra cópias automáticas antigas sem apagar a fonte', as
   const converted = JSON.parse(app.store.get('treinohard_auto_backups_v11'));
   assert.equal(converted.length, 1);
   assert.equal(converted[0].legacy, true);
-  assert.equal(converted[0].state.schemaVersion, 11);
+  assert.equal(converted[0].state.schemaVersion, 12);
   assert.ok(app.store.get('treinohard_recovery_v11'));
 });
 
-test('migração 10 para 11 e fluxo completo produzem estado normalizado', () => {
+test('migrações 10 para 11 e 11 para 12 produzem estado normalizado', () => {
   const app = boot();
   const result = app.run(`(() => {
     const v10 = THFCore.migrate9To10({
@@ -1071,14 +1071,17 @@ test('migração 10 para 11 e fluxo completo produzem estado normalizado', () =>
     const complete = THFCore.migratePayload({schemaVersion: 9, data: {1: {a_puxada_neutra: {sets: [{kg: '60', reps: '12'}]}}}});
     return {direct, wrapped, complete};
   })()`);
-  ['direct', 'wrapped', 'complete'].forEach(key => {
+  assert.equal(result.direct.schemaVersion, 11, 'a etapa isolada 10→11 permanece inspecionável');
+  ['wrapped', 'complete'].forEach(key => {
     const state = result[key];
-    assert.equal(state.schemaVersion, 11, key);
+    assert.equal(state.schemaVersion, 12, key);
     assert.equal(state.app, app.Core.APP_ID, key);
     assert.equal(Array.isArray(state.progressionDecisions), true, key);
     assert.equal(Array.isArray(state.quarantine), true, key);
     assert.equal(state.legacyCycles[0].records[0].canonicalId, 'pulldown_neutral', key);
     assert.equal(state.migrationLog.some(item => item.from === 10 && item.to === 11), true, key);
+    assert.equal(state.migrationLog.some(item => item.from === 11 && item.to === 12), true, key);
+    assert.deepEqual(plain(state.settings.equipmentLoadSteps), [], key);
   });
 });
 
@@ -1706,9 +1709,9 @@ test('conformidade: bracing é orientação e vacuum fica fora do volume da musc
 test('conformidade: versão do app e esquema de dados são independentes', () => {
   const app = boot();
   assert.match(app.Core.APP_VERSION, /^\d+\.\d+\.\d+$/);
-  assert.equal(app.Core.SCHEMA_VERSION, 11);
+  assert.equal(app.Core.SCHEMA_VERSION, 12);
   const backup = app.Core.buildBackup(app.Core.defaultState());
-  assert.equal(backup.schemaVersion, 11);
+  assert.equal(backup.schemaVersion, 12);
   assert.equal(Object.prototype.hasOwnProperty.call(backup, 'appVersion'), false, 'a versão do app não entra no formato persistido');
 });
 
@@ -1948,7 +1951,7 @@ function cenarioProgressao(app, opcoes) {
         set.reps = '20'; set.load = '10'; set.status = 'completed'; set.completedAt = '2026-08-03T11:50:00.000Z';
       });
     }
-    return THFCore.doubleProgressionRecommendation(exercicio, log, opcoes.week || 1);
+    return THFCore.doubleProgressionRecommendation(exercicio, log, opcoes.week || 1, opcoes.step);
   })()`);
 }
 
@@ -2032,6 +2035,102 @@ test('degrau de carga cai sempre num valor que o aparelho tem', () => {
     true,
     'todo exercício de força precisa declarar um degrau'
   );
+});
+
+test('esquema 12 migra o 11 e preserva degraus válidos por aparelho', () => {
+  const app = boot();
+  const migrated = app.run(`(() => {
+    const state11 = THFCore.defaultState('2026-08-30T12:00:00.000Z');
+    state11.schemaVersion = 11;
+    delete state11.settings.equipmentLoadSteps;
+    return THFCore.migratePayload({app: THFCore.APP_ID, schemaVersion: 11, state: state11});
+  })()`);
+  assert.equal(migrated.schemaVersion, 12);
+  assert.deepEqual(plain(migrated.settings.equipmentLoadSteps), []);
+  assert.equal(migrated.migrationLog.some(item => item.from === 11 && item.to === 12), true);
+
+  const normalized = app.run(`THFCore.normalizeSettings({equipmentLoadSteps: [
+    {exerciseId: 'leg_press_45', variationId: 'machine_unspecified', machineId: 'Leg 2', step: 20, updatedAt: '2026-08-30T12:00:00.000Z'},
+    {exerciseId: 'leg_press_45', variationId: 'machine_unspecified', machineId: ' leg 2 ', step: 10, updatedAt: '2026-08-30T13:00:00.000Z'},
+    {exerciseId: 'unknown', variationId: '', machineId: '', step: 5, updatedAt: '2026-08-30T12:00:00.000Z'}
+  ]})`);
+  assert.equal(normalized.equipmentLoadSteps.length, 1, 'a configuração mais recente da mesma máquina vence e exercício desconhecido é recusado');
+  assert.equal(normalized.equipmentLoadSteps[0].step, 10);
+});
+
+test('degrau personalizado separa aparelho e variação, mas vale para os dois lados', () => {
+  const app = boot();
+  const result = app.run(`(() => {
+    const exercise = THFData.CATALOG.unilateral_row_machine;
+    const settings = THFCore.normalizeSettings({equipmentLoadSteps: [{
+      exerciseId: exercise.id,
+      variationId: 'plate_loaded',
+      machineId: 'Remada 2',
+      step: 7.5,
+      updatedAt: '2026-08-30T12:00:00.000Z'
+    }]});
+    const left = {variationId: 'plate_loaded', machineId: 'Remada 2', side: 'left'};
+    const right = {variationId: 'plate_loaded', machineId: 'remada 2', side: 'right'};
+    const otherMachine = {variationId: 'plate_loaded', machineId: 'Remada 3', side: 'left'};
+    const otherVariant = {variationId: 'machine_left_right', machineId: 'Remada 2', side: 'left'};
+    return {
+      left: THFCore.configuredLoadStep(settings, exercise, left),
+      right: THFCore.configuredLoadStep(settings, exercise, right),
+      otherMachine: THFCore.configuredLoadStep(settings, exercise, otherMachine),
+      otherVariant: THFCore.configuredLoadStep(settings, exercise, otherVariant),
+      leftKey: THFCore.equipmentLoadStepKey(exercise.id, left.variationId, left.machineId),
+      rightKey: THFCore.equipmentLoadStepKey(exercise.id, right.variationId, right.machineId)
+    };
+  })()`);
+  assert.equal(result.left, 7.5);
+  assert.equal(result.right, 7.5);
+  assert.equal(result.leftKey, result.rightKey);
+  assert.equal(result.otherMachine, 5);
+  assert.equal(result.otherVariant, 5);
+
+  const recommendation = cenarioProgressao(app, {
+    step: 7.5,
+    snapshot: {sets: 3, min: 12, max: 15, label: '12–15', rirMin: 1, rirMax: 3, deload: false},
+    series: [
+      {load: 40, reps: 15, rir: 2},
+      {load: 40, reps: 15, rir: 2},
+      {load: 40, reps: 15, rir: 2}
+    ]
+  });
+  assert.equal(recommendation.nextLoad, 45, '40 sobe para o próximo múltiplo real de 7,5');
+  assert.equal(recommendation.step, 7.5);
+});
+
+test('volume muscular separa séries diretas e participação secundária', () => {
+  const app = boot();
+  const planned = plain(app.run('THFCore.plannedMuscleVolume(1)'));
+  const byId = Object.fromEntries(planned.map(item => [item.id, item]));
+  assert.equal(byId.chest.direct, 14);
+  assert.equal(byId.back.direct, 18);
+  assert.equal(byId.shoulders.direct, 15);
+  assert.equal(byId.triceps.direct, 8);
+  assert.equal(byId.biceps.direct, 8);
+  assert.equal(byId.quadriceps.direct, 13);
+  assert.equal(byId.hamstrings.direct, 9);
+  assert.equal(byId.glutes.direct, 11);
+  assert.equal(byId.calves.direct, 6);
+  assert.ok(byId.triceps.secondary > 0, 'supinos e desenvolvimentos aparecem como participação secundária do tríceps');
+
+  const recorded = plain(app.run(`(() => {
+    const session = THFCore.createSession('pull_a', '2026-08-31', 1);
+    session.status = 'completed';
+    session.exercises.forEach(log => log.sets.filter(set => set.type === 'work').forEach(set => {
+      set.status = 'completed'; set.completedAt = '2026-08-31T12:00:00.000Z'; set.reps = '12'; set.load = '40';
+    }));
+    const left = session.exercises.find(log => log.exerciseId === 'unilateral_row_machine' && log.side === 'left');
+    left.sets.filter(set => set.type === 'work')[0].completedAt = '';
+    return THFCore.recordedMuscleVolume([session], 1);
+  })()`));
+  const recordedById = Object.fromEntries(recorded.map(item => [item.id, item]));
+  assert.equal(recordedById.back.direct, 7.5, 'um lado ausente equivale a meia série do exercício unilateral, não a uma série corporal completa');
+  assert.equal(recordedById.biceps.direct, 4);
+  assert.equal(recordedById.shoulders.direct, 3);
+  assert.equal(recordedById.biceps.secondary, 7.5);
 });
 
 test('comparabilidade: a carga pertence ao aparelho, a série comparável inclui a faixa', () => {

@@ -178,7 +178,8 @@ async function openSetMore(row) {
 }
 
 // Preenche repetições e status de todas as séries de trabalho visíveis.
-async function fillWorkSets(page, reps) {
+async function fillWorkSets(page, reps, options) {
+  const settings = options || {};
   const rows = page.locator('.set-row:not(.is-warmup)');
   const total = await rows.count();
   for (let index = 0; index < total; index += 1) {
@@ -189,7 +190,9 @@ async function fillWorkSets(page, reps) {
     await row.locator('select[data-field="status"]').selectOption('completed');
     // Uma sessão reaberta pode já conter uma confirmação anterior. Em ambos os
     // casos o clique explícito é obrigatório para renovar/manter completedAt.
+    const before = settings.waitForPersistence ? await readStoredDocument(page) : null;
     await row.getByRole('button', {name: /^(Concluir|Atualizar) série \d+$/}).click();
+    if (before) await waitForStoredRevision(page, before.revision);
   }
   return total;
 }
@@ -430,7 +433,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
   await waitStatus(page, 'Pausado');
   await completeMobilityItems(page);
-  const filled = await fillWorkSets(page, 14);
+  const filled = await fillWorkSets(page, 14, {waitForPersistence: true});
   assert.equal(filled, 17, 'Empurrar A deve expor 17 séries de trabalho');
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await page.waitForTimeout(500);
@@ -1189,7 +1192,7 @@ test('exportação JSON, reimportação, snapshot e CSV de 27 colunas pela inter
   assert.match(json.filename, /^treino-hard-backup-\d{8}\.json$/);
   const backup = JSON.parse(json.text);
   assert.equal(backup.app, 'treino-hard-fofo');
-  assert.equal(backup.schemaVersion, 11);
+  assert.equal(backup.schemaVersion, 12);
   assert.equal(backup.format, 'treino-hard-backup');
   assert.equal(backup.state.sessions.length, before.sessions.length);
   assert.equal(backup.state.cardio.length, 1);
@@ -1224,7 +1227,7 @@ test('exportação JSON, reimportação, snapshot e CSV de 27 colunas pela inter
   await page.locator('#app-modal').waitFor({state: 'visible'});
   const previewText = await page.locator('#app-modal').innerText();
   assert.match(previewText, /Prévia da importação/);
-  assert.match(previewText, /Versão de origem\s*11/);
+  assert.match(previewText, /Versão de origem\s*12/);
   assert.match(previewText, new RegExp(`Sessões novas\\s*${before.sessions.length}`));
   assert.match(previewText, /Medições\s*1/);
   assert.equal((await readStoredDocument(page)).cardio.length, 2, 'a prévia não pode alterar nada');
@@ -1396,7 +1399,7 @@ test('importações hostis e malformadas são recusadas sem tocar no documento',
   const directory = scratchDir(t);
   await seedSampleData(page);
   const before = await readStoredDocument(page);
-  const envelope = {app: 'treino-hard-fofo', schemaVersion: 11, format: 'treino-hard-backup', exportedAt: new Date().toISOString(), state: before};
+  const envelope = {app: 'treino-hard-fofo', schemaVersion: 12, format: 'treino-hard-backup', exportedAt: new Date().toISOString(), state: before};
 
   const withState = extra => JSON.stringify(Object.assign({}, envelope, {state: Object.assign({}, before, extra)}));
   let deep = {value: 1};
@@ -1410,12 +1413,12 @@ test('importações hostis e malformadas são recusadas sem tocar no documento',
     ['JSON inválido', writeScratchFile(directory, 'invalido.json', '{isto não é json}'), /Importação rejeitada/i],
     ['documento truncado', writeScratchFile(directory, 'truncado.json', JSON.stringify(envelope).slice(0, 800)), /Importação rejeitada/i],
     ['array em vez de objeto', writeScratchFile(directory, 'array.json', '[1,2,3]'), /objeto JSON/i],
-    ['chave __proto__', writeScratchFile(directory, 'proto.json', '{"app":"treino-hard-fofo","schemaVersion":11,"state":{"__proto__":{"poluido":true}}}'), /propriedades proibidas|profundidade/i],
-    ['chave constructor', writeScratchFile(directory, 'ctor.json', '{"app":"treino-hard-fofo","schemaVersion":11,"state":{"sessions":[{"constructor":{"x":1}}]}}'), /propriedades proibidas|profundidade/i],
-    ['profundidade excessiva', writeScratchFile(directory, 'fundo.json', JSON.stringify({app: 'treino-hard-fofo', schemaVersion: 11, state: deep})), /propriedades proibidas|profundidade/i],
+    ['chave __proto__', writeScratchFile(directory, 'proto.json', '{"app":"treino-hard-fofo","schemaVersion":12,"state":{"__proto__":{"poluido":true}}}'), /propriedades proibidas|profundidade/i],
+    ['chave constructor', writeScratchFile(directory, 'ctor.json', '{"app":"treino-hard-fofo","schemaVersion":12,"state":{"sessions":[{"constructor":{"x":1}}]}}'), /propriedades proibidas|profundidade/i],
+    ['profundidade excessiva', writeScratchFile(directory, 'fundo.json', JSON.stringify({app: 'treino-hard-fofo', schemaVersion: 12, state: deep})), /propriedades proibidas|profundidade/i],
     ['campo inesperado no estado', writeScratchFile(directory, 'extra.json', withState({campoDesconhecido: 1})), /Campos inesperados/i],
     ['texto acima do limite', longFile, /texto inválido|acima do limite/i],
-    ['esquema futuro', writeScratchFile(directory, 'futuro.json', JSON.stringify(Object.assign({}, envelope, {schemaVersion: 12}))), /versão mais nova/i],
+    ['esquema futuro', writeScratchFile(directory, 'futuro.json', JSON.stringify(Object.assign({}, envelope, {schemaVersion: 13}))), /versão mais nova/i],
     ['outro aplicativo', writeScratchFile(directory, 'outro.json', JSON.stringify(Object.assign({}, envelope, {app: 'outro-app'}))), /não pertence ao Treino Hard/i]
   ];
 
@@ -1470,7 +1473,7 @@ test('cópias automáticas e recuperação bruta podem ser listadas, restauradas
 
   // Uma importação registra material bruto recuperável.
   const source = writeScratchFile(directory, 'origem.json', JSON.stringify({
-    app: 'treino-hard-fofo', schemaVersion: 11, format: 'treino-hard-backup', state: await readStoredDocument(page)
+    app: 'treino-hard-fofo', schemaVersion: 12, format: 'treino-hard-backup', state: await readStoredDocument(page)
   }));
   await openTab(page, 'Ajustes');
   await page.locator('#import-file').setInputFiles(source);
@@ -2656,7 +2659,7 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
 
   // 4. O histórico do esquema 9 vira ciclo legado, sem virar treino atual.
   const documento = await readStoredDocument(nova);
-  assert.equal(documento.schemaVersion, 11);
+  assert.equal(documento.schemaVersion, 12);
   assert.equal(documento.legacyCycles.length >= 1, true, 'o ciclo ABC precisa ser preservado');
   const registros = documento.legacyCycles.flatMap(cycle => cycle.records);
   assert.equal(registros.length >= 2, true);
@@ -3012,6 +3015,55 @@ async function abrirDetalhes(cartao) {
   }
 }
 
+test('degrau personalizado persiste por aparelho e o volume muscular usa apenas séries confirmadas', {timeout: 180000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+
+  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Supino reto na máquina'}).first();
+  await abrirDetalhes(cartao());
+  const documentoAntes = await readStoredDocument(page);
+  const maquina = cartao().locator('input[data-action="exercise-field"][data-field="machineId"]');
+  await maquina.fill('supino convergente 3');
+  await maquina.blur();
+  const documentoComMaquina = await waitForStoredRevision(page, documentoAntes.revision);
+
+  await abrirDetalhes(cartao());
+  const degrau = cartao().locator('input[data-action="equipment-load-step"]');
+  await degrau.fill('7.5');
+  await degrau.blur();
+  const documentoComDegrau = await waitForStoredRevision(page, documentoComMaquina.revision);
+  assert.equal(documentoComDegrau.schemaVersion, 12);
+  assert.deepEqual(documentoComDegrau.settings.equipmentLoadSteps.map(item => ({
+    machineId: item.machineId,
+    step: item.step
+  })), [{machineId: 'supino convergente 3', step: 7.5}]);
+
+  const primeira = cartao().locator('.set-row:not(.is-warmup)').first();
+  await primeira.locator('.set-field-load input').fill('40');
+  await primeira.locator('.set-field-reps input').fill('12');
+  await primeira.getByRole('button', {name: /^Concluir série 1$/}).click();
+  await page.waitForTimeout(400);
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
+
+  await reloadApp(page);
+  await openTab(page, 'Ajustes');
+  const configuracao = page.locator('.load-step-setting').filter({hasText: 'Supino reto na máquina'}).first();
+  assert.match(await configuracao.innerText(), /supino convergente 3/i);
+  assert.match(await configuracao.innerText(), /7,5 kg/);
+
+  await openTab(page, 'Evolução');
+  const peito = page.locator('.muscle-volume-row').filter({hasText: 'Peito'}).first();
+  assert.match(await peito.innerText(), /1 de 14 séries diretas/);
+  const triceps = page.locator('.muscle-volume-row').filter({hasText: 'Tríceps'}).first();
+  assert.match(await triceps.innerText(), /Participação secundária: 1 de/);
+  assert.deepEqual(errors, []);
+});
+
 test('histórico por máquina: referência anterior, degrau real e configuração não comparável', {timeout: 240000}, async t => {
   const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
   await openTab(page, 'Empurrar A');
@@ -3135,6 +3187,32 @@ test('faixa nova da periodização não apaga o histórico de carga da máquina'
   assert.match(referencia, /Último treino/, `a troca de faixa não pode apagar a referência: ${referencia}`);
   assert.match(referencia, /28×13/);
   assert.match(referencia, /Faixa naquele dia/, 'a faixa antiga precisa vir declarada para não confundir');
+
+  // Registra um segundo ponto na faixa nova para provar que o gráfico não se
+  // fragmenta por faixa de repetições.
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  const segundaFaixa = cartao().locator('.set-row:not(.is-warmup)').first();
+  await segundaFaixa.locator('.set-field-load input').fill('30');
+  await segundaFaixa.locator('.set-field-reps input').fill('11');
+  await segundaFaixa.getByRole('button', {name: /^Concluir série 1$/}).click();
+  await page.waitForTimeout(400);
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForTimeout(500);
+  await fecharResumo(page);
+
+  await openTab(page, 'Evolução');
+  const seletor = page.locator('select[data-action="evolution-key"]');
+  const opcoesCrossover = seletor.locator('option').filter({hasText: 'Crossover na polia'});
+  assert.equal(await opcoesCrossover.count(), 1, 'a faixa não pode criar outra opção para a mesma configuração');
+  await seletor.selectOption(await opcoesCrossover.first().getAttribute('value'));
+  await page.waitForTimeout(150);
+  assert.equal(await page.locator('#panel-evolution .chart-svg circle.chart-point').count(), 2, 'as duas faixas devem aparecer na mesma linha');
+  const painelEvolucao = await page.locator('#panel-evolution').innerText();
+  assert.match(painelEvolucao, /Faixas presentes:/);
+  assert.match(painelEvolucao, /12–15|12-15/);
+  assert.match(painelEvolucao, /10–12|10-12/);
 
   assert.deepEqual(errors, []);
 });
