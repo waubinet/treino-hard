@@ -2683,6 +2683,35 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
   assert.deepEqual(erros, []);
 });
 
+test('atualização 3.4 para 3.5 confirma a migração antes do backup inicial', {timeout: 90000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  const current = await readStoredDocument(page);
+  const oldState = JSON.parse(JSON.stringify(current));
+  oldState.schemaVersion = 11;
+  delete oldState.settings.equipmentLoadSteps;
+
+  await page.evaluate(document11 => new Promise((resolve, reject) => {
+    const request = indexedDB.open('treino-hard-v3');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction('documents', 'readwrite');
+      transaction.objectStore('documents').put(document11, 'current');
+      transaction.oncomplete = () => { database.close(); resolve(); };
+      transaction.onerror = () => { database.close(); reject(transaction.error); };
+    };
+  }), oldState);
+
+  await reloadApp(page);
+  assert.equal(await page.locator('#save-state').innerText(), 'Salvo neste aparelho');
+  assert.doesNotMatch(await page.locator('#app-notice').innerText().catch(() => ''), /esquema atual|falha na inicialização/i);
+  const migrated = await readStoredDocument(page);
+  assert.equal(migrated.schemaVersion, 12);
+  assert.ok(migrated.revision > oldState.revision, 'a migração precisa ser confirmada no documento físico');
+  assert.equal(migrated.sessions.length, oldState.sessions.length, 'as sessões existentes precisam ser preservadas');
+  assert.deepEqual(errors, []);
+});
+
 test('preferência de reprodução de vídeo: três modos, persistência e domínio sem cookies', {timeout: 150000}, async t => {
   const {page, context, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
 

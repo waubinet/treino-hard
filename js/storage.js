@@ -170,6 +170,20 @@
         this.lastError = 'Este navegador não oferece o bloqueio entre abas necessário para gravar com segurança no armazenamento de contingência. O aplicativo permaneceu somente leitura para evitar sobrescritas.';
         if (state) return Core.normalizeState(state);
       }
+      // `readDocument()` migra uma versão antiga em memória depois de preservar
+      // a fonte bruta. A migração precisa ser confirmada no primário antes de
+      // backups ou outras rotinas de inicialização: se a semana já estiver toda
+      // planejada, nenhum `persist()` incidental ocorrerá para fazer isso depois.
+      if (state && this.preservedPrimaryRaw !== null && !this.writeBlocked) {
+        try {
+          state = await this.writeDocument(state, state.revision, {});
+        } catch (error) {
+          if (!error || error.code !== 'REVISION_CONFLICT') throw error;
+          const migratedByOtherTab = await this.readDocument();
+          if (!migratedByOtherTab || this.writeBlocked) throw error;
+          state = migratedByOtherTab;
+        }
+      }
       if (!state) {
         if (this.writeBlocked) {
           const readOnlyState = Core.defaultState();

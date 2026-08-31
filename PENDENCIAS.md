@@ -1,9 +1,8 @@
 # Pendências reais
 
-Atualizado em **2026-08-31**. Versão **3.5.0**, esquema **12**, publicada em
-`https://waubinet.github.io/treino-hard/`. O commit funcional
-`9224b2d0299962fd6a340679e74918b6a2103935` recebeu status `built` no GitHub
-Pages e passou no smoke público em Chrome.
+Atualizado em **2026-08-31**. Candidata **3.5.1**, esquema **12**, validada
+localmente. A confirmação do commit público e do smoke no GitHub Pages será
+registrada após a publicação.
 
 A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
 travada pelos testes de conformidade.
@@ -45,7 +44,7 @@ amplitude e lateralidade — e isso não foi feito aqui. Nenhum item foi promovi
 ## Evolução e volume
 
 - [ ] Revisar futuramente o mapa de músculos primários/secundários se a ficha
-      canônica mudar. A versão 3.5.0 exibe participação secundária separada e não
+      canônica mudar. A versão 3.5.1 exibe participação secundária separada e não
       afirma equivalência biológica com série direta.
 
 ## Acessibilidade

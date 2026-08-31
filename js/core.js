@@ -5,7 +5,7 @@
   const APP_ID = 'treino-hard-fofo';
   // Versão do aplicativo: muda a cada publicação funcional.
   // O esquema persistido só muda quando o formato gravado realmente muda.
-  const APP_VERSION = '3.5.0';
+  const APP_VERSION = '3.5.1';
   const SCHEMA_VERSION = 12;
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const MAX_SESSIONS = 5000;

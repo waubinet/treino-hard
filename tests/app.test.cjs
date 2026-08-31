@@ -816,6 +816,27 @@ test('primário de esquema anterior só é migrado depois de recuperação durá
   assert.equal(readOnly.sessions.length, 0);
 });
 
+test('inicialização confirma a migração 11 para 12 antes da cópia automática', async () => {
+  const seed = boot();
+  const oldState = plain(seed.Core.defaultState('2026-08-10T08:00:00.000Z'));
+  oldState.schemaVersion = 11;
+  delete oldState.settings.equipmentLoadSteps;
+  oldState.sessions = seed.Data.WORKOUTS.map((workout, index) =>
+    plain(seed.Core.createSession(workout.id, `2026-08-${String(10 + index).padStart(2, '0')}`, 1)));
+  const raw = JSON.stringify(oldState);
+  const app = boot({treinohard_document_v11: raw});
+  const storage = new app.Storage.AppStorage();
+
+  const initialized = await storage.init();
+  const persisted = JSON.parse(app.store.get(app.Storage.FALLBACK_KEY));
+  assert.equal(initialized.schemaVersion, 12);
+  assert.equal(persisted.schemaVersion, 12, 'a migração não pode ficar apenas na memória');
+  assert.equal(persisted.revision, oldState.revision + 1);
+  assert.equal(persisted.sessions.length, oldState.sessions.length);
+  assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
+  await assert.doesNotReject(storage.automaticBackup(initialized, false));
+});
+
 test('migração não sobrescreve revisão antiga mais nova gravada por outra aba', async () => {
   const seed = boot();
   const oldRevisionFive = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));

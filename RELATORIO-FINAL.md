@@ -1,15 +1,17 @@
-# Relatório final — Treino Hard (Fofo) 3.5.0
+# Relatório final — Treino Hard (Fofo) 3.5.1
 
 ## Estado
 
-**Versão 3.5.0 integralmente validada e publicada em 2026-08-31.** Esquema de
-dados **12**, cache `treino-hard-v3.5.0` e commit funcional
-`9224b2d0299962fd6a340679e74918b6a2103935`. O GitHub Pages confirmou esse
-commit com status `built`; a URL pública passou no Chrome com HTTP 200, 13 abas,
-estado de salvamento ativo, versão/esquema/cache corretos e zero erros de
-console ou página.
+**Versão 3.5.1 integralmente validada localmente em 2026-08-31.** Esquema de
+dados **12** e cache `treino-hard-v3.5.1`. A confirmação do commit funcional no
+GitHub Pages e o smoke público serão acrescentados depois da publicação.
 
 ## Resultado da rodada
+
+- Corrigida a falha de inicialização vista após atualizar no iPhone: a migração
+  11 → 12 agora é confirmada no documento físico antes da cópia automática.
+- A fonte 11 é preservada para recuperação antes da gravação, e sessões, medidas,
+  histórico e configurações permanecem intactos.
 
 - O degrau real pode ser configurado por exercício, variação e máquina nos
   detalhes do exercício, consultado/removido em Ajustes e é preservado no novo
@@ -37,11 +39,11 @@ console ou página.
 
 - sintaxe JavaScript e manifesto: aprovados;
 - `git diff --check`: aprovado;
-- núcleo: **81/81** testes aprovados;
-- Chrome/Playwright: **51/51** cenários aprovados em uma única execução final,
-  **0 falhas**, exit code 0, em **617.727,4458 ms**;
+- núcleo: **82/82** testes aprovados;
+- Chrome/Playwright: **52/52** cenários aprovados em uma única execução final,
+  **0 falhas**, exit code 0, em **674.259,166 ms**;
 - erros de console/página aceitos: **0**;
-- GitHub Pages: commit funcional exato confirmado e smoke público aprovado;
+- GitHub Pages: pendente até a publicação desta candidata;
 - detalhes completos: `TESTES.md`;
 - pendências honestas: `PENDENCIAS.md`.
 

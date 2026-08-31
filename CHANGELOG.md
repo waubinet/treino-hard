@@ -2,6 +2,24 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.5.1] — correção da atualização móvel — 2026-08-31
+
+Esquema **12** inalterado. Corrigida a inicialização de instalações que ainda
+tinham o documento físico no esquema 11, especialmente após atualizar uma PWA
+ou abrir no Safari/iPhone com a semana já planejada.
+
+- A migração 11 → 12 agora é preservada e confirmada imediatamente no documento
+  primário, antes da cópia automática e de qualquer outra rotina de inicialização.
+- Antes, a migração podia existir apenas em memória quando nenhuma sessão nova
+  precisava ser planejada. A cópia automática então encontrava o primário ainda
+  em 11 e interrompia o app com “O documento local não está no esquema atual”.
+- Conflitos entre duas abas continuam protegidos: se outra aba concluir a
+  migração primeiro, a inicialização relê o documento vencedor sem sobrescrever.
+- Novo teste de navegador reproduz documento 11 com sessões existentes, recarrega
+  a versão nova e exige documento físico 12, revisão avançada, sessões preservadas,
+  backup funcional e estado “Salvo neste aparelho”.
+- Gate local: **82/82 testes de núcleo** e **52/52 cenários em Chrome real**.
+
 ## [3.5.0] — carga por aparelho e evolução consolidada — 2026-08-31
 
 Esquema persistido elevado de **11 para 12** exclusivamente para guardar o degrau
