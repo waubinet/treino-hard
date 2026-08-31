@@ -2,10 +2,11 @@
 
 ## Estado
 
-**Versão local integralmente validada em 2026-08-30.** Esquema de dados **11** e
-cache `treino-hard-v3.4.0`. No momento deste registro, integração em `main`, push,
-confirmação do GitHub Pages e smoke público ainda seriam executados; por isso o
-relatório não declara publicação antes da evidência externa.
+**Versão 3.4.0 integralmente validada e publicada em 2026-08-30.** Esquema de
+dados **11**, cache `treino-hard-v3.4.0` e commit funcional
+`e597944e25002f6942269f3a6f22afa19c3242f8`. O GitHub Pages confirmou esse commit
+com status `built`; a URL pública passou no Chrome com HTTP 200, 13 abas, estado
+de salvamento ativo, versão/esquema corretos e zero erros de console ou página.
 
 ## Resultado da auditoria
 
@@ -51,6 +52,7 @@ que ainda estavam abertos na 3.4.0:
 - núcleo: **78/78** testes aprovados;
 - Chrome/Playwright: **50/50** cenários aprovados em uma única execução,
   **0 falhas**, exit code 0;
+- GitHub Pages: commit funcional exato confirmado e smoke público aprovado;
 - detalhes completos: `TESTES.md`;
 - pendências honestas: `PENDENCIAS.md`.
 

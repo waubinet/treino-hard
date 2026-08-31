@@ -2,9 +2,10 @@
 
 ## Estado da versão 3.4.0
 
-Validado localmente em **2026-08-30**, esquema persistido **11**, cache
-`treino-hard-v3.4.0`. No momento desta atualização documental, o commit ainda
-não havia sido integrado em `main` nem confirmado no GitHub Pages.
+Validado localmente e publicado em **2026-08-30**, esquema persistido **11**,
+cache `treino-hard-v3.4.0`. O commit funcional
+`e597944e25002f6942269f3a6f22afa19c3242f8` foi integrado em `main`, recebeu
+status `built` no GitHub Pages e passou no smoke público com cache-busting.
 
 Resultados do gate local:
 
@@ -16,7 +17,9 @@ Resultados do gate local:
 - `node --test --test-reporter=tap tests/browser.test.cjs`: **50/50 aprovados**
   em Google Chrome real via Playwright, **0 falhas**, exit code 0;
 - suíte completa de navegador: **831.593,5065 ms**;
-- erros de console/página aceitos: **0**.
+- erros de console/página aceitos: **0**;
+- URL pública: **HTTP 200**, 13 abas, estado “Salvo neste aparelho”, versão
+  3.4.0/esquema 11 no rodapé e **0 erros** no Chrome.
 
 ## Ambiente e comandos
 
@@ -28,6 +31,8 @@ Resultados do gate local:
 | dados | IndexedDB; testes explícitos de `localStorage` e somente leitura |
 | branch validada | `codex/3.4-integrity` |
 | commit-base | `e2a5ef0ab0c6dc6d9785504c32da9edeb637a043` |
+| commit funcional publicado | `e597944e25002f6942269f3a6f22afa19c3242f8` |
+| URL pública | `https://waubinet.github.io/treino-hard/` |
 
 ```powershell
 node --check js\workouts.js
@@ -76,6 +81,5 @@ Os 50 cenários em Chrome cobrem:
 - leitor de tela real (NVDA, JAWS ou Narrador);
 - instalação pelo prompt nativo `beforeinstallprompt` em perfil limpo;
 - importação de um backup real do usuário, depois de guardar cópia externa;
-- smoke test da URL pública e confirmação do commit exato do Pages após o push.
 
 Esses itens não são contados como aprovados pela suíte local.
