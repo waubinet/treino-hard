@@ -4,9 +4,8 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Estado atual: versão **3.2.2**, esquema **11**, cache `treino-hard-v3.2.2`.
-- Trabalho recente feito em `agent/3.2-claude-handoff`, integrada por fast-forward
-  em `main`. Crie uma branch nova por rodada e integre por fast-forward.
+- Estado atual: versão **3.4.0**, esquema **11**, cache `treino-hard-v3.4.0`.
+- Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Arquitetura
 
@@ -51,6 +50,13 @@ ficha impressa, planilha, tabela horizontal ou formulário administrativo.
 - Conflito de revisão entre abas é detectado; a aba atrasada não sobrescreve.
 - Sessões cronológicas; RIR por série; descanso por exercício; progressão dupla é
   recomendação e nunca altera carga sozinha.
+- Duas identidades distintas e não intercambiáveis: `loadHistoryKey` (exercício +
+  variação + máquina + lado) responde "quanto levantei aqui"; `comparableSeriesKey`
+  acrescenta a faixa e agrupa séries equivalentes. Trocar a faixa da periodização
+  **não** pode apagar o histórico de carga da máquina.
+- `loadStep` por exercício é uma **presunção** sobre o equipamento, não medição.
+  Serve só para a sugestão cair num degrau que existe no aparelho.
+- Deload aparece no histórico, mas não gera melhor marca nem sugestão de aumento.
 - O cronômetro só inicia por ação explícita, nunca por `blur` de campo.
 - Caminhada separada; vacuum em casa, fora do volume; bracing é orientação, não série.
 - Silhueta é **representação comparativa aproximada**. Não é estimador de gordura,

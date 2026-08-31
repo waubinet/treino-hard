@@ -1,7 +1,8 @@
 # Pendências reais
 
-Atualizado em **2026-08-09**. Versão publicada: **3.2.2**, esquema **11**,
-em `https://waubinet.github.io/treino-hard/`.
+Atualizado em **2026-08-30**. Candidato **3.4.0** validado localmente, esquema
+**11**. A publicação e a confirmação da URL pública ainda seriam executadas no
+momento deste registro.
 
 A ficha não depende de nenhum documento externo: ela vive em `js/workouts.js` e é
 travada pelos testes de conformidade.
@@ -15,8 +16,8 @@ Números extraídos de `js/workouts.js` e travados por testes de inventário:
 | Medida | Valor |
 |---|---|
 | entradas | 41 |
-| `accepted` | 29 |
-| `pending` | 12 |
+| `accepted` | 10 |
+| `pending` | 31 |
 | `rejected` | 0 |
 | `available` | 30 |
 | `external_only` | 2 |
@@ -30,15 +31,29 @@ mais de `oEmbed` isolado. A preferência de reprodução e o comportamento de
 
 Ainda pendente:
 
-- [ ] Assistir e decidir os **12 itens `pending`**: 9 sem candidato e 3 com
-      candidato registrado aguardando revisão.
-- [ ] Reconferir os 29 aprovados assistindo aos vídeos. A revisão registrada é de
+- [ ] Assistir e decidir os **31 itens `pending`**: 9 sem candidato e 22 com
+      candidato registrado ainda pendente ou incompatível com a política atual.
+- [ ] Reconferir os 10 aprovados assistindo aos vídeos. A revisão registrada é de
       execução anterior; esta rodada verificou apenas disponibilidade e metadados.
 
 **Limite honesto desta rodada:** não assisti a nenhum vídeo. Aprovar exige ver a
 demonstração e conferir exercício, equipamento, pegada, posição, trajetória,
 amplitude e lateralidade — e isso não foi feito aqui. Nenhum item foi promovido a
 `accepted` por título, canal ou miniatura.
+
+## Treino e progressão
+
+- [ ] **Degrau de carga por aparelho é presumido, não configurável.** `loadStep`
+      vive no catálogo (5 kg em máquinas e polias, 2 kg em halteres, 2,5 kg na
+      barra W) e não pode ser corrigido pelo usuário quando a academia usa outro
+      valor — um leg press de anilhas de 20 kg, por exemplo. Tornar editável por
+      máquina exige campo persistido e, portanto, esquema 12.
+- [ ] **Volume por músculo não existe.** Nenhum exercício do catálogo declara
+      músculos primários e secundários, então não há como somar volume direto
+      nem fracionado. É o próximo lote de análise e precisa de auditoria
+      exercício por exercício antes de qualquer número aparecer na tela.
+- [ ] Evolução e ciclos ainda agrupam as séries pela chave que inclui a faixa;
+      os gráficos herdam a fragmentação que a tela do treino já não tem.
 
 ## Acessibilidade
 

@@ -5,7 +5,7 @@
   const APP_ID = 'treino-hard-fofo';
   // Versão do aplicativo: muda a cada publicação funcional.
   // O esquema persistido só muda quando o formato gravado realmente muda.
-  const APP_VERSION = '3.3.0';
+  const APP_VERSION = '3.4.0';
   const SCHEMA_VERSION = 11;
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const MAX_SESSIONS = 5000;
@@ -232,15 +232,370 @@
     return value;
   }
 
+  function assertCurrentCollectionIntegrity(value) {
+    const fail = message => { throw new Error(`O documento local contém ${message}; nenhum registro foi descartado.`); };
+    const hasOwn = (item, key) => Object.prototype.hasOwnProperty.call(item, key);
+    const requireRecord = (item, label) => {
+      if (!isRecord(item)) fail(`${label} em formato inválido`);
+    };
+    const requireUniqueIds = (items, label) => {
+      const seen = new Set();
+      items.forEach((item, index) => {
+        const id = item && item.id;
+        if (typeof id !== 'string' || !id) return;
+        if (seen.has(id)) fail(`${label} com ID duplicado em ${index + 1}: ${id}`);
+        seen.add(id);
+      });
+    };
+    const knownKeys = (item, allowed, label) => {
+      const unknown = Object.keys(item).filter(key => !allowed.includes(key));
+      if (unknown.length) fail(`${label} com campos inesperados: ${unknown.slice(0, 5).join(', ')}`);
+    };
+    const requireText = (item, key, label, maxLength, multiline) => {
+      if (!hasOwn(item, key) || item[key] == null) return;
+      if (typeof item[key] !== 'string') fail(`${label}.${key} em formato inválido`);
+      const cleaned = multiline ? cleanMultiline(item[key], maxLength) : cleanText(item[key], maxLength);
+      if (cleaned !== item[key]) fail(`${label}.${key} contém texto inválido ou acima do limite`);
+    };
+    const requireId = (item, key, label, required) => {
+      if (!hasOwn(item, key) || item[key] == null) {
+        if (required) fail(`${label}.${key} ausente`);
+        return;
+      }
+      if (typeof item[key] !== 'string' || cleanId(item[key], '') !== item[key] || (required && !item[key])) {
+        fail(`${label}.${key} em formato inválido`);
+      }
+    };
+    const requireBoolean = (item, key, label) => {
+      if (hasOwn(item, key) && typeof item[key] !== 'boolean') fail(`${label}.${key} precisa ser verdadeiro ou falso`);
+    };
+    const requireEnum = (item, key, allowed, label, allowEmpty) => {
+      if (!hasOwn(item, key) || item[key] == null || (allowEmpty && item[key] === '')) return;
+      if (!allowed.includes(item[key])) fail(`${label}.${key} possui valor inválido`);
+    };
+    const requireNumber = (item, key, label, minimum, maximum, integer, allowEmpty) => {
+      if (!hasOwn(item, key) || item[key] == null || (allowEmpty && item[key] === '')) return;
+      if (!['number', 'string'].includes(typeof item[key]) || String(item[key]).trim() === '') fail(`${label}.${key} em formato inválido`);
+      const number = Number(item[key]);
+      if (!Number.isFinite(number) || number < minimum || number > maximum || (integer && !Number.isInteger(number))) {
+        fail(`${label}.${key} fora do intervalo válido`);
+      }
+    };
+    const requireNumericText = (item, key, label, normalizer) => {
+      if (!hasOwn(item, key) || item[key] == null || item[key] === '') return;
+      if (!['number', 'string'].includes(typeof item[key]) || normalizer(item[key]) === '') fail(`${label}.${key} em formato inválido`);
+    };
+    const requireDate = (item, key, label, required) => {
+      if (!hasOwn(item, key) || item[key] == null || item[key] === '') {
+        if (required) fail(`${label}.${key} ausente`);
+        return;
+      }
+      if (typeof item[key] !== 'string' || !validDate(item[key])) fail(`${label}.${key} não é uma data válida`);
+    };
+    const requireIso = (item, key, label, required) => {
+      if (!hasOwn(item, key) || item[key] == null || item[key] === '') {
+        if (required) fail(`${label}.${key} ausente`);
+        return;
+      }
+      if (typeof item[key] !== 'string' || !validIso(item[key])) fail(`${label}.${key} não é um horário válido`);
+    };
+    const validateSet = (set, label) => {
+      requireRecord(set, label);
+      knownKeys(set, ['id', 'type', 'index', 'load', 'kg', 'reps', 'rir', 'status', 'note', 'completedAt', 'nextRestSeconds'], label);
+      requireId(set, 'id', label, true);
+      requireEnum(set, 'type', ['warmup', 'work'], label, false);
+      requireNumber(set, 'index', label, 0, 99, true, false);
+      requireNumericText(set, hasOwn(set, 'load') ? 'load' : 'kg', label, item => numericString(item, {max: 5000, decimals: 2}));
+      requireNumericText(set, 'reps', label, item => integerString(item, 1000));
+      requireEnum(set, 'rir', [...VALID_RIR], label, true);
+      requireEnum(set, 'status', [...SET_STATUSES], label, true);
+      requireText(set, 'note', label, 200, false);
+      requireIso(set, 'completedAt', label, false);
+      requireNumber(set, 'nextRestSeconds', label, 0, 1800, false, false);
+    };
+    const validatePrescription = (snapshot, label) => {
+      requireRecord(snapshot, label);
+      knownKeys(snapshot, ['category', 'sets', 'workSets', 'min', 'max', 'repMin', 'repMax', 'label', 'rirMin', 'rirMax', 'restSeconds', 'restSec', 'deload'], label);
+      requireEnum(snapshot, 'category', ['upper_compound', 'squat_press', 'accessory', 'deadlift', 'mobility'], label, false);
+      requireNumber(snapshot, hasOwn(snapshot, 'sets') ? 'sets' : 'workSets', label, 0, MAX_SERIES_PER_EXERCISE, true, false);
+      requireNumber(snapshot, hasOwn(snapshot, 'min') ? 'min' : 'repMin', label, 0, 1000, false, false);
+      requireNumber(snapshot, hasOwn(snapshot, 'max') ? 'max' : 'repMax', label, 0, 1000, false, false);
+      const min = Number(snapshot.min == null ? snapshot.repMin : snapshot.min);
+      const max = Number(snapshot.max == null ? snapshot.repMax : snapshot.max);
+      if (Number.isFinite(min) && Number.isFinite(max) && max < min) fail(`${label} com faixa invertida`);
+      requireText(snapshot, 'label', label, 50, false);
+      requireNumber(snapshot, 'rirMin', label, 0, 5, false, true);
+      requireNumber(snapshot, 'rirMax', label, 0, 5, false, true);
+      if (snapshot.rirMin != null && snapshot.rirMin !== '' && snapshot.rirMax != null && snapshot.rirMax !== '' && Number(snapshot.rirMax) < Number(snapshot.rirMin)) {
+        fail(`${label} com RIR invertido`);
+      }
+      requireNumber(snapshot, hasOwn(snapshot, 'restSeconds') ? 'restSeconds' : 'restSec', label, 0, 1800, false, false);
+      requireBoolean(snapshot, 'deload', label);
+    };
+    const validateMobilityFeedback = (feedback, label) => {
+      requireRecord(feedback, label);
+      knownKeys(feedback, ['left', 'right', 'note'], label);
+      ['left', 'right'].forEach(side => {
+        requireRecord(feedback[side], `${label}, lado ${side}`);
+        knownKeys(feedback[side], ['stiffness', 'pain', 'range_limit', 'support_difficulty'], `${label}, lado ${side}`);
+        ['stiffness', 'pain', 'range_limit', 'support_difficulty'].forEach(key => requireBoolean(feedback[side], key, `${label}, lado ${side}`));
+      });
+      requireText(feedback, 'note', label, 300, false);
+    };
+    const validateSession = (session, label) => {
+      requireRecord(session, label);
+      knownKeys(session, ['id', 'workoutId', 'plannedDate', 'actualDate', 'week', 'status', 'startedAt', 'pausedAt', 'pausedSeconds', 'completedAt', 'durationSeconds', 'rescheduledFrom', 'note', 'cardioId', 'exercises', 'createdAt', 'updatedAt'], label);
+      requireId(session, 'id', label, true);
+      requireId(session, 'workoutId', label, true);
+      if (!Data.WORKOUT_BY_ID[session.workoutId] || !validDate(session.plannedDate)) fail(`${label} inválida`);
+      requireDate(session, 'plannedDate', label, true);
+      requireDate(session, 'actualDate', label, false);
+      requireNumber(session, 'week', label, 1, 8, true, false);
+      requireEnum(session, 'status', [...SESSION_STATUSES], label, false);
+      requireIso(session, 'startedAt', label, false);
+      requireIso(session, 'pausedAt', label, false);
+      requireNumber(session, 'pausedSeconds', label, 0, 10000000, false, false);
+      requireIso(session, 'completedAt', label, false);
+      requireNumber(session, 'durationSeconds', label, 0, 10000000, false, false);
+      requireDate(session, 'rescheduledFrom', label, false);
+      requireText(session, 'note', label, 500, false);
+      requireId(session, 'cardioId', label, false);
+      requireIso(session, 'createdAt', label, true);
+      requireIso(session, 'updatedAt', label, true);
+      if (!Array.isArray(session.exercises)) fail(`${label} sem lista válida de exercícios`);
+      if (session.exercises.length > 100) fail(`${label} com mais de 100 registros de exercício`);
+      requireUniqueIds(session.exercises, `${label}, exercícios`);
+      const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      const expectedLogs = workout.exercises.flatMap(exercise => exercise.unilateral
+        ? [`${exercise.id}|left`, `${exercise.id}|right`]
+        : [`${exercise.id}|bilateral`]).sort();
+      const actualLogs = session.exercises.map(exercise => `${exercise.exerciseId}|${exercise.side}`).sort();
+      if (actualLogs.length !== expectedLogs.length || actualLogs.some((key, index) => key !== expectedLogs[index])) {
+        fail(`${label} com exercícios, lados ou cardinalidade incompatíveis com ${workout.label}`);
+      }
+      session.exercises.forEach((exercise, exerciseIndex) => {
+        const exerciseLabel = `${label}, exercício ${exerciseIndex + 1}`;
+        requireRecord(exercise, exerciseLabel);
+        knownKeys(exercise, ['id', 'exerciseId', 'variationId', 'machineId', 'side', 'highRepPreference', 'completed', 'skipped', 'feeling', 'feedback', 'mobilityFeedback', 'prescriptionSnapshot', 'sets'], exerciseLabel);
+        requireId(exercise, 'id', exerciseLabel, true);
+        requireId(exercise, 'exerciseId', exerciseLabel, true);
+        requireId(exercise, 'variationId', exerciseLabel, false);
+        const definition = Data.findExercise(session.workoutId, exercise.exerciseId);
+        if (!definition) fail(`${exerciseLabel} não pertence ao treino ${workout.label}`);
+        const variants = Array.isArray(definition.variants) ? definition.variants : [];
+        if (exercise.variationId && !variants.some(variant => variant.id === exercise.variationId)) {
+          fail(`${exerciseLabel}.variationId não pertence ao exercício ${definition.name}`);
+        }
+        requireText(exercise, 'machineId', exerciseLabel, 80, false);
+        requireEnum(exercise, 'side', ['left', 'right', 'bilateral'], exerciseLabel, false);
+        ['highRepPreference', 'completed', 'skipped'].forEach(key => requireBoolean(exercise, key, exerciseLabel));
+        requireEnum(exercise, 'feeling', [...VALID_FEELINGS], exerciseLabel, true);
+        requireText(exercise, 'feedback', exerciseLabel, 300, false);
+        if (exercise.mobilityFeedback != null) validateMobilityFeedback(exercise.mobilityFeedback, `${exerciseLabel}, feedback de mobilidade`);
+        if (exercise.prescriptionSnapshot != null) validatePrescription(exercise.prescriptionSnapshot, `${exerciseLabel}, prescrição`);
+        if (!Array.isArray(exercise.sets)) fail(`${exerciseLabel} sem lista válida de séries`);
+        requireUniqueIds(exercise.sets, `${exerciseLabel}, séries`);
+        exercise.sets.forEach((set, setIndex) => validateSet(set, `${exerciseLabel}, série ${setIndex + 1}`));
+      });
+    };
+
+    knownKeys(value.settings, ['mode', 'sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest', 'videoMode', 'defaultWeek', 'vacuumFrequency', 'vacuumRepetitions', 'vacuumDuration', 'vacuumPosition'], 'configurações');
+    requireEnum(value.settings, 'mode', ['calendar', 'sequence'], 'configurações', false);
+    ['sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest'].forEach(key => requireBoolean(value.settings, key, 'configurações'));
+    requireEnum(value.settings, 'videoMode', ['external', 'inline', 'ask'], 'configurações', false);
+    requireNumber(value.settings, 'defaultWeek', 'configurações', 1, 8, true, false);
+    requireNumber(value.settings, 'vacuumFrequency', 'configurações', 1, 7, true, false);
+    requireNumber(value.settings, 'vacuumRepetitions', 'configurações', 1, 10, true, false);
+    requireNumber(value.settings, 'vacuumDuration', 'configurações', 5, 120, false, false);
+    requireEnum(value.settings, 'vacuumPosition', ['lying', 'all_fours', 'seated', 'standing'], 'configurações', false);
+    knownKeys(value.cycle, ['id', 'startedAt', 'currentWeek', 'status'], 'ciclo atual');
+    requireId(value.cycle, 'id', 'ciclo atual', true);
+    requireIso(value.cycle, 'startedAt', 'ciclo atual', true);
+    requireNumber(value.cycle, 'currentWeek', 'ciclo atual', 1, 8, true, false);
+    requireEnum(value.cycle, 'status', ['active', 'archived'], 'ciclo atual', false);
+    const allStoredSessions = value.sessions.concat(value.archives.flatMap(archive => Array.isArray(archive && archive.sessions) ? archive.sessions : []));
+    requireUniqueIds(allStoredSessions, 'sessões atuais e arquivadas');
+    requireUniqueIds(value.cardio, 'caminhadas');
+    requireUniqueIds(value.homeRoutines, 'rotinas em casa');
+    requireUniqueIds(value.measurements, 'medições');
+    requireUniqueIds(value.progressionDecisions, 'decisões de progressão');
+    requireUniqueIds(value.legacyCycles, 'ciclos legados');
+    requireUniqueIds(value.archives, 'ciclos arquivados');
+    value.sessions.forEach((session, index) => validateSession(session, `sessão ${index + 1}`));
+    value.cardio.forEach((item, index) => {
+      const label = `caminhada ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['id', 'date', 'startTime', 'durationMinutes', 'distanceKm', 'pace', 'effort', 'status', 'discomfort', 'legDayFlags', 'note', 'relatedSessionId', 'savedAt'], label);
+      requireId(item, 'id', label, true);
+      requireDate(item, 'date', label, true);
+      if (hasOwn(item, 'startTime') && item.startTime !== '' && (typeof item.startTime !== 'string' || !/^\d{2}:\d{2}$/.test(item.startTime))) fail(`${label}.startTime em formato inválido`);
+      requireNumber(item, 'durationMinutes', label, 0, 1440, false, false);
+      requireNumericText(item, 'distanceKm', label, entry => numericString(entry, {max: 500, decimals: 2}));
+      requireText(item, 'pace', label, 30, false);
+      requireNumber(item, 'effort', label, 0, 10, false, false);
+      requireEnum(item, 'status', ['normal', 'shorter', 'interrupted', 'not_recovery', 'not_pain', 'not_unplanned'], label, false);
+      requireText(item, 'discomfort', label, 300, false);
+      if (item.legDayFlags != null) {
+        requireRecord(item.legDayFlags, `${label}, sinais de pernas`);
+        knownKeys(item.legDayFlags, ['fatigue', 'rightCalfPain', 'gaitChange', 'kneePain', 'anklePain', 'performanceDrop'], `${label}, sinais de pernas`);
+        ['fatigue', 'rightCalfPain', 'gaitChange', 'kneePain', 'anklePain', 'performanceDrop'].forEach(key => requireBoolean(item.legDayFlags, key, `${label}, sinais de pernas`));
+      }
+      requireText(item, 'note', label, 500, false);
+      requireId(item, 'relatedSessionId', label, false);
+      requireIso(item, 'savedAt', label, true);
+      if (!normalizeCardio(item, index)) fail(`caminhada ${index + 1} inválida`);
+    });
+    value.homeRoutines.forEach((item, index) => {
+      const label = `rotina em casa ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['id', 'date', 'time', 'position', 'durationSeconds', 'repetitions', 'ease', 'note', 'savedAt'], label);
+      requireId(item, 'id', label, true);
+      requireDate(item, 'date', label, true);
+      if (hasOwn(item, 'time') && item.time !== '' && (typeof item.time !== 'string' || !/^\d{2}:\d{2}$/.test(item.time))) fail(`${label}.time em formato inválido`);
+      requireEnum(item, 'position', ['lying', 'all_fours', 'seated', 'standing'], label, false);
+      requireNumber(item, 'durationSeconds', label, 1, 300, false, false);
+      requireNumber(item, 'repetitions', label, 1, 20, false, false);
+      requireNumber(item, 'ease', label, 0, 10, false, false);
+      requireText(item, 'note', label, 500, false);
+      requireIso(item, 'savedAt', label, true);
+      if (!normalizeHomeRoutine(item, index)) fail(`rotina em casa ${index + 1} inválida`);
+    });
+    value.measurements.forEach((item, index) => {
+      const label = `medição ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['id', 'date', ...MEASUREMENT_FIELDS, 'arm', 'thigh', 'quality', 'note', 'measuredAt', 'savedAt'], label);
+      requireId(item, 'id', label, true);
+      requireDate(item, 'date', label, true);
+      [...MEASUREMENT_FIELDS, 'arm', 'thigh'].forEach(key => requireNumericText(item, key, label, entry => numericString(entry, {max: 500, decimals: 2})));
+      if (item.quality != null) {
+        requireRecord(item.quality, `${label}, qualidade`);
+        knownKeys(item.quality, ['derivedFields', 'directFields', 'warnings'], `${label}, qualidade`);
+        ['derivedFields', 'directFields', 'warnings'].forEach(field => {
+          if (!Array.isArray(item.quality[field])) fail(`${label}, qualidade.${field} em formato inválido`);
+        });
+        ['derivedFields', 'directFields'].forEach(field => {
+          if (item.quality[field].some(entry => typeof entry !== 'string' || !MEASUREMENT_FIELDS.includes(entry))) fail(`${label}, qualidade.${field} contém item inválido`);
+        });
+        item.quality.warnings.forEach((entry, warningIndex) => {
+          if (typeof entry !== 'string' || cleanText(entry, 120) !== entry) fail(`${label}, qualidade.warnings ${warningIndex + 1} inválido`);
+        });
+      }
+      requireText(item, 'note', label, 300, false);
+      requireIso(item, 'measuredAt', label, false);
+      requireIso(item, 'savedAt', label, false);
+      if (!normalizeMeasurement(item, index)) fail(`medição ${index + 1} inválida`);
+    });
+    value.progressionDecisions.forEach((item, index) => {
+      const label = `decisão de progressão ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['id', 'sessionId', 'exerciseId', 'seriesKey', 'date', 'recommendation', 'message', 'load', 'result', 'rir', 'decision', 'nextLoad', 'savedAt'], label);
+      requireId(item, 'id', label, true);
+      requireId(item, 'sessionId', label, false);
+      requireId(item, 'exerciseId', label, false);
+      requireText(item, 'seriesKey', label, 300, false);
+      requireDate(item, 'date', label, false);
+      requireEnum(item, 'recommendation', ['increase', 'maintain', 'review', 'none'], label, false);
+      requireText(item, 'message', label, 500, false);
+      requireNumericText(item, 'load', label, entry => numericString(entry, {max: 5000, decimals: 2}));
+      requireText(item, 'result', label, 200, false);
+      requireText(item, 'rir', label, 100, false);
+      requireEnum(item, 'decision', ['pending', 'accepted', 'maintained', 'rejected'], label, false);
+      requireNumericText(item, 'nextLoad', label, entry => numericString(entry, {max: 5000, decimals: 2}));
+      requireIso(item, 'savedAt', label, true);
+    });
+    value.legacyCycles.forEach((item, index) => {
+      const label = `ciclo legado ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['id', 'sourceSchema', 'label', 'importedAt', 'sourceStartedAt', 'sessionMeta', 'records'], label);
+      requireId(item, 'id', label, true);
+      requireNumber(item, 'sourceSchema', label, 1, 10, true, false);
+      requireText(item, 'label', label, 120, false);
+      requireIso(item, 'importedAt', label, true);
+      requireIso(item, 'sourceStartedAt', label, false);
+      if (!Array.isArray(item.sessionMeta) || item.sessionMeta.length > 1000) fail(`${label} com metadados inválidos`);
+      if (!Array.isArray(item.records) || item.records.length > 50000) fail(`${label} com registros inválidos`);
+      item.sessionMeta.forEach((meta, metaIndex) => {
+        const metaLabel = `${label}, metadado ${metaIndex + 1}`;
+        requireRecord(meta, metaLabel);
+        knownKeys(meta, ['id', 'week', 'occurrence', 'legacyWorkoutId', 'startedAt', 'completedAt', 'manualCompleted'], metaLabel);
+        requireId(meta, 'id', metaLabel, true);
+        requireNumber(meta, 'week', metaLabel, 1, 8, true, false);
+        requireEnum(meta, 'occurrence', [1, 2], metaLabel, false);
+        requireEnum(meta, 'legacyWorkoutId', ['a', 'b', 'c'], metaLabel, true);
+        requireIso(meta, 'startedAt', metaLabel, false);
+        requireIso(meta, 'completedAt', metaLabel, false);
+        requireBoolean(meta, 'manualCompleted', metaLabel);
+      });
+      item.records.forEach((record, recordIndex) => {
+        const recordLabel = `${label}, registro ${recordIndex + 1}`;
+        requireRecord(record, recordLabel);
+        knownKeys(record, ['id', 'week', 'occurrence', 'legacyWorkoutId', 'legacyExerciseId', 'canonicalId', 'legacy', 'variationId', 'equipmentKey', 'mappingStatus', 'done', 'feeling', 'feedback', 'sets'], recordLabel);
+        requireId(record, 'id', recordLabel, true);
+        requireNumber(record, 'week', recordLabel, 1, 8, true, false);
+        requireEnum(record, 'occurrence', [1, 2], recordLabel, false);
+        requireEnum(record, 'legacyWorkoutId', ['a', 'b', 'c'], recordLabel, true);
+        requireId(record, 'legacyExerciseId', recordLabel, true);
+        requireId(record, 'canonicalId', recordLabel, false);
+        if (record.canonicalId && !Data.CATALOG[record.canonicalId]) fail(`${recordLabel}.canonicalId desconhecido`);
+        requireBoolean(record, 'legacy', recordLabel);
+        requireId(record, 'variationId', recordLabel, false);
+        requireText(record, 'equipmentKey', recordLabel, 200, false);
+        requireEnum(record, 'mappingStatus', ['mapped', 'ambiguous', 'unmapped'], recordLabel, false);
+        requireBoolean(record, 'done', recordLabel);
+        requireEnum(record, 'feeling', [...VALID_FEELINGS], recordLabel, true);
+        requireText(record, 'feedback', recordLabel, 300, false);
+        if (!Array.isArray(record.sets) || record.sets.length > MAX_SERIES_PER_EXERCISE) fail(`${recordLabel} com séries inválidas`);
+        record.sets.forEach((set, setIndex) => validateSet(set, `${recordLabel}, série ${setIndex + 1}`));
+      });
+    });
+    value.archives.forEach((archive, archiveIndex) => {
+      const label = `ciclo arquivado ${archiveIndex + 1}`;
+      requireRecord(archive, label);
+      knownKeys(archive, ['id', 'archivedAt', 'cycle', 'sessions'], label);
+      if (!isRecord(archive.cycle) || !Array.isArray(archive.sessions)) fail(`ciclo arquivado ${archiveIndex + 1} inválido`);
+      requireId(archive, 'id', label, true);
+      requireIso(archive, 'archivedAt', label, true);
+      knownKeys(archive.cycle, ['id', 'startedAt', 'currentWeek', 'status'], `${label}, ciclo`);
+      requireId(archive.cycle, 'id', `${label}, ciclo`, true);
+      requireIso(archive.cycle, 'startedAt', `${label}, ciclo`, true);
+      requireNumber(archive.cycle, 'currentWeek', `${label}, ciclo`, 1, 8, true, false);
+      requireEnum(archive.cycle, 'status', ['active', 'archived'], `${label}, ciclo`, false);
+      archive.sessions.forEach((session, sessionIndex) => validateSession(session, `ciclo arquivado ${archiveIndex + 1}, sessão ${sessionIndex + 1}`));
+    });
+    value.migrationLog.forEach((item, index) => {
+      const label = `registro de migração ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['at', 'from', 'to', 'summary'], label);
+      requireIso(item, 'at', label, true);
+      requireNumber(item, 'from', label, 0, 1000, false, false);
+      requireNumber(item, 'to', label, 0, 1000, false, false);
+      requireText(item, 'summary', label, 500, false);
+    });
+    value.quarantine.forEach((item, index) => {
+      const label = `registro de quarentena ${index + 1}`;
+      requireRecord(item, label);
+      knownKeys(item, ['at', 'reason', 'raw'], label);
+      requireIso(item, 'at', label, true);
+      requireText(item, 'reason', label, 500, false);
+      requireText(item, 'raw', label, 5000, true);
+    });
+    return value;
+  }
+
   function assertCurrentStateStructure(raw) {
     const value = assertSafeParsed(raw);
     if (value.app !== APP_ID) throw new Error('Este documento não pertence ao Treino Hard.');
     if (Number(value.schemaVersion) !== SCHEMA_VERSION) throw new Error('O documento local não está no esquema atual e precisa ser migrado.');
+    const unexpected = Object.keys(value).filter(key => !TOP_LEVEL_STATE_FIELDS.has(key));
+    if (unexpected.length) throw new Error(`O documento local contém campos inesperados: ${unexpected.slice(0, 5).join(', ')}.`);
     if (!isRecord(value.settings) || !isRecord(value.cycle)) throw new Error('O documento local tem configurações ou ciclo inválidos.');
+    if (!Number.isInteger(value.revision) || value.revision < 0) throw new Error('O documento local tem revisão inválida.');
+    if (!validIso(value.createdAt) || !validIso(value.updatedAt)) throw new Error('O documento local tem datas de criação ou atualização inválidas.');
     Object.keys(STATE_LIMITS).forEach(field => {
       if (!Array.isArray(value[field])) throw new Error(`O documento local tem o campo ${field} em formato inválido.`);
     });
     assertStateLimits(value);
+    assertCurrentCollectionIntegrity(value);
     return value;
   }
 
@@ -535,11 +890,15 @@
     const unexpected = Object.keys(source).filter(key => !TOP_LEVEL_STATE_FIELDS.has(key) && !['exportedAt', 'format'].includes(key));
     if (Number(payload.schemaVersion) >= 11 && unexpected.length) throw new Error(`Campos inesperados no backup: ${unexpected.slice(0, 5).join(', ')}.`);
     if (Number(payload.schemaVersion) >= 11) {
+      if (source.app !== APP_ID || Number(source.schemaVersion) !== SCHEMA_VERSION) {
+        throw new Error('O estado interno do backup não corresponde ao aplicativo ou esquema declarado.');
+      }
       if (!isRecord(source.settings) || !isRecord(source.cycle)) throw new Error('O backup tem configurações ou ciclo em formato inválido.');
       Object.keys(STATE_LIMITS).forEach(field => {
         if (!Array.isArray(source[field])) throw new Error(`O backup tem o campo ${field} em formato inválido.`);
       });
       assertStateLimits(source);
+      assertCurrentCollectionIntegrity(source);
     }
     return source;
   }
@@ -752,14 +1111,53 @@
     }, 0);
   }
 
-  function comparableSeriesKey(exerciseId, variationId, machineId, side, repRange) {
+  // Identidade da carga: mesmo exercício, mesma variação, mesma máquina, mesmo
+  // lado. Deliberadamente SEM a faixa de repetições — a periodização troca a
+  // faixa a cada duas semanas e isso não transforma o aparelho em outro. É esta
+  // chave que responde "quanto eu levantei aqui da última vez".
+  function loadHistoryKey(exerciseId, variationId, machineId, side) {
     return [
       cleanId(exerciseId, 'unknown'),
       cleanId(variationId, 'default') || 'default',
       cleanText(machineId, 80).toLocaleLowerCase('pt-BR') || 'machine-unspecified',
-      ['left', 'right', 'bilateral'].includes(side) ? side : 'bilateral',
+      ['left', 'right', 'bilateral'].includes(side) ? side : 'bilateral'
+    ].join('|');
+  }
+
+  // Identidade da série comparável: a chave da carga MAIS a faixa prescrita.
+  // Serve para agrupar decisões de progressão e séries históricas equivalentes,
+  // onde a faixa faz parte do que está sendo comparado.
+  function comparableSeriesKey(exerciseId, variationId, machineId, side, repRange) {
+    return [
+      loadHistoryKey(exerciseId, variationId, machineId, side),
       cleanText(repRange, 30) || 'range-unspecified'
     ].join('|');
+  }
+
+  function loadStepFor(exercise) {
+    const step = Number(exercise && exercise.loadStep);
+    return Number.isFinite(step) && step > 0 ? step : 5;
+  }
+
+  // Próximo degrau REAL acima da carga usada. Nunca devolve um valor
+  // intermediário que o aparelho não tem: com degrau de 5 kg, 40 vira 45 e
+  // 42 vira 45, jamais 42,5.
+  function nextLoadSuggestion(load, step) {
+    const current = Number(load);
+    const rawIncrement = Number(step);
+    const increment = Number.isFinite(rawIncrement) && rawIncrement > 0 ? rawIncrement : 5;
+    if (!Number.isFinite(current) || current <= 0) return null;
+    let candidate = Math.ceil(current / increment) * increment;
+    const tolerance = Math.max(1, Math.abs(current), Math.abs(candidate)) * 1e-10;
+    if (candidate <= current + tolerance) candidate += increment;
+    const next = candidate;
+    return Number(next.toFixed(2));
+  }
+
+  function formatLoad(value) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return '';
+    return number.toLocaleString('pt-BR', {maximumFractionDigits: 2});
   }
 
   function rirNumber(value) {
@@ -787,7 +1185,19 @@
     if (rirs.some(value => value == null)) return {code: 'review', message: 'RIR não informado. O resultado foi salvo, mas não é seguro sugerir aumento somente pelas repetições.'};
     const rirWithinTarget = rirs.every(value => value >= prescription.rirMin && value <= prescription.rirMax);
     if (reps.every(value => value >= prescription.max) && rirWithinTarget) {
-      return {code: 'increase', message: 'Topo da faixa atingido. Considere o menor aumento disponível na próxima execução comparável.'};
+      const step = loadStepFor(exercise);
+      const loads = workSets.map(set => Number(set.load) || 0);
+      const uniform = loads.every(value => value > 0 && value === loads[0]);
+      const nextLoad = uniform ? nextLoadSuggestion(loads[0], step) : null;
+      return {
+        code: 'increase',
+        step,
+        baseLoad: uniform ? loads[0] : null,
+        nextLoad,
+        message: nextLoad
+          ? `Topo da faixa atingido com ${formatLoad(loads[0])} kg. Considere testar ${formatLoad(nextLoad)} kg na próxima execução comparável — é o degrau de ${formatLoad(step)} kg presumido para este equipamento. A carga nunca é alterada automaticamente.`
+          : `Topo da faixa atingido. As séries usaram cargas diferentes, então não há um número único a sugerir: suba um degrau de ${formatLoad(step)} kg em cada série na próxima execução comparável. A carga nunca é alterada automaticamente.`
+      };
     }
     if (reps.every(value => value >= prescription.min) && reps.every(value => value <= prescription.max) && rirWithinTarget) {
       return {code: 'maintain', message: 'Resultado dentro da faixa e do RIR planejado. Mantenha a carga na próxima execução comparável.'};
@@ -809,6 +1219,7 @@
   }
 
   function buildBackup(state) {
+    assertCurrentStateStructure(state);
     const normalized = normalizeState(state);
     return {
       app: APP_ID,
@@ -820,6 +1231,7 @@
   }
 
   function touchState(state) {
+    assertCurrentStateStructure(state);
     const normalized = normalizeState(state);
     normalized.revision += 1;
     normalized.updatedAt = new Date().toISOString();
@@ -1047,6 +1459,10 @@
     createExerciseLogs,
     createSession,
     comparableSeriesKey,
+    loadHistoryKey,
+    loadStepFor,
+    nextLoadSuggestion,
+    formatLoad,
     rirNumber,
     doubleProgressionRecommendation,
     workoutVolume,

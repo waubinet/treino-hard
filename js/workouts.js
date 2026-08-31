@@ -56,6 +56,19 @@
 
   const BRACING_TEXT = 'Antes da repetição, organize a respiração e contraia a parede abdominal em todas as direções para estabilizar o tronco. Mantenha a contração durante a parte mais exigente do movimento e reorganize a respiração quando necessário.';
 
+  // Menor degrau de carga que o equipamento realmente oferece. É uma PRESUNÇÃO
+  // sobre a academia, não uma medição: existe só para que a sugestão de aumento
+  // caia em um valor que existe no aparelho, nunca no meio de dois pinos. O app
+  // nunca altera carga sozinho, então errar o degrau não corrompe registro
+  // nenhum — só torna a sugestão menos útil.
+  const LOAD_STEPS = Object.freeze({
+    lateral_raise_dumbbell: 2,
+    triceps_skull_dumbbell: 2,
+    triceps_overhead: 2,
+    hammer_curl_standing: 2,
+    ez_bar_curl: 2.5
+  });
+
   function strength(id, name, category, sets, options) {
     const config = options || {};
     return Object.freeze({
@@ -64,6 +77,7 @@
       type: 'strength',
       category,
       workSets: sets,
+      loadStep: config.loadStep || LOAD_STEPS[id] || 5,
       restSeconds: config.restSeconds || (category === 'accessory' ? 90 : 120),
       warmupSets: config.warmupSets || 0,
       warmupOptional: Boolean(config.warmupOptional),
@@ -374,21 +388,62 @@
     'c_flexor_deitado'
   ]);
 
+  // Lista fechada: a própria entrada do vídeo não pode declarar-se brasileira
+  // e ganhar reprodução. Cada ID precisa existir aqui, coincidir com o canal
+  // revisado e apontar para uma prova externa específica. Conteúdo em pt-BR é
+  // uma exigência separada e continua sendo conferido em reviewedVideo().
+  const VERIFIED_BR_VIDEO_PROVENANCE = Object.freeze({
+    '4L5nBs8Eq7g': Object.freeze({channel: 'Laércio Refundini', country: 'BR', evidenceKind: 'official_legal_page', evidenceUrl: 'https://muscleplus.com.br/politica_de_privacidade/', verifiedAt: '2026-08-13'}),
+    uDBQtlCLQ0Y: Object.freeze({channel: 'Tay Training', country: 'BR', evidenceKind: 'official_professional_record', evidenceUrl: 'https://treinos-server.taytraining.com.br/api/training-sheet/file/91', verifiedAt: '2026-08-13'}),
+    waAxlYvtCcI: Object.freeze({channel: 'Treino Mestre', country: 'BR', evidenceKind: 'official_creator_page', evidenceUrl: 'https://treinomestre.com.br/sobre/', verifiedAt: '2026-08-13'}),
+    Svq2T3L9oKo: Object.freeze({channel: 'Gymflix', country: 'BR', channelHandle: '@GYMFLIXAcademia', evidenceKind: 'official_creator_page', evidenceUrl: 'https://gymflix.com.br/pagina-de-direcionamento/', verifiedAt: '2026-08-13'}),
+    'T--10UN1jKs': Object.freeze({channel: 'FISIculturismo.com.br', country: 'BR', channelHandle: '@FISIculturismocombr', evidenceKind: 'official_creator_page', evidenceUrl: 'https://fisiculturismo.com.br/', verifiedAt: '2026-08-13'}),
+    'F7_8z_7Kwks': Object.freeze({channel: 'FISIculturismo.com.br', country: 'BR', channelHandle: '@FISIculturismocombr', evidenceKind: 'official_creator_page', evidenceUrl: 'https://fisiculturismo.com.br/', verifiedAt: '2026-08-13'}),
+    '3otpFrCvjLw': Object.freeze({channel: 'Comer, Treinar e Amar', country: 'BR', evidenceKind: 'independent_brazilian_source', evidenceUrl: 'https://www.ativo.com/fitness/noticias-fitness/9-canais-de-fitness-para-seguir-no-youtube/', verifiedAt: '2026-08-13'}),
+    zHJE3HPEP84: Object.freeze({channel: 'Mariana Sardelli', country: 'BR', evidenceKind: 'professional_profile', evidenceUrl: 'https://www.treinar.me/mariana-sardelli', verifiedAt: '2026-08-13'}),
+    imijpudAW7s: Object.freeze({channel: 'Matheus Morgavi', country: 'BR', evidenceKind: 'brazilian_federation', evidenceUrl: 'https://www.powerlifting-ipf.com.br/paginas/atletas.php', verifiedAt: '2026-08-13'}),
+    '3pprN9t_P1o': Object.freeze({channel: 'Descomplicando a Musculação - NS Personal', country: 'BR', channelHandle: '@personal.natanscarton', evidenceKind: 'official_professional_registry', evidenceUrl: 'https://www.crefrs.org.br/wp-content/uploads/2026/07/NOMINATA-2024.pdf', verifiedAt: '2026-08-13'})
+  });
+
+  function verifiedBrazilianProvenance(value) {
+    const proof = VERIFIED_BR_VIDEO_PROVENANCE[value.youtubeId || ''];
+    return proof
+      && proof.country === 'BR'
+      && proof.channel === value.channel
+      && /^https:\/\//.test(proof.evidenceUrl)
+      ? proof
+      : null;
+  }
+
   function reviewedVideo(config) {
     const value = config || {};
     const youtubeId = value.youtubeId || '';
+    const declaredStatus = value.status || 'pending';
+    const provenance = verifiedBrazilianProvenance(value);
+    const brazilianSource = Boolean(provenance) && value.language === 'pt-BR';
+    // Regra de produto: somente uma demonstração de criador/canal brasileiro,
+    // em português do Brasil e com origem documentada pode ser reproduzida.
+    // A trava é central para que uma futura entrada não burle a política por
+    // engano; candidatos estrangeiros continuam inventariados, mas pendentes.
+    const blockedByBrazilPolicy = declaredStatus === 'accepted' && !brazilianSource;
     return Object.freeze({
       exerciseId: value.exerciseId || '',
       variationId: value.variationId || '',
-      status: value.status || 'pending',
-      classification: value.classification || 'pending',
-      exactMatch: value.exactMatch === true,
+      status: blockedByBrazilPolicy ? 'pending' : declaredStatus,
+      classification: blockedByBrazilPolicy ? 'pending' : (value.classification || 'pending'),
+      exactMatch: blockedByBrazilPolicy ? false : value.exactMatch === true,
       youtubeId,
       url: value.url || (youtubeId ? `https://www.youtube.com/watch?v=${youtubeId}` : ''),
       title: value.title || '',
       channel: value.channel || '',
       duration: value.duration || '',
       language: value.language || '',
+      creatorCountry: provenance ? provenance.country : (value.creatorCountry || ''),
+      youtubeChannelHandle: provenance && provenance.channelHandle ? provenance.channelHandle : '',
+      originEvidence: provenance ? provenance.evidenceUrl : (value.originEvidence || ''),
+      originEvidenceKind: provenance ? provenance.evidenceKind : '',
+      originVerifiedAt: provenance ? provenance.verifiedAt : '',
+      blockedByBrazilPolicy,
       reviewedAt: value.reviewedAt || '',
       // available = toca no app; external_only = existe mas o dono bloqueia
       // incorporação (erro 101/150); removed_or_private = erro 100;
@@ -398,7 +453,9 @@
       startSeconds: Math.max(0, Math.floor(Number(value.startSeconds) || 0)),
       positives: value.positives || '',
       limitations: value.limitations || '',
-      decision: value.decision || ''
+      decision: blockedByBrazilPolicy
+        ? 'Não reproduzir: a política atual exige vídeo revisado de criador ou canal brasileiro, em português do Brasil.'
+        : (value.decision || '')
     });
   }
 
@@ -477,22 +534,22 @@
     hammer_curl_standing: reviewedVideo({exerciseId: 'hammer_curl_standing', status: 'pending', classification: 'pending', exactMatch: false}),
     squat_free_barbell: reviewedVideo({
       exerciseId: 'squat', variationId: 'free_barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '4L5nBs8Eq7g',
-      title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'external_only', embedCompatible: false,
+      title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://muscleplus.com.br/politica_de_privacidade/', reviewedAt: '2026-08-09', availability: 'external_only', embedCompatible: false,
       positives: 'Mostra rack, posição da barra, pegada, base, descida e fundo.', limitations: 'Base, posição da barra e profundidade dependem da antropometria e mobilidade.', decision: 'Aprovado como guia técnico; o proprietário bloqueia incorporação (erro 150), então o cartão abre direto no YouTube.'
     }),
     squat_smith: reviewedVideo({
       exerciseId: 'squat', variationId: 'smith', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'uDBQtlCLQ0Y',
-      title: 'AGACHAMENTO SMITH - O passo a passo completo', channel: 'Tay Training', duration: '8:03', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'AGACHAMENTO SMITH - O passo a passo completo', channel: 'Tay Training', duration: '8:03', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://apps.apple.com/br/app/tay-training/id1667613209', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra entrada, destravamento, pés, descida e retorno.', limitations: 'O Smith residencial demonstrado pode ter geometria diferente da academia.', decision: 'Aprovar como guia técnico.'
     }),
     leg_press_45: reviewedVideo({
       exerciseId: 'leg_press_45', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'waAxlYvtCcI',
-      title: 'Exercício Leg Press 45° - Execução Correta', channel: 'Treino Mestre', duration: '0:56', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'Exercício Leg Press 45° - Execução Correta', channel: 'Treino Mestre', duration: '0:56', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://treinomestre.com.br/sobre/', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Trenó 45°, apoio do tronco, pés e posição inferior ficam claros.', limitations: 'Não cobre travas, regulagem e profundidade individual em detalhe.', decision: 'Aprovar como demonstração objetiva.'
     }),
     leg_extension: reviewedVideo({
       exerciseId: 'leg_extension', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'Svq2T3L9oKo',
-      title: 'CADEIRA EXTENSORA - COMO EXECUTAR DE FORMA CORRETA', channel: 'Gymflix', duration: '2:49', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'CADEIRA EXTENSORA - COMO EXECUTAR DE FORMA CORRETA', channel: 'Gymflix', duration: '2:49', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://gymflix.com.br/pagina-de-direcionamento/', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra encosto, eixo do joelho, rolete e extensão.', limitations: 'Eixos e regulagens variam por modelo.', decision: 'Aprovar como guia técnico.'
     }),
     leg_curl_seated: reviewedVideo({
@@ -507,7 +564,7 @@
     }),
     leg_curl_standing_unilateral: reviewedVideo({
       exerciseId: 'leg_curl', variationId: 'standing_unilateral', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'T--10UN1jKs',
-      title: 'Flexora em Pé Unilateral na Máquina', channel: 'FISIculturismo.com.br', duration: '1:29', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'Flexora em Pé Unilateral na Máquina', channel: 'FISIculturismo.com.br', duration: '1:29', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://fisiculturismo.com.br/', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Máquina unilateral em pé, apoio anterior e flexão ficam visíveis.', limitations: 'Cobertura limitada de ajustes e modelo específico.', decision: 'Aprovar como demonstração objetiva.'
     }),
     calf_standing: reviewedVideo({
@@ -517,22 +574,22 @@
     }),
     calf_leg_press: reviewedVideo({
       exerciseId: 'calf_standing_or_leg_press', variationId: 'leg_press_45', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'F7_8z_7Kwks',
-      title: 'Panturrilha no Leg Press 45º', channel: 'FISIculturismo.com.br', duration: '2:15', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'Panturrilha no Leg Press 45º', channel: 'FISIculturismo.com.br', duration: '2:15', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://fisiculturismo.com.br/', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra antepés na borda, calcanhares livres e amplitude.', limitations: 'Não cobre totalmente travas, joelhos e amplitude individual.', decision: 'Aprovar como demonstração objetiva.'
     }),
     deadlift_barbell: reviewedVideo({
       exerciseId: 'deadlift_barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '3otpFrCvjLw',
-      title: 'EXECUÇÃO CORRETA DE DEAD LIFT (LEVANTAMENTO TERRA)', channel: 'Comer, Treinar e Amar', duration: '3:48', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'EXECUÇÃO CORRETA DE DEAD LIFT (LEVANTAMENTO TERRA)', channel: 'Comer, Treinar e Amar', duration: '3:48', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://www.ativo.com/fitness/noticias-fitness/9-canais-de-fitness-para-seguir-no-youtube/', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra setup no chão, mãos, pernas, quadril e puxada até a posição ereta.', limitations: 'A altura inicial do quadril depende da antropometria; bracing permanece conteúdo separado.', decision: 'Aprovar como guia técnico.'
     }),
     calf_seated: reviewedVideo({
       exerciseId: 'calf_seated', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'zHJE3HPEP84',
-      title: 'Panturrilha Sentado Solear - Execução Exercício', channel: 'Mariana Sardelli', duration: '0:35', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'Panturrilha Sentado Solear - Execução Exercício', channel: 'Mariana Sardelli', duration: '0:35', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://www.treinar.me/mariana-sardelli', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Máquina sentada, apoio sobre as coxas, antepés e movimento ficam visíveis.', limitations: 'Não detalha ajuste, trava ou amplitude individual.', decision: 'Aprovar como demonstração objetiva.'
     }),
     mob_adductor_butterfly: reviewedVideo({
       exerciseId: 'mob_adductor_butterfly', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'imijpudAW7s',
-      title: 'Como fazer alongamento borboleta - Adutores - Matheus Morgavi', channel: 'Matheus Morgavi', duration: '1:07', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'Como fazer alongamento borboleta - Adutores - Matheus Morgavi', channel: 'Matheus Morgavi', duration: '1:07', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://br.linkedin.com/in/matheusmorgavi', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Solas juntas, joelhos abertos e posições de tronco ficam claras.', limitations: 'Inclinação grande do tronco pode ser desconfortável com barriga grande.', decision: 'Aprovar como demonstração objetiva.'
     }),
     mob_hip_butterfly: reviewedVideo({
@@ -547,7 +604,7 @@
     }),
     mob_ankle: reviewedVideo({
       exerciseId: 'mob_ankle', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '3pprN9t_P1o',
-      title: 'Mobilidade de Tornozelo - Joelho na Parede', channel: 'Descomplicando a Musculação - NS Personal', duration: '1:35', language: 'pt-BR', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
+      title: 'Mobilidade de Tornozelo - Joelho na Parede', channel: 'Descomplicando a Musculação - NS Personal', duration: '1:35', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://editora.unifip.edu.br/repositoriounifip/article/view/1990', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra base, calcanhar apoiado e joelho avançando em direção à parede.', limitations: 'Distância da parede e amplitude precisam ser individualizadas.', decision: 'Aprovar como guia técnico.'
     }),
     bracing: reviewedVideo({
@@ -634,7 +691,9 @@
     WORKOUT_BY_ID,
     LEGACY_ALIASES,
     LEGACY_ONLY_IDS,
+    VERIFIED_BR_VIDEO_PROVENANCE,
     VIDEOS,
+    verifiedBrazilianProvenance,
     prescriptionFor,
     workoutForDate,
     findExercise

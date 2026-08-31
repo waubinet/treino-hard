@@ -1,0 +1,21 @@
+# Treino Hard — regras operacionais
+
+- Leia `CLAUDE.md` e `PENDENCIAS.md` antes de alterar o projeto.
+- Preserve alterações locais existentes; não use limpeza destrutiva do Git.
+- Faça cada rodada em branch própria. Fluxo: editar → testar → corrigir → documentar → commit → fast-forward em `main` → push → confirmar GitHub Pages e a versão pública.
+- Não publique com falha P0/P1, teste vermelho, erro de console ou risco conhecido de perda silenciosa de dados.
+- Falha de persistência nunca pode aparecer como sucesso nem permitir que o fluxo destrutivo continue.
+- Corrupção deve ser preservada para recuperação. Se a recuperação não puder ser gravada, bloqueie novas escritas e não sobrescreva o documento primário.
+- Sessões concluídas, parciais ou canceladas são somente leitura até uma reabertura explícita.
+- A ficha em `js/workouts.js` é congelada. Não altere exercícios, ordem, séries ou periodização sem autorização explícita e atualização dos testes de conformidade.
+- `loadHistoryKey` identifica exercício + variação + máquina + lado. `comparableSeriesKey` acrescenta a faixa. Não misture históricos distintos.
+- A ficha usa séries tradicionais. Não introduza bi-set, super-set, drop-set ou rest-pause sem autorização explícita.
+- Não introduza stiff/RDL; os supinos permanecem em máquinas salvo autorização explícita.
+- Vídeo aprovado deve estar em português do Brasil, ser de criador/canal brasileiro, ter proveniência verificável e passar por inspeção visual individual; título ou descrição isolados não bastam.
+- Use `element()`/`textContent`; não introduza `innerHTML`, handlers inline, `unsafe-inline` ou `unsafe-eval`.
+- Ao mudar o formato persistido, crie migração explícita, incremente o esquema e prove ida/volta por testes. Não altere o esquema por mudança apenas visual.
+- Rode verificação de sintaxe dos JavaScripts do app e dos testes, testes unitários e a suíte completa de navegador. Nunca execute duas suítes Playwright em paralelo.
+- Nos testes comuns, bloqueie service workers; habilite-os explicitamente somente nos cenários offline/PWA.
+- Teste o app real em Chrome, incluindo responsividade, teclado, persistência, atualização/offline e zero erros de console.
+- `APP_VERSION`, `SCHEMA_VERSION` e `CACHE_NAME` são independentes; confirme os três antes e depois da publicação.
+- Não trate push como publicação: aguarde o Pages e valide a URL pública com cache-busting.

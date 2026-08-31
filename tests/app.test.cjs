@@ -18,6 +18,15 @@ function plain(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
+function storedRecoveryItems(app) {
+  const raw = app.store.get(app.Storage.FALLBACK_RECOVERY_KEY);
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  if (Array.isArray(parsed)) return parsed;
+  if (parsed && Array.isArray(parsed.items)) return parsed.items;
+  return parsed && parsed.id ? [parsed] : [];
+}
+
 function createSvgNode(name) {
   const attributes = new Map();
   const classes = new Set();
@@ -49,15 +58,21 @@ function createSvgNode(name) {
   };
 }
 
-function boot(initialStorage = {}) {
+function boot(initialStorage = {}, options = {}) {
   const store = new Map(Object.entries(initialStorage));
+  const failingSetItems = new Set(options.failSetItemKeys || []);
+  let lockTail = Promise.resolve();
   let uuid = 0;
   const localStorage = {
     getItem(key) {
       return store.has(key) ? store.get(key) : null;
     },
     setItem(key, value) {
+      if (options.disableLocalStorage) throw new Error('localStorage indisponível neste teste');
+      if (failingSetItems.has(key)) throw new Error(`Falha simulada ao gravar ${key}`);
+      if (typeof options.beforeSetItem === 'function') options.beforeSetItem({key, value: String(value), store});
       store.set(key, String(value));
+      if (typeof options.onSetItem === 'function') options.onSetItem({key, value: String(value), store});
     },
     removeItem(key) {
       store.delete(key);
@@ -73,11 +88,21 @@ function boot(initialStorage = {}) {
     getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
     subtle: webcrypto.subtle
   };
+  const navigator = options.noWebLocks ? {} : {
+    locks: {
+      request(_name, _settings, callback) {
+        const result = lockTail.then(callback);
+        lockTail = result.catch(() => undefined);
+        return result;
+      }
+    }
+  };
   const context = vm.createContext({
     console,
     localStorage,
     document,
     crypto,
+    navigator,
     TextEncoder,
     TextDecoder
   });
@@ -88,6 +113,7 @@ function boot(initialStorage = {}) {
   return {
     context,
     store,
+    localStorage,
     Data: context.THFData,
     Core: context.THFCore,
     Storage: context.THFStorage,
@@ -337,15 +363,18 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
   const accepted = Object.entries(videos).filter(([, video]) => video.status === 'accepted');
   const approvedClasses = new Set(['technical_guide', 'objective_demo', 'visual_reference']);
 
-  // 29 candidatos foram revisados; dois deixaram de responder publicamente em
-  // 09/08/2026 e voltaram para pendente sem perder a revisão registrada.
-  assert.ok(accepted.length >= 29, 'a curadoria já feita não pode ser descartada');
+  // A política brasileira é uma barreira de publicação: a revisão anterior
+  // continua registrada, mas só dez entradas hoje comprovam origem BR e pt-BR.
+  assert.equal(accepted.length, 10, 'somente vídeos brasileiros comprovados podem permanecer aprovados');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.equal(video.exactMatch, true, `${key}: correspondência exata`);
     assert.match(video.youtubeId, /^[\w-]{11}$/, `${key}: ID do YouTube`);
     assert.match(video.url, /^https:\/\/www\.youtube\.com\/watch\?v=/, `${key}: URL canônica`);
     assert.ok(video.title && video.channel && video.duration && video.language, `${key}: metadados públicos`);
+    assert.equal(video.creatorCountry, 'BR', `${key}: origem brasileira`);
+    assert.equal(video.language, 'pt-BR', `${key}: idioma brasileiro`);
+    assert.match(video.originEvidence, /^https:\/\//, `${key}: evidência pública da origem`);
     assert.match(video.reviewedAt, /^2026-08-09$/, `${key}: data da revisão visual`);
     // A incorporação foi verificada com o IFrame Player API em 2026-08-09:
     // erro 101/150 vira external_only, erro 100 viraria removed_or_private.
@@ -425,9 +454,499 @@ test('documento atual estruturalmente corrompido é preservado na recuperação'
   const value = await storage.readDocument();
   assert.equal(value, null);
   assert.match(storage.lastError, /sessions.*formato inválido/);
+  assert.equal(storage.writeBlocked, true, 'corrupção do primário deve manter o app somente leitura até recuperação explícita');
   assert.equal(app.store.get(app.Storage.FALLBACK_KEY), raw, 'o documento original não pode ser sobrescrito durante a leitura');
-  const recovery = JSON.parse(app.store.get('treinohard_recovery_v11'));
-  assert.equal(recovery.raw, raw);
+  assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
+});
+
+test('corrupção profunda não descarta silenciosamente uma sessão atual', async () => {
+  const seed = boot();
+  const corrupted = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const session = plain(seed.Core.createSession('push_a', '2026-08-10', 1));
+  session.exercises[0].sets[0] = 'série-corrompida';
+  corrupted.sessions = [session];
+  const raw = JSON.stringify(corrupted);
+  const app = boot({treinohard_document_v11: raw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  const value = await storage.readDocument();
+  assert.equal(value, null);
+  assert.match(storage.lastError, /sessão 1, exercício 1, série 1.*formato inválido/i);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), raw);
+  assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
+});
+
+test('falha ao preservar recuperação bloqueia escrita e mantém bruto exportável em memória', async () => {
+  const seed = boot();
+  const corrupted = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  corrupted.sessions = [{id: 'perdida', workoutId: 'push_a', plannedDate: 'data-inválida', exercises: []}];
+  const raw = JSON.stringify(corrupted);
+  const app = boot(
+    {treinohard_document_v11: raw},
+    {failSetItemKeys: ['treinohard_recovery_v11']}
+  );
+  const storage = new app.Storage.AppStorage();
+  const state = await storage.init();
+
+  assert.equal(storage.writeBlocked, true);
+  assert.match(storage.lastError, /novas escritas foram bloqueadas/i);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), raw, 'o documento primário precisa permanecer intocado');
+  assert.equal(state.sessions.length, 0, 'o estado de visualização somente leitura não pode fingir que recuperou a sessão');
+  const recoveries = await storage.getRecoveryItems();
+  assert.equal(recoveries.some(item => item.raw === raw), true, 'o bruto precisa continuar disponível para exportação nesta execução');
+  await assert.rejects(storage.writeDocument(state, state.revision, {}), /bloqueadas|bloqueada/i);
+});
+
+test('primário vazio ou com campo inesperado nunca é tratado como instalação nova', async () => {
+  for (const raw of ['', JSON.stringify(Object.assign(plain(boot().Core.defaultState()), {campoDesconhecido: {valor: 1}}))]) {
+    const app = boot({treinohard_document_v11: raw});
+    const storage = new app.Storage.AppStorage();
+    const state = await storage.init();
+    assert.equal(storage.writeBlocked, true);
+    assert.equal(app.store.get(app.Storage.FALLBACK_KEY), raw);
+    assert.equal(state.sessions.length, 0);
+  }
+});
+
+test('gravação revalida o primário e bloqueia sobrescrita se ele se corromper após a leitura', async () => {
+  const seed = boot();
+  const original = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const originalRaw = JSON.stringify(original);
+  const app = boot({treinohard_document_v11: originalRaw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const state = await storage.readDocument();
+
+  const corrupt = plain(original);
+  corrupt.sessions = [plain(seed.Core.createSession('push_a', '2026-08-10', 1))];
+  corrupt.sessions[0].exercises = 'corrompido-depois-da-leitura';
+  const corruptRaw = JSON.stringify(corrupt);
+  app.store.set(app.Storage.FALLBACK_KEY, corruptRaw);
+
+  await assert.rejects(
+    storage.writeDocument(state, state.revision, {}),
+    /lista válida de exercícios.*primário permaneceu intacto/i
+  );
+  assert.equal(storage.writeBlocked, true);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), corruptRaw);
+  assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === corruptRaw), true);
+});
+
+test('fallback local detecta alteração concorrente ocorrida durante o staging e não a sobrescreve', async () => {
+  const seed = boot();
+  const original = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const originalRaw = JSON.stringify(original);
+  const concurrent = plain(original);
+  concurrent.revision = 1;
+  concurrent.updatedAt = '2026-08-08T12:01:00.000Z';
+  concurrent.settings.videoMode = 'inline';
+  const concurrentRaw = JSON.stringify(concurrent);
+  let injected = false;
+  const app = boot({treinohard_document_v11: originalRaw}, {
+    onSetItem({key, store}) {
+      if (!injected && key === 'treinohard_document_v11_staging') {
+        injected = true;
+        store.set('treinohard_document_v11', concurrentRaw);
+      }
+    }
+  });
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const proposed = cloneIntoContext(app, original);
+  proposed.settings.videoMode = 'ask';
+
+  await assert.rejects(storage.writeDocument(proposed, 0, {}), /durante a gravação/i);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), concurrentRaw, 'a alteração da outra aba deve permanecer intacta');
+  assert.equal(app.store.has(app.Storage.FALLBACK_STAGING_KEY), false, 'o staging rejeitado deve ser limpo');
+});
+
+test('Web Lock serializa duas gravações locais e só uma revisão zero pode vencer', async () => {
+  const seed = boot();
+  const original = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const app = boot({treinohard_document_v11: JSON.stringify(original)});
+  const firstStorage = new app.Storage.AppStorage();
+  const secondStorage = new app.Storage.AppStorage();
+  firstStorage.mode = 'localstorage';
+  secondStorage.mode = 'localstorage';
+  const first = cloneIntoContext(app, original);
+  const second = cloneIntoContext(app, original);
+  first.settings.videoMode = 'inline';
+  second.settings.videoMode = 'ask';
+
+  const results = await Promise.allSettled([
+    firstStorage.writeDocument(first, 0, {}),
+    secondStorage.writeDocument(second, 0, {})
+  ]);
+  assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
+  const rejected = results.find(result => result.status === 'rejected');
+  assert.match(rejected.reason.message, /outra aba alterou/i);
+  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).revision, 1);
+});
+
+test('inicializações simultâneas convergem para o documento vencedor sem sobrescrita', async () => {
+  const app = boot();
+  const firstStorage = new app.Storage.AppStorage();
+  const secondStorage = new app.Storage.AppStorage();
+
+  const [first, second] = await Promise.all([firstStorage.init(), secondStorage.init()]);
+  const persisted = JSON.parse(app.store.get(app.Storage.FALLBACK_KEY));
+  assert.equal(first.revision, persisted.revision);
+  assert.equal(second.revision, persisted.revision);
+  assert.equal(firstStorage.writeBlocked, false);
+  assert.equal(secondStorage.writeBlocked, false);
+});
+
+test('gravação interrompida depois do staging é retomada na inicialização seguinte', async () => {
+  const seed = boot();
+  const original = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const originalRaw = JSON.stringify(original);
+  let interruptOnce = true;
+  const app = boot({treinohard_document_v11: originalRaw}, {
+    beforeSetItem({key, store}) {
+      if (interruptOnce && key === 'treinohard_document_v11' && store.has('treinohard_document_v11_staging')) {
+        interruptOnce = false;
+        throw new Error('Interrupção simulada antes do commit principal.');
+      }
+    }
+  });
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const proposed = cloneIntoContext(app, original);
+  proposed.settings.videoMode = 'ask';
+
+  await assert.rejects(storage.writeDocument(proposed, 0, {}), /interrupção simulada/i);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), originalRaw);
+  assert.equal(app.store.has(app.Storage.FALLBACK_STAGING_KEY), true, 'o único candidato durável não pode ser apagado após a interrupção');
+
+  const restarted = new app.Storage.AppStorage();
+  const recovered = await restarted.init();
+  assert.equal(recovered.revision, 1);
+  assert.equal(recovered.settings.videoMode, 'ask');
+  assert.equal(app.store.has(app.Storage.FALLBACK_STAGING_KEY), false);
+});
+
+test('snapshot de aba desatualizada é recusado sem substituir o snapshot válido', async () => {
+  const seed = boot();
+  const current = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  current.revision = 5;
+  current.updatedAt = '2026-08-08T12:05:00.000Z';
+  const previous = plain(current);
+  previous.revision = 4;
+  previous.updatedAt = '2026-08-08T12:04:00.000Z';
+  const stale = plain(current);
+  stale.revision = 2;
+  stale.updatedAt = '2026-08-08T12:02:00.000Z';
+  const snapshotRaw = JSON.stringify({id: 'snapshot-valid', savedAt: '2026-08-08T12:04:30.000Z', reason: 'válido', state: previous});
+  const app = boot({treinohard_document_v11: JSON.stringify(current), treinohard_snapshot_v11: snapshotRaw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  await assert.rejects(storage.createSnapshot(cloneIntoContext(app, stale), 'stale'), /outra aba alterou/i);
+  assert.equal(app.store.get('treinohard_snapshot_v11'), snapshotRaw);
+});
+
+test('snapshot local corrompido é preservado antes de receber uma versão válida', async () => {
+  const seed = boot();
+  const current = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const corruptRaw = JSON.stringify({id: 'snapshot-corrupto', savedAt: '2026-08-08T12:00:00.000Z', state: {sessions: 'corrompido'}});
+  const app = boot({
+    treinohard_document_v11: JSON.stringify(current),
+    treinohard_snapshot_v11: corruptRaw
+  });
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  const snapshot = await storage.createSnapshot(cloneIntoContext(app, current), 'substituição segura');
+  assert.equal(snapshot.reason, 'substituição segura');
+  const stored = JSON.parse(app.store.get('treinohard_snapshot_v11'));
+  assert.doesNotThrow(() => app.Core.assertCurrentStateStructure(cloneIntoContext(app, stored.state)));
+  assert.equal(storedRecoveryItems(app).some(item => item.raw === corruptRaw), true);
+});
+
+test('backup forçado de aba desatualizada não rebaixa a cópia mais nova', async () => {
+  const seed = boot();
+  const current = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  current.revision = 5;
+  current.updatedAt = '2026-08-08T12:05:00.000Z';
+  const stale = plain(current);
+  stale.revision = 2;
+  stale.updatedAt = '2026-08-08T12:02:00.000Z';
+  const appForDate = boot();
+  const backupRaw = JSON.stringify([{
+    id: `auto-${appForDate.Core.localDateKey()}`,
+    savedAt: '2026-08-08T12:05:30.000Z',
+    state: current
+  }]);
+  const app = boot({treinohard_document_v11: JSON.stringify(current), treinohard_auto_backups_v11: backupRaw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  await assert.rejects(storage.automaticBackup(cloneIntoContext(app, stale), true), /outra aba alterou/i);
+  assert.equal(app.store.get('treinohard_auto_backups_v11'), backupRaw);
+});
+
+test('cópia automática diária corrompida é preservada e substituída por uma restaurável', async () => {
+  const seed = boot();
+  const current = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const todayId = `auto-${seed.Core.localDateKey()}`;
+  const corruptRaw = JSON.stringify([{id: todayId, savedAt: '2026-08-08T12:05:30.000Z', state: {sessions: 'corrompido'}}]);
+  const app = boot({
+    treinohard_document_v11: JSON.stringify(current),
+    treinohard_auto_backups_v11: corruptRaw
+  });
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  assert.equal(await storage.automaticBackup(cloneIntoContext(app, current), false), true);
+  const backups = JSON.parse(app.store.get('treinohard_auto_backups_v11'));
+  assert.equal(backups.length, 1);
+  assert.equal(backups[0].id, todayId);
+  assert.doesNotThrow(() => app.Core.assertCurrentStateStructure(cloneIntoContext(app, backups[0].state)));
+  assert.equal(storedRecoveryItems(app).some(item => item.raw === corruptRaw), true, 'a entrada defeituosa não pode desaparecer sem recuperação');
+});
+
+test('coleções auxiliares ilegíveis são incorporadas à recuperação antes de reparo', async () => {
+  const seed = boot();
+  const current = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const brokenBackups = '{backup-incompleto';
+  const brokenRecovery = '{recovery-incompleto';
+  const app = boot({
+    treinohard_document_v11: JSON.stringify(current),
+    treinohard_auto_backups_v11: brokenBackups,
+    treinohard_recovery_v11: brokenRecovery
+  });
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  assert.equal(await storage.automaticBackup(cloneIntoContext(app, current), false), true);
+  const recoveries = storedRecoveryItems(app);
+  assert.equal(recoveries.some(item => item.raw === brokenRecovery), true);
+  assert.equal(recoveries.some(item => item.raw === brokenBackups), true);
+  assert.equal((await storage.listBackups()).length, 1);
+});
+
+test('importação de cópias legadas nunca expulsa as três cópias v11 existentes', async () => {
+  const seed = boot();
+  const state = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const current = [1, 2, 3].map(day => ({
+    id: `auto-v11-${day}`,
+    savedAt: `2026-08-0${day}T12:00:00.000Z`,
+    state
+  }));
+  const currentRaw = JSON.stringify(current);
+  const app = boot({treinohard_auto_backups_v11: currentRaw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  await storage.importLegacyAutomaticBackups(cloneIntoContext(app, [{
+    id: 'legado-1',
+    day: '2026-01-01',
+    savedAt: '2026-01-01T12:00:00.000Z',
+    data: {}
+  }]));
+  assert.deepEqual(JSON.parse(app.store.get('treinohard_auto_backups_v11')).map(item => item.id), current.map(item => item.id));
+});
+
+test('fallback sem Web Locks permanece somente leitura e preserva o documento', async () => {
+  const seed = boot();
+  const original = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const raw = JSON.stringify(original);
+  const app = boot({treinohard_document_v11: raw}, {noWebLocks: true});
+  const storage = new app.Storage.AppStorage();
+
+  const state = await storage.init();
+  assert.equal(state.revision, 0);
+  assert.equal(storage.writeBlocked, true);
+  assert.match(storage.lastError, /bloqueio entre abas.*somente leitura/i);
+  await assert.rejects(storage.writeDocument(state, 0, {}), /somente leitura|bloqueio entre abas/i);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), raw);
+});
+
+test('sem IndexedDB e localStorage o modo memória nunca se apresenta como persistente', async () => {
+  const app = boot({}, {disableLocalStorage: true});
+  const storage = new app.Storage.AppStorage();
+
+  const state = await storage.init();
+  assert.equal(storage.mode, 'memory');
+  assert.equal(storage.writeBlocked, true);
+  assert.match(storage.lastError, /nenhum armazenamento persistente.*somente leitura/i);
+  await assert.rejects(storage.writeDocument(state, state.revision, {}), /somente leitura|persistente/i);
+  assert.equal(storage.memory, null);
+});
+
+test('modo somente leitura bloqueia também snapshots e cópias automáticas', async () => {
+  const app = boot();
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  storage.writeBlocked = true;
+  storage.lastError = 'Bloqueio de integridade de teste.';
+  const state = cloneIntoContext(app, plain(app.Core.defaultState('2026-08-08T12:00:00.000Z')));
+
+  await assert.rejects(storage.createSnapshot(state, 'não gravar'), /bloqueio de integridade/i);
+  await assert.rejects(storage.automaticBackup(state, true), /bloqueio de integridade/i);
+  assert.equal(app.store.has('treinohard_snapshot_v11'), false);
+  assert.equal(app.store.has('treinohard_auto_backups_v11'), false);
+});
+
+test('primário de esquema anterior só é migrado depois de recuperação durável', async () => {
+  const seed = boot();
+  const oldState = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  oldState.schemaVersion = 10;
+  const raw = JSON.stringify(oldState);
+  const app = boot({treinohard_document_v11: raw});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+
+  const migrated = await storage.readDocument();
+  assert.equal(migrated.schemaVersion, 11);
+  assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
+  const saved = await storage.writeDocument(migrated, migrated.revision, {});
+  assert.equal(saved.schemaVersion, 11);
+  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).schemaVersion, 11);
+
+  const blockedApp = boot(
+    {treinohard_document_v11: raw},
+    {failSetItemKeys: ['treinohard_recovery_v11']}
+  );
+  const blockedStorage = new blockedApp.Storage.AppStorage();
+  const readOnly = await blockedStorage.init();
+  assert.equal(blockedStorage.writeBlocked, true);
+  assert.equal(blockedApp.store.get(blockedApp.Storage.FALLBACK_KEY), raw);
+  assert.equal(readOnly.sessions.length, 0);
+});
+
+test('migração não sobrescreve revisão antiga mais nova gravada por outra aba', async () => {
+  const seed = boot();
+  const oldRevisionFive = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  oldRevisionFive.schemaVersion = 10;
+  oldRevisionFive.revision = 5;
+  const app = boot({treinohard_document_v11: JSON.stringify(oldRevisionFive)});
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  const migratedFromFive = await storage.readDocument();
+
+  const oldRevisionSix = plain(oldRevisionFive);
+  oldRevisionSix.revision = 6;
+  oldRevisionSix.updatedAt = '2026-08-08T12:06:00.000Z';
+  app.store.set(app.Storage.FALLBACK_KEY, JSON.stringify(oldRevisionSix));
+
+  await assert.rejects(storage.writeDocument(migratedFromFive, 5, {}), /outra aba alterou os dados antigos/i);
+  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).revision, 6);
+});
+
+test('validação profunda rejeita escalares que seriam apagados pela normalização', () => {
+  const app = boot();
+  const state = plain(app.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  state.sessions = [plain(app.Core.createSession('push_a', '2026-08-10', 1))];
+  state.sessions[0].exercises[0].sets[0].load = {raw: '43 kg'};
+  assert.throws(
+    () => app.Core.assertCurrentStateStructure(cloneIntoContext(app, state)),
+    /série 1\.load em formato inválido/i
+  );
+});
+
+test('validação profunda rejeita IDs duplicados e sessões fora da ficha canônica', () => {
+  const app = boot();
+  const base = plain(app.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const session = plain(app.Core.createSession('push_a', '2026-08-10', 1));
+
+  const cases = [
+    {
+      pattern: /sessões atuais e arquivadas.*id duplicado/i,
+      mutate(state) {
+        const other = plain(session);
+        other.plannedDate = '2026-08-17';
+        state.sessions = [plain(session), other];
+      }
+    },
+    {
+      pattern: /exercícios.*id duplicado/i,
+      mutate(state) {
+        const changed = plain(session);
+        changed.exercises[1].id = changed.exercises[0].id;
+        state.sessions = [changed];
+      }
+    },
+    {
+      pattern: /séries.*id duplicado/i,
+      mutate(state) {
+        const changed = plain(session);
+        changed.exercises[0].sets[1].id = changed.exercises[0].sets[0].id;
+        state.sessions = [changed];
+      }
+    },
+    {
+      pattern: /exercícios, lados ou cardinalidade incompatíveis/i,
+      mutate(state) {
+        const changed = plain(session);
+        changed.exercises.pop();
+        state.sessions = [changed];
+      }
+    },
+    {
+      pattern: /variationId não pertence ao exercício/i,
+      mutate(state) {
+        const changed = plain(session);
+        changed.exercises[0].variationId = 'variacao-inexistente';
+        state.sessions = [changed];
+      }
+    }
+  ];
+
+  cases.forEach(({pattern, mutate}) => {
+    const state = plain(base);
+    mutate(state);
+    assert.throws(() => app.Core.assertCurrentStateStructure(cloneIntoContext(app, state)), pattern);
+  });
+});
+
+test('ciclo legado e cópias locais corrompidos são recusados antes de substituir o primário', async () => {
+  const seed = boot();
+  const current = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  current.revision = 3;
+  const currentRaw = JSON.stringify(current);
+
+  const legacyCorrupt = plain(current);
+  legacyCorrupt.legacyCycles = [{
+    id: 'legado',
+    sourceSchema: 9,
+    label: 'Ciclo legado de teste',
+    importedAt: '2026-08-08T12:00:00.000Z',
+    sourceStartedAt: '',
+    sessionMeta: [],
+    records: 'corrompido'
+  }];
+  assert.throws(
+    () => seed.Core.assertCurrentStateStructure(cloneIntoContext(seed, legacyCorrupt)),
+    /ciclo legado 1.*registros inválidos/i
+  );
+
+  const backupCorrupt = plain(current);
+  backupCorrupt.sessions = [plain(seed.Core.createSession('push_a', '2026-08-10', 1))];
+  backupCorrupt.sessions[0].exercises = 'corrompido';
+  const app = boot({
+    treinohard_document_v11: currentRaw,
+    treinohard_auto_backups_v11: JSON.stringify([{id: 'auto-corrupto', savedAt: '2026-08-09T12:00:00.000Z', state: backupCorrupt}])
+  });
+  const storage = new app.Storage.AppStorage();
+  storage.mode = 'localstorage';
+  await assert.rejects(storage.restoreBackup('auto-corrupto', cloneIntoContext(app, current)), /não encontrada/i);
+  assert.equal(app.store.get(app.Storage.FALLBACK_KEY), currentRaw);
+});
+
+test('envelope v11 não pode esconder estado interno de outro app ou esquema', () => {
+  const app = boot();
+  const state = plain(app.Core.defaultState('2026-08-08T12:00:00.000Z'));
+  const envelope = {app: app.Core.APP_ID, schemaVersion: 11, format: 'treino-hard-backup', state};
+  for (const mutation of [
+    value => { value.state.app = 'outro-app'; },
+    value => { value.state.schemaVersion = 99; }
+  ]) {
+    const candidate = plain(envelope);
+    mutation(candidate);
+    assert.throws(() => app.Core.importPreview(cloneIntoContext(app, candidate)), /estado interno.*não corresponde/i);
+  }
 });
 
 test('preferência de vídeo é opcional, compatível e usa abertura externa por padrão', () => {
@@ -711,8 +1230,9 @@ test('schemas futuros são rejeitados sem sobrescrever o documento local', async
   const value = await storage.readDocument();
   assert.equal(value, null);
   assert.match(storage.lastError, /versão futura/);
+  assert.equal(storage.writeBlocked, true);
   assert.equal(app.store.get(app.Storage.FALLBACK_KEY), future);
-  assert.equal(app.store.has('treinohard_recovery_v11'), false, 'schema futuro não deve causar nenhuma escrita');
+  assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === future), true, 'o bruto futuro deve ser preservado sem substituir o primário');
 });
 
 test('bloqueia prototype pollution no núcleo e no parser do armazenamento', () => {
@@ -1202,7 +1722,11 @@ test('conformidade: versão do app e esquema de dados são independentes', () =>
 
 const VIDEO_STATUSES = Object.freeze(['accepted', 'pending', 'rejected']);
 const VIDEO_CLASSIFICATIONS = Object.freeze(['technical_guide', 'objective_demo', 'visual_reference', 'pending']);
-const CAMPOS_OBRIGATORIOS_APROVADO = Object.freeze(['youtubeId', 'url', 'title', 'channel', 'duration', 'reviewedAt', 'positives', 'limitations', 'decision']);
+const CAMPOS_OBRIGATORIOS_APROVADO = Object.freeze([
+  'youtubeId', 'url', 'title', 'channel', 'duration', 'language', 'creatorCountry',
+  'originEvidence', 'originEvidenceKind', 'originVerifiedAt', 'reviewedAt',
+  'positives', 'limitations', 'decision'
+]);
 
 test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
   const app = boot();
@@ -1213,7 +1737,7 @@ test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
     return total;
   }, {});
   assert.equal(chaves.length, 41, 'total de entradas do catálogo');
-  assert.deepEqual(contagem, {accepted: 29, pending: 12}, 'distribuição por estado');
+  assert.deepEqual(contagem, {pending: 31, accepted: 10}, 'distribuição por estado');
   assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 32, 'entradas com identificador do YouTube');
   assert.equal(chaves.filter(chave => videos[chave].url).length, 32, 'entradas com URL');
 });
@@ -1241,12 +1765,56 @@ test('inventário de vídeos: aprovado exige metadados completos de revisão', (
     assert.match(video.reviewedAt, /^\d{4}-\d{2}-\d{2}$/, `${chave} com data de revisão inválida`);
     assert.match(video.url, /^https:\/\/www\.youtube\.com\/watch\?v=/, `${chave} com URL fora do YouTube`);
     assert.ok(video.url.endsWith(video.youtubeId), `${chave} com URL que não corresponde ao identificador`);
+    assert.equal(video.creatorCountry, 'BR', `${chave} aprovado sem origem brasileira`);
+    assert.equal(video.language, 'pt-BR', `${chave} aprovado fora do português brasileiro`);
+    assert.match(video.originEvidence, /^https:\/\/\S+$/, `${chave} aprovado sem evidência HTTPS da origem`);
+    assert.notEqual(video.availability, 'removed_or_private', `${chave} aprovado apesar de removido ou privado`);
     // Aprovado descreve o CONTEÚDO. Onde ele toca é `availability`:
     // `external_only` continua sendo um estado válido de vídeo aprovado.
     assert.ok(['available', 'external_only'].includes(video.availability), `${chave} aprovado com disponibilidade ${video.availability}`);
     assert.equal(typeof video.embedCompatible, 'boolean', `${chave} aprovado sem verificação de incorporação`);
     assert.equal(video.embedCompatible, video.availability === 'available', `${chave} com incorporação incoerente com a disponibilidade`);
   }
+});
+
+test('inventário de vídeos: política brasileira rebaixa candidatos incompatíveis e nunca deixa exceções aprovadas', () => {
+  const app = boot();
+  const videos = plain(app.Data.VIDEOS);
+  const provenance = plain(app.Data.VERIFIED_BR_VIDEO_PROVENANCE);
+  const aprovados = Object.entries(videos).filter(([, video]) => video.status === 'accepted');
+  const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
+
+  assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
+  assert.equal(Object.keys(provenance).length, 10, 'a autorização usa uma lista fechada e auditável');
+  aprovados.forEach(([chave, video]) => {
+    const proof = provenance[video.youtubeId];
+    assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);
+    assert.equal(proof.channel, video.channel, `${chave}: canal diverge da prova cadastrada`);
+    assert.equal(proof.evidenceUrl, video.originEvidence, `${chave}: URL diverge da prova cadastrada`);
+    assert.equal(proof.evidenceKind, video.originEvidenceKind, `${chave}: tipo da prova`);
+    assert.equal(proof.verifiedAt, video.originVerifiedAt, `${chave}: data da verificação de origem`);
+    assert.ok(app.Data.verifiedBrazilianProvenance(video), `${chave}: proveniência fechada não reconhecida`);
+    assert.equal(video.creatorCountry, 'BR', `${chave}: país do criador`);
+    assert.equal(video.language, 'pt-BR', `${chave}: idioma`);
+    assert.match(video.originEvidence, /^https:\/\/\S+$/, `${chave}: prova pública da origem`);
+    assert.match(video.youtubeId, /^[\w-]{11}$/, `${chave}: identificador do YouTube`);
+    assert.notEqual(video.availability, 'removed_or_private', `${chave}: disponibilidade`);
+  });
+
+  assert.equal(bloqueados.length, 19, 'todos os candidatos aceitos fora da lista brasileira devem ser bloqueados');
+  bloqueados.forEach(([chave, video]) => {
+    assert.equal(video.status, 'pending', `${chave}: candidato incompatível precisa ficar pendente`);
+    assert.equal(video.classification, 'pending', `${chave}: classificação não pode continuar aprovada`);
+    assert.equal(video.exactMatch, false, `${chave}: correspondência aprovada precisa ser invalidada`);
+  });
+  assert.equal(videos.cable_crossover.blockedByBrazilPolicy, true, 'um candidato sem origem BR documentada não pode escapar da barreira');
+  assert.equal(videos.cable_crossover.status, 'pending');
+  assert.equal(videos.vacuum_standing.blockedByBrazilPolicy, true, 'um vídeo em inglês não pode escapar da barreira');
+  assert.equal(videos.vacuum_standing.status, 'pending');
+
+  const exemplo = aprovados[0][1];
+  assert.equal(app.Data.verifiedBrazilianProvenance(Object.assign({}, exemplo, {channel: 'Canal forjado'})), null, 'autodeclarar BR e uma URL não substitui a correspondência exata do canal');
+  assert.equal(app.Data.verifiedBrazilianProvenance(Object.assign({}, exemplo, {youtubeId: 'dQw4w9WgXcQ'})), null, 'um ID fora da lista fechada nunca é autorizado');
 });
 
 test('inventário de vídeos: pendente nunca se apresenta como aprovado', () => {
@@ -1307,19 +1875,22 @@ test('vídeos: disponibilidade e qualidade são campos independentes', () => {
   const app = boot();
   const videos = plain(app.Data.VIDEOS);
   const externos = Object.entries(videos).filter(([, video]) => video.availability === 'external_only');
+  const externosAprovados = externos.filter(([, video]) => video.status === 'accepted');
 
   // A. Aprovado pode ter embedCompatible === false.
-  assert.ok(externos.length > 0, 'o catálogo precisa exercitar o caso external_only');
-  externos.forEach(([chave, video]) => {
-    assert.equal(video.status, 'accepted', `${chave}: bloqueio de incorporação não rebaixa a aprovação`);
+  assert.ok(externosAprovados.length > 0, 'o catálogo precisa exercitar um aprovado external_only');
+  externosAprovados.forEach(([chave, video]) => {
     assert.equal(video.embedCompatible, false, chave);
     assert.notEqual(video.classification, 'pending', `${chave}: a classificação técnica permanece`);
     assert.ok(video.youtubeId && video.url, `${chave}: continua utilizável fora do app`);
   });
 
-  // B. Nenhum vídeo aprovado foi rebaixado por causa de incorporação.
+  // B. Nenhum vídeo é rebaixado apenas por causa da incorporação. A política de
+  // origem brasileira continua podendo rebaixá-lo independentemente do embed.
   const rebaixadosPorEmbed = Object.entries(videos)
-    .filter(([, video]) => video.status !== 'accepted' && video.embedCompatible === false);
+    .filter(([, video]) => video.status !== 'accepted'
+      && video.embedCompatible === false
+      && video.blockedByBrazilPolicy !== true);
   assert.deepEqual(rebaixadosPorEmbed.map(([chave]) => chave), [], 'embed bloqueado não pode virar pendente');
 
   // C. Removido ou privado nunca é oferecido como utilizável.
@@ -1351,4 +1922,142 @@ test('vídeos: disponibilidade e qualidade são campos independentes', () => {
     assert.equal(Number.isInteger(video.startSeconds), true, chave);
     assert.ok(video.startSeconds > 0, chave);
   });
+});
+
+// ---------------------------------------------------------------- LOTE 2
+// Motor de progressão: a tabela de decisão inteira, exercitada por casos.
+
+function cenarioProgressao(app, opcoes) {
+  return app.run(`(() => {
+    const opcoes = JSON.parse(${JSON.stringify(JSON.stringify(opcoes))});
+    const exercicio = THFData.CATALOG[opcoes.exerciseId || 'chest_press_machine'];
+    const log = THFCore.createExerciseLog(exercicio, opcoes.week || 1);
+    if (opcoes.snapshot) Object.assign(log.prescriptionSnapshot, opcoes.snapshot);
+    const trabalho = log.sets.filter(set => set.type === 'work');
+    opcoes.series.forEach((serie, indice) => {
+      const alvo = trabalho[indice];
+      if (!alvo) return;
+      alvo.reps = serie.reps == null ? '' : String(serie.reps);
+      alvo.load = serie.load == null ? '' : String(serie.load);
+      alvo.rir = serie.rir == null ? '' : String(serie.rir);
+      alvo.status = serie.status || 'completed';
+      alvo.completedAt = serie.semCompletedAt ? '' : '2026-08-03T12:00:00.000Z';
+    });
+    if (opcoes.aquecimento) {
+      log.sets.filter(set => set.type === 'warmup').forEach(set => {
+        set.reps = '20'; set.load = '10'; set.status = 'completed'; set.completedAt = '2026-08-03T11:50:00.000Z';
+      });
+    }
+    return THFCore.doubleProgressionRecommendation(exercicio, log, opcoes.week || 1);
+  })()`);
+}
+
+test('motor de progressão: tabela de decisão completa', () => {
+  const app = boot();
+  const faixa = {sets: 3, min: 12, max: 15, label: '12–15', rirMin: 1, rirMax: 3, deload: false};
+  const serie = (reps, rir, extra) => Object.assign({reps, rir, load: 40}, extra || {});
+
+  // 15/15/15 com RIR dentro do planejado: candidato a aumento.
+  const topo = cenarioProgressao(app, {snapshot: faixa, series: [serie(15, 2), serie(15, 2), serie(15, 2)]});
+  assert.equal(topo.code, 'increase');
+  assert.equal(topo.nextLoad, 45, 'degrau real de 5 kg: 40 vira 45');
+  assert.match(topo.message, /nunca é alterada automaticamente/);
+
+  // 15/14/12: ainda há espaço dentro da faixa.
+  assert.equal(cenarioProgressao(app, {snapshot: faixa, series: [serie(15, 2), serie(14, 2), serie(12, 2)]}).code, 'maintain');
+
+  // 12/12/12: piso da faixa, mantém.
+  assert.equal(cenarioProgressao(app, {snapshot: faixa, series: [serie(12, 2), serie(12, 2), serie(12, 2)]}).code, 'maintain');
+
+  // 11/10/9: abaixo da faixa, revisar — e nunca reduzir carga sozinho.
+  const abaixo = cenarioProgressao(app, {snapshot: faixa, series: [serie(11, 2), serie(10, 2), serie(9, 2)]});
+  assert.equal(abaixo.code, 'review');
+  assert.match(abaixo.message, /não reduzirá a carga automaticamente/);
+
+  // Topo da faixa com RIR abaixo do prescrito: esforço acima do planejado, não aumenta.
+  const esforcoAlto = cenarioProgressao(app, {snapshot: faixa, series: [serie(15, 0), serie(15, 0), serie(15, 0)]});
+  assert.notEqual(esforcoAlto.code, 'increase', 'RIR abaixo do mínimo não pode virar aumento');
+  assert.equal(esforcoAlto.nextLoad, undefined);
+
+  // Dor registrada em qualquer série: revisar.
+  assert.equal(cenarioProgressao(app, {snapshot: faixa, series: [serie(15, 2), serie(15, 2, {status: 'pain'}), serie(15, 2)]}).code, 'review');
+
+  // Deload: nenhuma recomendação de aumento.
+  const deload = cenarioProgressao(app, {snapshot: Object.assign({}, faixa, {deload: true}), series: [serie(15, 2), serie(15, 2), serie(15, 2)]});
+  assert.equal(deload.code, 'none');
+  assert.equal(deload.nextLoad, undefined);
+
+  // Status preenchido sem completedAt: a série não está confirmada.
+  assert.equal(cenarioProgressao(app, {snapshot: faixa, series: [serie(15, 2), serie(15, 2), serie(15, 2, {semCompletedAt: true})]}).code, 'review');
+
+  // RIR não informado: salva o resultado, mas não sugere aumento pelas repetições.
+  assert.equal(cenarioProgressao(app, {snapshot: faixa, series: [serie(15, null), serie(15, null), serie(15, null)]}).code, 'review');
+
+  // Aquecimento confirmado não entra na conta das séries de trabalho.
+  const comAquecimento = cenarioProgressao(app, {snapshot: faixa, aquecimento: true, series: [serie(15, 2), serie(15, 2), serie(15, 2)]});
+  assert.equal(comAquecimento.code, 'increase');
+  assert.equal(comAquecimento.nextLoad, 45);
+
+  // Cargas diferentes entre séries: nenhum número único é sugerido.
+  const irregular = cenarioProgressao(app, {snapshot: faixa, series: [serie(15, 2, {load: 40}), serie(15, 2, {load: 40}), serie(15, 2, {load: 35})]});
+  assert.equal(irregular.code, 'increase');
+  assert.equal(irregular.nextLoad, null);
+  assert.match(irregular.message, /cargas diferentes/i);
+});
+
+test('degrau de carga cai sempre num valor que o aparelho tem', () => {
+  const app = boot();
+  const proximo = (carga, degrau) => app.run(`THFCore.nextLoadSuggestion(${JSON.stringify(carga)}, ${degrau})`);
+
+  assert.equal(proximo(40, 5), 45);
+  assert.equal(proximo(42, 5), 45, 'nunca sugerir 42,5 num aparelho de 5 em 5');
+  assert.equal(proximo(42.5, 5), 45, 'o próximo múltiplo real acima de 42,5 é 45');
+  assert.equal(proximo(43, 5), 45, '43 não pode pular o degrau 45');
+  assert.equal(proximo(44.9, 5), 45, 'um valor logo abaixo do degrau não pode pular para 50');
+  assert.equal(proximo(47.5, 5), 50, 'o próximo múltiplo real acima de 47,5 é 50');
+  assert.equal(proximo(45.5, 5), 50);
+  assert.equal(proximo(20, 2.5), 22.5, 'barra W aceita meio quilo por lado');
+  assert.equal(proximo(12, 2), 14, 'halteres sobem de 2 em 2');
+  assert.equal(proximo(0, 5), null, 'sem carga registrada não há sugestão');
+  assert.equal(proximo('', 5), null);
+  assert.equal(proximo(40, Number.POSITIVE_INFINITY), 45, 'incremento não finito usa o fallback seguro');
+
+  // O degrau é declarado por exercício e presumido, nunca medido.
+  assert.equal(app.run(`THFCore.loadStepFor(THFData.CATALOG.leg_press_45)`), 5);
+  assert.equal(app.run(`THFCore.loadStepFor(THFData.CATALOG.lateral_raise_dumbbell)`), 2);
+  assert.equal(app.run(`THFCore.loadStepFor(THFData.CATALOG.ez_bar_curl)`), 2.5);
+  assert.equal(app.run(`THFCore.loadStepFor(null)`), 5, 'sem exercício, o degrau tem um padrão seguro');
+  assert.equal(
+    app.run(`Object.values(THFData.CATALOG).filter(item => item.type === 'strength').every(item => item.loadStep > 0)`),
+    true,
+    'todo exercício de força precisa declarar um degrau'
+  );
+});
+
+test('comparabilidade: a carga pertence ao aparelho, a série comparável inclui a faixa', () => {
+  const app = boot();
+  const carga = (variacao, maquina, lado) => app.run(`THFCore.loadHistoryKey('leg_curl', ${JSON.stringify(variacao)}, ${JSON.stringify(maquina)}, ${JSON.stringify(lado)})`);
+  const serie = (variacao, maquina, lado, faixa) => app.run(`THFCore.comparableSeriesKey('leg_curl', ${JSON.stringify(variacao)}, ${JSON.stringify(maquina)}, ${JSON.stringify(lado)}, ${JSON.stringify(faixa)})`);
+
+  // A faixa muda de duas em duas semanas; o aparelho não vira outro por isso.
+  assert.equal(carga('seated', 'flexora 1', 'bilateral'), carga('seated', 'flexora 1', 'bilateral'));
+  assert.equal(serie('seated', 'flexora 1', 'bilateral', '12-15') === serie('seated', 'flexora 1', 'bilateral', '10-12'), false,
+    'faixas diferentes são séries comparáveis diferentes');
+  assert.equal(carga('seated', 'flexora 1', 'bilateral').includes('12-15'), false, 'a chave de carga não carrega faixa');
+
+  // Máquina, variação e lado separam históricos.
+  assert.notEqual(carga('seated', 'flexora 1', 'bilateral'), carga('seated', 'flexora 2', 'bilateral'));
+  assert.notEqual(carga('seated', 'flexora 1', 'bilateral'), carga('lying', 'flexora 1', 'bilateral'));
+  assert.notEqual(carga('seated', 'flexora 1', 'left'), carga('seated', 'flexora 1', 'right'));
+
+  // Máquina não identificada não colide com uma máquina nomeada.
+  assert.notEqual(carga('seated', '', 'bilateral'), carga('seated', 'flexora 1', 'bilateral'));
+  // Maiúsculas e espaços não criam máquinas fantasmas.
+  assert.equal(carga('seated', 'Flexora 1', 'bilateral'), carga('seated', '  flexora 1 ', 'bilateral'));
+
+  // A série comparável continua sendo a chave de carga mais a faixa.
+  assert.equal(
+    serie('seated', 'flexora 1', 'bilateral', '12-15'),
+    `${carga('seated', 'flexora 1', 'bilateral')}|12-15`
+  );
 });

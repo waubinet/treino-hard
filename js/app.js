@@ -31,6 +31,22 @@
   ]);
   const RIR_OPTIONS = Object.freeze([['', 'Não informado'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5+', '5 ou mais']]);
   const TERMINAL_STATUSES = new Set(['completed', 'partial', 'skipped', 'rescheduled', 'cancelled']);
+  const TERMINAL_MUTATION_ACTIONS = new Set([
+    'set-field', 'set-rest-select', 'set-complete', 'exercise-field', 'exercise-complete',
+    'mobility-complete', 'mobility-skip', 'mobility-flag', 'mobility-note', 'feeling-pick',
+    'variation-pick', 'variation-confirm', 'high-rep-toggle', 'repeat-first-set',
+    'copy-previous-loads', 'timer-undo', 'timer-start-set', 'timer-start-rest',
+    'session-start', 'session-pause', 'session-resume', 'session-complete', 'session-partial',
+    'session-partial-confirm', 'session-reschedule', 'session-reschedule-confirm',
+    'session-skip', 'session-skip-confirm', 'session-cancel', 'session-cancel-confirm'
+  ]);
+  const READ_ONLY_ALLOWED_ACTIONS = new Set([
+    'activate-tab', 'open-workout', 'close-modal', 'close-video', 'open-video',
+    'video-open-external', 'video-open-inline', 'exercise-history', 'timer-stop',
+    'install-app', 'pwa-update', 'reload-external', 'recovery-export',
+    'evolution-key', 'evolution-metric'
+  ]);
+  const FOCUS_DATA_KEYS = Object.freeze(['action', 'sessionId', 'exerciseId', 'setId', 'field', 'side', 'variationId', 'flag', 'setting']);
 
   const storage = new Storage.AppStorage();
   let state = null;
@@ -91,6 +107,74 @@
     });
   }
 
+  function isSessionEditable(session) {
+    return Boolean(session) && !storage.writeBlocked && !TERMINAL_STATUSES.has(session.status);
+  }
+
+  function blockReadOnlyMutation(action, rerender) {
+    if (!storage.writeBlocked || READ_ONLY_ALLOWED_ACTIONS.has(action)) return false;
+    showNotice(storage.lastError || 'O armazenamento está em modo somente leitura para preservar o documento original.', 'error');
+    if (rerender) renderActivePanel();
+    return true;
+  }
+
+  function isProgressionEligibleSet(set) {
+    return Boolean(set) && set.type === 'work' && set.status === 'completed' && Core.isSetConfirmed(set);
+  }
+
+  function captureFocusDescriptor(preferredElement) {
+    const active = preferredElement instanceof HTMLElement ? preferredElement : document.activeElement;
+    if (!(active instanceof HTMLElement) || active === document.body) return null;
+    const data = {};
+    FOCUS_DATA_KEYS.forEach(key => {
+      if (active.dataset && active.dataset[key] != null) data[key] = active.dataset[key];
+    });
+    return {
+      id: active.id || '',
+      tagName: active.tagName,
+      name: active.getAttribute('name') || '',
+      data,
+      selectionStart: typeof active.selectionStart === 'number' ? active.selectionStart : null,
+      selectionEnd: typeof active.selectionEnd === 'number' ? active.selectionEnd : null
+    };
+  }
+
+  function focusDescriptorKey(descriptor) {
+    if (!descriptor) return '';
+    if (descriptor.id) return `id:${descriptor.id}`;
+    if (descriptor.data && descriptor.data.action) {
+      return `data:${FOCUS_DATA_KEYS.map(key => descriptor.data[key] || '').join('|')}`;
+    }
+    if (descriptor.name) return `name:${descriptor.tagName || ''}:${descriptor.name}`;
+    return `tag:${descriptor.tagName || ''}`;
+  }
+
+  function restoreFocusDescriptor(descriptor) {
+    if (!descriptor) return;
+    let target = descriptor.id ? document.getElementById(descriptor.id) : null;
+    if (!target && descriptor.data.action) {
+      target = [...dom.panels.querySelectorAll('[data-action]')].find(candidate =>
+        candidate.dataset.action === descriptor.data.action
+        && FOCUS_DATA_KEYS.every(key => descriptor.data[key] == null || candidate.dataset[key] === descriptor.data[key])) || null;
+    }
+    if (!target && descriptor.name) {
+      target = [...dom.panels.querySelectorAll('[name]')].find(candidate =>
+        candidate.tagName === descriptor.tagName && candidate.getAttribute('name') === descriptor.name) || null;
+    }
+    if (!(target instanceof HTMLElement) || target.hasAttribute('disabled')) return;
+    let details = target.closest('details');
+    while (details) {
+      details.open = true;
+      details = details.parentElement ? details.parentElement.closest('details') : null;
+    }
+    target.focus({preventScroll: true});
+    if (descriptor.selectionStart != null && typeof target.setSelectionRange === 'function') {
+      const length = String(target.value || '').length;
+      const selectionEnd = descriptor.selectionEnd == null ? descriptor.selectionStart : descriptor.selectionEnd;
+      target.setSelectionRange(Math.min(descriptor.selectionStart, length), Math.min(selectionEnd, length));
+    }
+  }
+
   function option(value, label, selected) {
     return element('option', {text: label, attrs: {value, selected: selected === true}});
   }
@@ -142,6 +226,11 @@
   }
 
   function showNotice(message, type, actions) {
+    // Cada aviso novo substitui também a origem lógica do anterior. Sem isso,
+    // voltar à rede poderia esconder por engano um conflito de integridade que
+    // tivesse substituído visualmente o antigo aviso de offline.
+    delete dom.notice.dataset.source;
+    delete dom.notice.dataset.registration;
     dom.notice.replaceChildren(element('span', {text: message}));
     dom.notice.className = `app-notice${type ? ` is-${type}` : ''}`;
     if (actions && actions.length) {
@@ -153,6 +242,17 @@
   function hideNotice() {
     dom.notice.hidden = true;
     dom.notice.replaceChildren();
+    delete dom.notice.dataset.source;
+    delete dom.notice.dataset.registration;
+  }
+
+  function showPwaAvailabilityNotice(message, type) {
+    // A impossibilidade de instalar o pacote offline é secundária diante de
+    // conflito, corrupção ou ausência de armazenamento persistente. Nunca
+    // esconda o aviso que explica por que o documento está protegido.
+    if (!dom.notice.hidden && dom.notice.classList.contains('is-error')) return;
+    showNotice(message, type);
+    dom.notice.dataset.source = 'pwa-availability';
   }
 
   function rememberConsistentState(value) {
@@ -175,14 +275,48 @@
       if (date < today) return;
       const exists = state.sessions.some(session => session.workoutId === workout.id && session.plannedDate === date);
       if (!exists) {
-        state.sessions.push(Core.createSession(workout.id, date, state.cycle.currentWeek));
+        state.sessions.push(novaSessao(workout.id, date, state.cycle.currentWeek));
         changed = true;
       }
     });
     return changed;
   }
 
-  async function persist(reason, rerender) {
+  // A identificação da máquina é o que liga uma execução à anterior. Se ela
+  // precisasse ser redigitada a cada semana, o histórico comparável não
+  // existiria na prática e o app diria "sem histórico" para sempre. O valor é
+  // herdado da última execução registrada do mesmo exercício e do mesmo lado, e
+  // continua sendo um campo de texto que o usuário edita quando trocar de
+  // aparelho. Nada além do nome do equipamento é herdado.
+  function herdarMaquinas(session) {
+    const anteriores = allSessions()
+      .filter(item => item.id !== session.id && ['completed', 'partial'].includes(item.status))
+      .sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate));
+    session.exercises.forEach(log => {
+      if (log.machineId) return;
+      for (const anterior of anteriores) {
+        const igual = anterior.exercises.find(item =>
+          item.exerciseId === log.exerciseId && item.side === log.side && item.machineId);
+        if (igual) { log.machineId = igual.machineId; return; }
+      }
+    });
+    return session;
+  }
+
+  function novaSessao(workoutId, date, week) {
+    return herdarMaquinas(Core.createSession(workoutId, date, week));
+  }
+
+  async function persist(reason, rerender, options) {
+    const settings = options || {};
+    // Capture o controle no momento da edição. A gravação em IndexedDB é
+    // assíncrona e, até terminar, o navegador ou uma automação pode mover o
+    // foco; capturá-lo somente durante a remontagem perderia a série/campo.
+    const rerenderFocus = rerender
+      ? (settings.focusDescriptor || captureFocusDescriptor())
+      : null;
+    const focusAtRequest = rerender ? captureFocusDescriptor() : undefined;
+    const rerenderScroll = rerender ? global.scrollY : null;
     const requestVersion = ++editVersion;
     const candidate = Core.deepClone(state);
     setSaveState('Salvando…', false);
@@ -202,14 +336,14 @@
         state = Core.deepClone(lastConsistentState);
         persistedRevision = state.revision;
         applyPreferences();
-        renderActivePanel();
+        if (!settings.keepDomOnFailure) renderActivePanel(rerenderFocus, rerenderScroll, focusAtRequest);
       }
       throw error;
     });
     try {
       await saveQueue;
       if (reason) announce(reason);
-      if (rerender) renderActivePanel();
+      if (rerender) renderActivePanel(rerenderFocus, rerenderScroll, focusAtRequest);
     } catch (error) {
       return false;
     }
@@ -273,6 +407,7 @@
             text: week === 8 ? 'DL' : String(week),
             attrs: {
               type: 'button',
+              disabled: storage.writeBlocked,
               'aria-pressed': selected ? 'true' : 'false',
               'aria-label': week === 8 ? 'Semana 8, deload' : `Semana ${week}`
             },
@@ -301,12 +436,21 @@
     ]));
   }
 
-  function renderActivePanel() {
+  function renderActivePanel(focusDescriptor, scrollPosition, focusAtRequest) {
     if (!state) return;
     // Confirmar uma série redesenha o painel. Sem isto, a página pula para o
     // topo e o campo em uso perde o foco no meio do treino.
-    const focoAnterior = document.activeElement instanceof HTMLElement ? document.activeElement.id : '';
-    const rolagemAnterior = global.scrollY;
+    // A gravação é assíncrona. Se a pessoa já moveu o foco para o próximo
+    // campo enquanto ela terminava, o foco vivo tem precedência sobre o campo
+    // que iniciou a gravação; devolver o foco antigo corrompia digitação rápida.
+    const focoVivo = captureFocusDescriptor();
+    const focoMudouDuranteGravacao = focusAtRequest !== undefined
+      && focusDescriptorKey(focoVivo) !== focusDescriptorKey(focusAtRequest);
+    const focoAnterior = focusDescriptor === undefined
+      ? focoVivo
+      : (focoMudouDuranteGravacao ? (focoVivo || focusDescriptor) : (focusDescriptor || focoVivo));
+    const rolagemAnterior = Number.isFinite(scrollPosition) ? scrollPosition : global.scrollY;
+    const detalhesAbertos = new Set([...dom.panels.querySelectorAll('details[open][id]')].map(item => item.id));
     renderWeekSelector();
     renderWeekSummary();
     let panel;
@@ -329,11 +473,22 @@
         element('p', {text: 'Nenhum registro foi alterado. Exporte um backup em Ajustes antes de continuar.'})
       ]));
     }
-    dom.panels.replaceChildren(panel);
-    if (focoAnterior) {
-      const alvo = document.getElementById(focoAnterior);
-      if (alvo && typeof alvo.focus === 'function') alvo.focus({preventScroll: true});
+    if (storage.writeBlocked) {
+      panel.prepend(element('div', {className: 'session-readonly-banner', attrs: {role: 'alert'}}, [
+        element('strong', {text: 'Armazenamento protegido — somente leitura.'}),
+        element('span', {text: ' O documento original não será alterado. Em Ajustes, exporte o item de recuperação antes de tentar outra ação.'})
+      ]));
+      panel.querySelectorAll('[data-action]').forEach(control => {
+        if (!READ_ONLY_ALLOWED_ACTIONS.has(control.dataset.action)) control.disabled = true;
+      });
+      panel.querySelectorAll('form input, form select, form textarea, form button').forEach(control => { control.disabled = true; });
     }
+    dom.panels.replaceChildren(panel);
+    detalhesAbertos.forEach(id => {
+      const details = document.getElementById(id);
+      if (details instanceof HTMLDetailsElement && dom.panels.contains(details)) details.open = true;
+    });
+    restoreFocusDescriptor(focoAnterior);
     if (global.scrollY !== rolagemAnterior) global.scrollTo({top: rolagemAnterior, behavior: 'auto'});
   }
 
@@ -372,7 +527,7 @@
       persistedRevision = state.revision;
       rememberConsistentState(state);
       applyPreferences();
-      const planned = ensureCurrentWeekSessions();
+      const planned = storage.writeBlocked ? false : ensureCurrentWeekSessions();
       dom.loading.remove();
       renderTabs();
       renderActivePanel();
@@ -380,11 +535,13 @@
         setSaveState('Somente leitura', true);
         showNotice(storage.lastError, 'error');
       } else {
-        if (planned) await persist('Sessões desta semana planejadas.', true);
-        const backedUp = await storage.automaticBackup(state, false);
-        lastBackupState = backedUp ? 'Cópia automática criada hoje' : 'Cópia automática diária em dia';
-        setSaveState('Salvo neste aparelho', false);
-        if (currentTab === 'today') renderActivePanel();
+        const plannedSaved = !planned || await persist('Sessões desta semana planejadas.', true);
+        if (plannedSaved) {
+          const backedUp = await storage.automaticBackup(state, false);
+          lastBackupState = backedUp ? 'Cópia automática criada hoje' : 'Cópia automática diária em dia';
+          setSaveState('Salvo neste aparelho', false);
+          if (currentTab === 'today') renderActivePanel();
+        }
       }
       storage.onExternalChange = handleExternalChange;
       registerPwa();
@@ -459,7 +616,7 @@
   }
 
   function lastFinishedSession(workoutId, exceptId) {
-    return state.sessions
+    return allSessions()
       .filter(session => session.workoutId === workoutId && session.id !== exceptId && ['completed', 'partial'].includes(session.status))
       .sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate))[0] || null;
   }
@@ -642,7 +799,14 @@
   // app: `availability` e `embedCompatible` descrevem ONDE ele toca,
   // `classification` descreve O QUE ele entrega. Os dois nunca se substituem.
   function videoUsavel(video) {
-    return Boolean(video && video.status === 'accepted' && video.youtubeId && video.availability !== 'removed_or_private');
+    return Boolean(
+      video
+      && video.status === 'accepted'
+      && video.language === 'pt-BR'
+      && Boolean(Data.verifiedBrazilianProvenance(video))
+      && video.youtubeId
+      && video.availability !== 'removed_or_private'
+    );
   }
 
   function videoIncorporavel(video) {
@@ -660,6 +824,9 @@
     if (video.availability === 'removed_or_private') {
       return element('p', {className: 'video-pending', text: 'Este vídeo não está mais disponível; substituição pendente.'});
     }
+    if (!videoUsavel(video)) {
+      return element('p', {className: 'video-pending', text: 'Vídeo brasileiro em curadoria.'});
+    }
     const externo = !videoIncorporavel(video);
     const revisao = video.reviewedAt ? formatReviewDate(video.reviewedAt) : '';
     const cobertura = externo
@@ -673,7 +840,7 @@
       element('span', {className: 'vplay', text: externo ? '↗' : '▶'}),
       element('span', {className: 'vcopy'}, [
         element('strong', {text: label || (externo ? 'Abrir no YouTube' : 'Ver demonstração')}),
-        element('span', {className: 'vs', text: `Canal: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
+        element('span', {className: 'vs', text: `Canal brasileiro: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
         element('span', {className: 'vquality', text: videoClassificationLabel(video).toUpperCase()}),
         cobertura ? element('span', {className: 'vreason', text: cobertura}) : null
       ]),
@@ -812,8 +979,8 @@
     }
     return element('div', {className: `set-row${warmup ? ' is-warmup' : ''}${confirmed ? ' is-complete' : ''}`}, [
       element('div', {className: 'srow'}, row),
-      element('details', {className: 'setmore'}, [
-        element('summary', {text: 'Mais'}),
+      element('details', {className: 'setmore', attrs: {id: `${idBase}-more`}}, [
+        element('summary', {text: 'Mais', attrs: {id: `${idBase}-more-summary`}}),
         element('div', {className: 'details-body'}, [
           element('div', {className: 'field-grid'}, [
             field('Status', element('select', {className: 'select', attrs: {id: `${idBase}-status`}, dataset: Object.assign({action: 'set-field', field: 'status'}, dataset)}, SET_STATUS_OPTIONS.map(([value, label]) => option(value, label, set.status === value)))),
@@ -841,6 +1008,76 @@
       if (exercise.type === 'mobility') return !logs[0].completed && !logs[0].skipped;
       return !logs.every(log => log.completed);
     }) || null;
+  }
+
+  // Linha de referência da execução anterior. Quando não há histórico
+  // comparável, dizer POR QUE vale mais do que ficar em branco.
+  function referenciaAnterior(session, exercise, log, previous) {
+    if (previous) {
+      const rir = resumoDeRir(previous.workSets);
+      const faixaAtual = (log.prescriptionSnapshot || {}).label || '';
+      const faixaDiferente = previous.faixa && faixaAtual && previous.faixa !== faixaAtual;
+      return element('div', {className: 'prevref'}, [
+        element('b', {text: `↩ Último treino · ${formatDate(previous.data)}`}),
+        element('span', {text: `: ${resumoDeSeries(previous.workSets)}`}),
+        rir ? element('span', {className: 'prevrir', text: rir}) : null,
+        previous.deload ? element('span', {className: 'prevtag', text: 'Era semana de deload'}) : null,
+        faixaDiferente ? element('span', {className: 'prevtag', text: `Faixa naquele dia: ${previous.faixa} reps`}) : null
+      ]);
+    }
+    const alternativos = historicoNaoComparavel(session, log);
+    if (!alternativos.length) {
+      return element('div', {className: 'prevref is-empty'}, [
+        element('b', {text: '↩ Sem histórico ainda'}),
+        element('span', {text: ': esta é a primeira execução registrada nesta configuração.'})
+      ]);
+    }
+    return element('div', {className: 'prevref is-empty'}, [
+      element('b', {text: '↩ Sem histórico comparável nesta configuração'}),
+      element('span', {text: `: há registro em ${alternativos.map(item => descreveConfiguracao(exercise, item.log)).join('; ')}. Cargas de máquinas, variações e lados diferentes não são comparáveis entre si.`})
+    ]);
+  }
+
+  function showExerciseHistory(session, exercise, log) {
+    const registros = comparableHistory(session, log, 8);
+    const alternativos = historicoNaoComparavel(session, log);
+    // Deload é recuperação planejada: aparece no histórico, mas não define
+    // melhor série nem serve de base para sugerir aumento.
+    const melhor = registros.filter(item => !item.deload)
+      .flatMap(item => item.workSets.map(set => ({set, data: item.data})))
+      .filter(item => Number(item.set.load) > 0 && Number(item.set.reps) > 0)
+      .sort((a, b) => (Number(b.set.load) - Number(a.set.load)) || (Number(b.set.reps) - Number(a.set.reps)))[0] || null;
+
+    const corpo = [element('p', {className: 'cdetail', text: descreveConfiguracao(exercise, log)})];
+
+    if (registros.length) {
+      corpo.push(element('ul', {className: 'histlist'}, registros.map(item => {
+        const rir = resumoDeRir(item.workSets);
+        return element('li', {}, [
+          element('b', {text: `${formatDate(item.data)} · S${item.session.week}${item.deload ? ' · Deload' : ''}`}),
+          element('span', {text: resumoDeSeries(item.workSets)}),
+          rir ? element('span', {className: 'prevrir', text: rir}) : null,
+          item.faixa ? element('span', {className: 'prevtag', text: `faixa ${item.faixa} reps`}) : null
+        ]);
+      })));
+      corpo.push(element('p', {className: 'fine-print', text: melhor
+        ? `Melhor série registrada: ${melhor.set.load} × ${melhor.set.reps} em ${formatDate(melhor.data)}. Semanas de deload não entram nesta comparação.`
+        : 'Ainda não há série com carga e repetições suficientes para uma melhor marca fora do deload.'}));
+    } else {
+      corpo.push(element('div', {className: 'empty-state', text: 'Nenhuma sessão anterior confirmada nesta configuração.'}));
+    }
+
+    if (alternativos.length) {
+      corpo.push(element('div', {className: 'info-box'}, [
+        element('strong', {text: 'Registros do mesmo exercício que não são comparáveis'}),
+        element('ul', {className: 'notes'}, alternativos.map(item =>
+          element('li', {text: `${descreveConfiguracao(exercise, item.log)} — ${item.sessoes} sessão(ões)`}))),
+        element('p', {text: 'Trocar de máquina, de variação ou de lado inicia um histórico próprio. O app não converte cargas entre eles.'})
+      ]));
+    }
+
+    corpo.push(element('div', {className: 'button-row'}, [button('Fechar', 'close-modal', 'primary-button')]));
+    openModal(`Histórico · ${exercise.name}`, element('div', {}, corpo));
   }
 
   function activeSideLog(session, logs) {
@@ -894,6 +1131,7 @@
       })) : null;
 
     const quick = [];
+    quick.push(button('☰ Histórico', 'exercise-history', 'quickbtn', {sessionId: session.id, exerciseId: exerciseLog.id}));
     if (previous) quick.push(button('↩ Copiar anterior', 'copy-previous-loads', 'quickbtn', {sessionId: session.id, exerciseId: exerciseLog.id}));
     if (workSets.length > 1) quick.push(button('⧉ Repetir 1ª série', 'repeat-first-set', 'quickbtn', {sessionId: session.id, exerciseId: exerciseLog.id}));
     if (lastSetUndo && lastSetUndo.sessionId === session.id && lastSetUndo.exerciseId === exerciseLog.id) {
@@ -934,10 +1172,7 @@
         element('span', {className: 'lab', text: warmupSets.length ? 'Séries de trabalho' : 'Suas séries'}),
         element('span', {className: `goal${snapshot.deload ? ' dl' : ''}`, text: `alvo: ${snapshot.label} reps`})
       ]),
-      previous ? element('div', {className: 'prevref'}, [
-        element('b', {text: `↩ Último treino · ${formatDate(previous.session.actualDate || previous.session.plannedDate)}`}),
-        element('span', {text: `: ${previous.workSets.map(set => `${set.load || '–'}×${set.reps || '–'}`).join(' · ')}`})
-      ]) : null,
+      referenciaAnterior(session, workoutExercise, exerciseLog, previous),
       quick.length ? element('div', {className: 'quickrow'}, quick) : null,
       element('div', {className: 'set-table'}, workSets.map((set, index) => renderSetRow(session, exerciseLog, set, index + 1, {
         exerciseName: workoutExercise.name,
@@ -946,7 +1181,8 @@
       }))),
       element('div', {className: `recommendation${recommendation.code === 'increase' ? ' is-increase' : recommendation.code === 'review' ? ' is-review' : ''}`}, [
         element('strong', {text: 'Progressão dupla'}),
-        element('p', {text: recommendation.message})
+        element('p', {text: recommendation.message}),
+        recommendation.nextLoad ? element('p', {className: 'recnext', text: `Próximo degrau: ${Core.formatLoad(recommendation.nextLoad)} kg`}) : null
       ]),
       element('details', {className: 'exdetails'}, [
         element('summary', {text: 'Detalhes do exercício'}),
@@ -978,6 +1214,7 @@
       ]));
     }
     const progress = sessionProgress(session);
+    const readOnly = !isSessionEditable(session);
     const children = [
       element('article', {className: 'card'}, [
         element('div', {className: 'card-header'}, [
@@ -991,6 +1228,10 @@
           : null,
         renderSessionActions(session)
       ]),
+      readOnly ? element('div', {className: 'session-readonly-banner', attrs: {role: 'status'}}, [
+        element('strong', {text: 'Sessão encerrada — somente leitura.'}),
+        element('span', {text: ' Use “Reabrir sessão” para voltar a editar os registros.'})
+      ]) : null,
       element('div', {className: 'info-box'}, [element('strong', {text: 'Faixa, RIR e falha'}), element('p', {text: 'O limite inferior é o mínimo planejado; o superior é o topo da faixa. RIR estima quantas repetições ainda seriam possíveis com técnica aceitável. RIR 0 não é obrigatório e uma série encerrada por dor ou técnica inadequada não deve ser tratada como falha muscular planejada.'})]),
       // Um cartão por exercício da ficha. O exercício unilateral tem dois
       // registros (um por lado) e ambos vivem no mesmo cartão, atrás dos chips.
@@ -1002,7 +1243,14 @@
           : renderStrengthExercise(session, exercise, logs, index + 1);
       })
     ];
-    return panelShell(workoutId, workout.label, workout.intro, children);
+    const panel = panelShell(workoutId, workout.label, workout.intro, children);
+    if (readOnly) {
+      panel.setAttribute('aria-readonly', 'true');
+      panel.querySelectorAll('[data-action]').forEach(control => {
+        if (TERMINAL_MUTATION_ACTIONS.has(control.dataset.action)) control.disabled = true;
+      });
+    }
+    return panel;
   }
 
   function recentTimeline(items, renderer, emptyText) {
@@ -1135,18 +1383,93 @@
     return Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
   }
 
-  function previousComparablePerformance(currentSession, currentLog) {
-    const currentKey = exerciseSeriesKey(currentLog);
-    const candidates = allSessions().filter(session => session.id !== currentSession.id && ['completed', 'partial'].includes(session.status) && (session.actualDate || session.plannedDate) <= (currentSession.actualDate || currentSession.plannedDate)).sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate));
-    for (const session of candidates) {
-      const log = session.exercises.find(item => exerciseSeriesKey(item) === currentKey);
-      if (!log) continue;
-      const workSets = log.sets.filter(set => set.type === 'work' && Core.isSetConfirmed(set) && (set.load || set.reps));
-      if (!workSets.length) continue;
-      const decision = state.progressionDecisions.slice().reverse().find(item => item.sessionId === session.id && item.seriesKey === currentKey) || null;
-      return {session, log, workSets, decision};
+  // A carga pertence ao aparelho, não à faixa da semana. A troca de faixa da
+  // periodização (12–15 → 10–12) não pode apagar o histórico de carga daquela
+  // máquina, que é justamente o que se precisa saber ao começar a série.
+  function exerciseLoadKey(log) {
+    return Core.loadHistoryKey(log.exerciseId, log.variationId, log.machineId, log.side);
+  }
+
+  function sessoesAnteriores(currentSession) {
+    const limite = currentSession.actualDate || currentSession.plannedDate;
+    return allSessions()
+      .filter(session => session.id !== currentSession.id
+        && ['completed', 'partial'].includes(session.status)
+        && (session.actualDate || session.plannedDate) <= limite)
+      .sort((a, b) => (b.actualDate || b.plannedDate).localeCompare(a.actualDate || a.plannedDate));
+  }
+
+  function registroDeExecucao(session, log) {
+    const workSets = log.sets.filter(set => isProgressionEligibleSet(set) && (set.load || set.reps));
+    if (!workSets.length) return null;
+    const snapshot = log.prescriptionSnapshot || {};
+    return {
+      session,
+      log,
+      workSets,
+      faixa: snapshot.label || (snapshot.min ? `${snapshot.min}–${snapshot.max}` : ''),
+      deload: snapshot.deload === true,
+      data: session.actualDate || session.plannedDate
+    };
+  }
+
+  function comparableHistory(currentSession, currentLog, limite) {
+    const chave = exerciseLoadKey(currentLog);
+    const saida = [];
+    for (const session of sessoesAnteriores(currentSession)) {
+      session.exercises.forEach(log => {
+        if (exerciseLoadKey(log) !== chave) return;
+        const registro = registroDeExecucao(session, log);
+        if (registro) saida.push(registro);
+      });
+      if (saida.length >= limite) break;
     }
-    return null;
+    return saida.slice(0, limite);
+  }
+
+  // Registros do mesmo exercício que NÃO são comparáveis: outra máquina, outra
+  // variação ou outro lado. Existem, mas as cargas não se somam nem se comparam.
+  function historicoNaoComparavel(currentSession, currentLog) {
+    const chave = exerciseLoadKey(currentLog);
+    const outros = new Map();
+    sessoesAnteriores(currentSession).forEach(session => {
+      session.exercises.forEach(log => {
+        if (log.exerciseId !== currentLog.exerciseId) return;
+        const outra = exerciseLoadKey(log);
+        if (outra === chave) return;
+        if (!log.sets.some(set => set.type === 'work' && Core.isSetConfirmed(set))) return;
+        if (!outros.has(outra)) outros.set(outra, {log, sessoes: 0});
+        outros.get(outra).sessoes += 1;
+      });
+    });
+    return [...outros.values()];
+  }
+
+  function descreveConfiguracao(exercise, log) {
+    const variante = (Array.isArray(exercise.variants) ? exercise.variants : []).find(item => item.id === log.variationId);
+    return [
+      variante ? variante.label : null,
+      log.machineId ? `máquina "${log.machineId}"` : 'máquina não identificada',
+      log.side === 'bilateral' ? null : log.side === 'left' ? 'lado esquerdo' : 'lado direito'
+    ].filter(Boolean).join(' · ');
+  }
+
+  function resumoDeSeries(workSets) {
+    return workSets.map(set => `${set.load || '–'}×${set.reps || '–'}`).join(' · ');
+  }
+
+  function resumoDeRir(workSets) {
+    const valores = workSets.map(set => (set.rir === '' || set.rir == null ? '–' : String(set.rir)));
+    return valores.every(item => item === '–') ? '' : `RIR ${valores.join(' · ')}`;
+  }
+
+  function previousComparablePerformance(currentSession, currentLog) {
+    const primeiro = comparableHistory(currentSession, currentLog, 1)[0];
+    if (!primeiro) return null;
+    const seriesKey = exerciseSeriesKey(currentLog);
+    const decision = state.progressionDecisions.slice().reverse()
+      .find(item => item.sessionId === primeiro.session.id && item.seriesKey === seriesKey) || null;
+    return Object.assign({decision}, primeiro);
   }
 
   function svgNode(name, attributes) {
@@ -1378,7 +1701,7 @@
       renderStorageInventory(),
       element('section', {className: 'privacy-box'}, [
         element('strong', {text: 'Privacidade local'}),
-        element('p', {text: 'Os registros ficam neste navegador e podem ser acessados por pessoas com acesso ao mesmo perfil do aparelho. Eles não são criptografados. Mantenha backups em local seguro.'}),
+        element('p', {text: 'Os registros ficam no armazenamento deste navegador para esta origem web. Eles não são criptografados e podem ser acessados por pessoas com acesso ao mesmo perfil do aparelho ou por páginas servidas sob a mesma origem. Mantenha backups em local seguro.'}),
         element('p', {text: `Armazenamento em uso: ${storage.mode === 'indexeddb' ? 'IndexedDB' : storage.mode === 'localstorage' ? 'localStorage de fallback' : 'memória temporária'}. Revisão do documento: ${state.revision}.`})
       ])
     ]);
@@ -1474,7 +1797,6 @@
     session.startedAt = new Date().toISOString();
     session.actualDate = Core.localDateKey();
     session.updatedAt = session.startedAt;
-    requestWakeLock();
   }
 
   function calculateSessionDuration(session, endTime) {
@@ -1487,6 +1809,19 @@
     return Math.max(0, Math.round((end - start) / 1000 - paused));
   }
 
+  function closeSessionTiming(session, endTime) {
+    const duration = calculateSessionDuration(session, endTime);
+    if (session.status === 'paused' && session.pausedAt) {
+      const pauseStart = Date.parse(session.pausedAt);
+      const end = Date.parse(endTime);
+      if (Number.isFinite(pauseStart) && Number.isFinite(end) && end >= pauseStart) {
+        session.pausedSeconds = Math.max(0, Number(session.pausedSeconds) || 0) + Math.round((end - pauseStart) / 1000);
+      }
+    }
+    session.pausedAt = '';
+    session.durationSeconds = duration;
+  }
+
   function sessionFullyRecorded(session) {
     return session.exercises.every(log => {
       if (!log.sets.length) return log.completed || log.skipped;
@@ -1497,13 +1832,15 @@
   function recordProgressionDecisions(session) {
     // Percorre os registros da sessão para que exercícios unilaterais gerem uma
     // decisão por lado, sem misturar as cargas dos dois lados.
+    const currentSeriesKeys = new Set();
     session.exercises.forEach(log => {
       const exercise = Data.findExercise(session.workoutId, log.exerciseId);
       if (!exercise || exercise.type !== 'strength') return;
       const range = `${log.prescriptionSnapshot.min}-${log.prescriptionSnapshot.max}`;
       const seriesKey = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
+      currentSeriesKeys.add(seriesKey);
       const recommendation = Core.doubleProgressionRecommendation(exercise, log, session.week);
-      const workSets = log.sets.filter(set => set.type === 'work');
+      const workSets = log.sets.filter(isProgressionEligibleSet);
       const existing = state.progressionDecisions.find(item => item.sessionId === session.id && item.seriesKey === seriesKey);
       const payload = {
         sessionId: session.id,
@@ -1528,11 +1865,21 @@
         state.progressionDecisions.push(Object.assign({id: Core.uid('progression'), decision: 'pending', nextLoad: ''}, payload));
       }
     });
+    // Uma sessão reaberta pode mudar máquina, variação ou faixa. Nesse caso a
+    // decisão antiga deixa de representar o registro atual e não pode aparecer
+    // em duplicidade no histórico.
+    const retainedSeriesKeys = new Set();
+    state.progressionDecisions = state.progressionDecisions.filter(item => {
+      if (item.sessionId !== session.id) return true;
+      if (!currentSeriesKeys.has(item.seriesKey) || retainedSeriesKeys.has(item.seriesKey)) return false;
+      retainedSeriesKeys.add(item.seriesKey);
+      return true;
+    });
   }
 
   async function startSession(session) {
     markSessionStarted(session);
-    await persist('Treino iniciado.', true);
+    if (await persist('Treino iniciado.', true)) await requestWakeLock();
   }
 
   async function pauseSession(session) {
@@ -1540,8 +1887,7 @@
     session.status = 'paused';
     session.pausedAt = new Date().toISOString();
     session.updatedAt = session.pausedAt;
-    await releaseWakeLock();
-    await persist('Treino pausado.', true);
+    if (await persist('Treino pausado.', true)) await releaseWakeLock();
   }
 
   async function resumeSession(session) {
@@ -1551,8 +1897,7 @@
     session.pausedAt = '';
     session.status = 'started';
     session.updatedAt = now;
-    requestWakeLock();
-    await persist('Treino retomado.', true);
+    if (await persist('Treino retomado.', true)) await requestWakeLock();
   }
 
   function pendingItems(session) {
@@ -1577,6 +1922,9 @@
   }
 
   async function finalizeSession(session, status) {
+    // Cliques repetidos durante a cópia automática não podem finalizar a mesma
+    // sessão duas vezes nem duplicar decisões de progressão.
+    if (!session || TERMINAL_STATUSES.has(session.status)) return false;
     if (status === 'completed' && !sessionFullyRecorded(session)) {
       const faltam = pendingItems(session);
       openModal('Ainda falta registrar', element('div', {}, [
@@ -1590,19 +1938,25 @@
       return;
     }
     const completedAt = new Date().toISOString();
-    session.durationSeconds = calculateSessionDuration(session, completedAt);
+    closeSessionTiming(session, completedAt);
     session.status = status;
     session.completedAt = completedAt;
     session.actualDate = session.actualDate || Core.localDateKey();
-    session.pausedAt = '';
     session.updatedAt = completedAt;
     recordProgressionDecisions(session);
+    const saved = await persist(status === 'completed' ? 'Treino do dia concluído.' : 'Treino encerrado como parcial.', true);
+    if (!saved) return false;
     stopTimer();
     await releaseWakeLock();
-    await persist(status === 'completed' ? 'Treino do dia concluído.' : 'Treino encerrado como parcial.', true);
-    await storage.automaticBackup(state, true);
-    lastBackupState = 'Cópia automática atualizada agora';
+    try {
+      await storage.automaticBackup(state, true);
+      lastBackupState = 'Cópia automática atualizada agora';
+    } catch (error) {
+      lastBackupState = 'Falha na cópia automática após a conclusão';
+      showNotice(`O treino foi salvo, mas a cópia automática falhou: ${error.message || error}`, 'warning');
+    }
     showSessionSummary(session, status);
+    return true;
   }
 
   // Resumo factual do que foi registrado. Sem pontuação nem gamificação.
@@ -1611,10 +1965,10 @@
     const progresso = exerciseProgress(session);
     const series = session.exercises.flatMap(log => log.sets.filter(set => set.type === 'work'));
     const confirmadas = series.filter(Core.isSetConfirmed);
-    const volume = confirmadas.reduce((total, set) => total + (Number(set.load) || 0) * (Number(set.reps) || 0), 0);
+    const volume = series.filter(isProgressionEligibleSet).reduce((total, set) => total + (Number(set.load) || 0) * (Number(set.reps) || 0), 0);
     const melhores = session.exercises.map(log => {
       const exercise = Data.findExercise(session.workoutId, log.exerciseId);
-      const melhor = log.sets.filter(set => set.type === 'work' && Core.isSetConfirmed(set) && set.load && set.reps)
+      const melhor = log.sets.filter(set => isProgressionEligibleSet(set) && set.load && set.reps)
         .sort((a, b) => (Number(b.load) || 0) - (Number(a.load) || 0) || (Number(b.reps) || 0) - (Number(a.reps) || 0))[0];
       return melhor && exercise ? `${exercise.name}${log.side !== 'bilateral' ? ` (${log.side === 'left' ? 'esq.' : 'dir.'})` : ''} · ${melhor.load} × ${melhor.reps}` : null;
     }).filter(Boolean).slice(0, 5);
@@ -1647,6 +2001,7 @@
   }
 
   async function completeSet(session, log, set) {
+    const previousUndo = lastSetUndo;
     const previousSet = Core.deepClone(set);
     const confirmedStatus = set.status || 'completed';
     if (confirmedStatus === 'completed' && !set.reps) {
@@ -1665,8 +2020,14 @@
     set.completedAt = new Date().toISOString();
     refreshExerciseCompletion(log);
     session.updatedAt = set.completedAt;
-    await persist('Série confirmada.', true);
+    const saved = await persist('Série confirmada.', true);
+    if (!saved) {
+      lastSetUndo = previousUndo;
+      return false;
+    }
+    await requestWakeLock();
     if (state.settings.autoStartRest && set.nextRestSeconds) startTimer(set.nextRestSeconds, Data.CATALOG[log.exerciseId] ? Data.CATALOG[log.exerciseId].name : 'Exercício', {sessionId: session.id, exerciseId: log.id, setId: set.id});
+    return true;
   }
 
   async function undoLastSet() {
@@ -1674,14 +2035,23 @@
       announce('Não há série recente para desfazer.');
       return;
     }
-    const session = findSession(lastSetUndo.sessionId);
-    const found = findSet(session, lastSetUndo.exerciseId, lastSetUndo.setId);
+    const undo = lastSetUndo;
+    const session = findSession(undo.sessionId);
+    if (!isSessionEditable(session)) {
+      showNotice('Reabra a sessão antes de desfazer uma série.', 'warning');
+      return;
+    }
+    const found = findSet(session, undo.exerciseId, undo.setId);
     if (!found.set) return;
-    Object.assign(found.set, Core.deepClone(lastSetUndo.previous));
-    found.exercise.completed = lastSetUndo.exerciseCompleted;
+    Object.assign(found.set, Core.deepClone(undo.previous));
+    found.exercise.completed = undo.exerciseCompleted;
+    const saved = await persist('Última alteração desfeita.', true);
+    if (!saved) {
+      lastSetUndo = undo;
+      return;
+    }
     lastSetUndo = null;
     stopTimer();
-    await persist('Última alteração desfeita.', true);
   }
 
   function startTimer(seconds, label, context) {
@@ -1695,6 +2065,17 @@
     global.clearInterval(timerInterval);
     timerInterval = global.setInterval(updateTimer, 250);
     if (state.settings.vibration && navigator.vibrate) navigator.vibrate(40);
+  }
+
+  function addTimerSeconds(seconds) {
+    const extra = Math.max(0, Math.min(1800, Number(seconds) || 0));
+    if (!extra || !timerDeadline) return;
+    const now = Date.now();
+    timerDeadline = Math.max(timerDeadline, now) + extra * 1000;
+    dom.timerAnnouncement.textContent = '';
+    dom.timerBar.hidden = false;
+    updateTimer();
+    if (!timerInterval) timerInterval = global.setInterval(updateTimer, 250);
   }
 
   function updateTimer() {
@@ -1871,11 +2252,20 @@
     modalReturnFocus = null;
   }
 
+  function safeAsyncEvent(handler) {
+    return event => {
+      Promise.resolve(handler(event)).catch(error => {
+        setSaveState('Ação não concluída', true);
+        showNotice(`A ação foi interrompida sem alterar o documento: ${error.message || error}`, 'error');
+      });
+    };
+  }
+
   function attachEventListeners() {
-    document.addEventListener('click', handleClick);
+    document.addEventListener('click', safeAsyncEvent(handleClick));
     document.addEventListener('input', handleInput);
-    document.addEventListener('change', handleChange);
-    document.addEventListener('submit', handleSubmit);
+    document.addEventListener('change', safeAsyncEvent(handleChange));
+    document.addEventListener('submit', safeAsyncEvent(handleSubmit));
     document.addEventListener('keydown', handleKeyDown);
     global.addEventListener('online', updateOnlineStatus);
     global.addEventListener('offline', updateOnlineStatus);
@@ -1898,8 +2288,8 @@
       const today = Core.localDateKey();
       if (today !== lastForegroundDate) {
         lastForegroundDate = today;
-        if (ensureCurrentWeekSessions()) await persist('A agenda foi atualizada para a nova data.', true);
-        else renderActivePanel();
+        if (!storage.writeBlocked && ensureCurrentWeekSessions() && !(await persist('A agenda foi atualizada para a nova data.', true))) return;
+        renderActivePanel();
       }
       if (state.sessions.some(session => session.status === 'started')) await requestWakeLock();
     } catch (error) {
@@ -1912,6 +2302,7 @@
     if (!target) return;
     const action = target.dataset.action;
     if (target.tagName === 'A' && action !== 'open-video') return;
+    if (blockReadOnlyMutation(action, false)) return;
     if (action === 'activate-tab') { selectedSessionId = ''; activateTab(target.dataset.tab, false); return; }
     if (action === 'cycle-week-set') { await changeCycleWeek(Number(target.dataset.week)); return; }
     if (action === 'open-workout') { selectedSessionId = target.dataset.sessionId || ''; activateTab(target.dataset.workoutId, true); return; }
@@ -1921,7 +2312,7 @@
     if (action === 'video-open-external') { openVideoExternally(target.dataset.videoKey); return; }
     if (action === 'video-open-inline') { openVideoInline(target.dataset.videoKey); return; }
     if (action === 'timer-stop') { stopTimer(); return; }
-    if (action === 'timer-add') { if (timerDeadline) { timerDeadline += 30000; updateTimer(); } return; }
+    if (action === 'timer-add') { addTimerSeconds(30); return; }
     if (action === 'timer-undo') { await undoLastSet(); return; }
     if (action === 'install-app') { await installApp(); return; }
     if (action === 'pwa-update') { applyPwaUpdate(); return; }
@@ -1951,7 +2342,20 @@
     }
     if (action === 'snapshot-restore-confirm') { await restoreSnapshot(); return; }
     if (action === 'plan-workout-today') { await planWorkoutToday(target.dataset.workoutId); return; }
+    const mutationSession = findSession(target.dataset.sessionId);
+    if (TERMINAL_MUTATION_ACTIONS.has(action) && mutationSession && !isSessionEditable(mutationSession)) {
+      showNotice('Esta sessão está encerrada. Reabra a sessão antes de alterar seus registros.', 'warning');
+      return;
+    }
     if (action === 'copy-previous-loads') { await copyPreviousLoads(target.dataset.sessionId, target.dataset.exerciseId); return; }
+    if (action === 'exercise-history') {
+      const alvo = findSession(target.dataset.sessionId);
+      const registro = findExerciseLog(alvo, target.dataset.exerciseId);
+      if (!alvo || !registro) return;
+      const exercicio = Data.findExercise(alvo.workoutId, registro.exerciseId);
+      if (exercicio) showExerciseHistory(alvo, exercicio, registro);
+      return;
+    }
 
     const session = findSession(target.dataset.sessionId);
     if (action.startsWith('session-') && !session) return;
@@ -1963,17 +2367,17 @@
       confirmationModal('Encerrar treino parcial', 'Os itens registrados serão preservados e os não realizados continuarão explícitos no histórico.', 'session-partial-confirm', {sessionId: session.id}, 'Encerrar como parcial');
       return;
     }
-    if (action === 'session-partial-confirm') { closeModal(); await finalizeSession(session, 'partial'); return; }
+    if (action === 'session-partial-confirm') { await finalizeSession(session, 'partial'); return; }
     if (action === 'session-skip') {
       confirmationModal('Pular sessão', 'A sessão ficará registrada como pulada. Ela não será contada como realizada.', 'session-skip-confirm', {sessionId: session.id}, 'Registrar como pulada');
       return;
     }
-    if (action === 'session-skip-confirm') { closeModal(); await setTerminalSessionStatus(session, 'skipped'); return; }
+    if (action === 'session-skip-confirm') { if (await setTerminalSessionStatus(session, 'skipped')) closeModal(); return; }
     if (action === 'session-cancel') {
       confirmationModal('Cancelar sessão', 'A sessão continuará no histórico como cancelada.', 'session-cancel-confirm', {sessionId: session.id}, 'Cancelar sessão');
       return;
     }
-    if (action === 'session-cancel-confirm') { closeModal(); await setTerminalSessionStatus(session, 'cancelled'); return; }
+    if (action === 'session-cancel-confirm') { if (await setTerminalSessionStatus(session, 'cancelled')) closeModal(); return; }
     if (action === 'session-reschedule') { openRescheduleModal(session); return; }
     if (action === 'session-reschedule-confirm') { await confirmReschedule(session); return; }
     if (action === 'session-reopen') { await reopenSession(session); return; }
@@ -2028,6 +2432,7 @@
     if (!action) return;
     if (action === 'evolution-key') { evolutionSelection.key = target.value; renderActivePanel(); return; }
     if (action === 'evolution-metric') { evolutionSelection.metric = target.value; renderActivePanel(); return; }
+    if (blockReadOnlyMutation(action, true)) return;
     if (action === 'setting-mode') { state.settings.mode = target.value === 'sequence' ? 'sequence' : 'calendar'; await persist('Modo de agenda atualizado.', true); return; }
     if (action === 'setting-video-mode') { state.settings.videoMode = ['external', 'inline', 'ask'].includes(target.value) ? target.value : 'external'; await persist('Preferência de vídeo atualizada.', true); return; }
     if (action === 'setting-toggle') { state.settings[target.dataset.setting] = target.checked; applyPreferences(); await persist('Preferência atualizada.', true); return; }
@@ -2052,12 +2457,23 @@
     const session = findSession(target.dataset.sessionId);
     const log = findExerciseLog(session, target.dataset.exerciseId);
     if (!session || !log) return;
+    if (TERMINAL_MUTATION_ACTIONS.has(action) && !isSessionEditable(session)) {
+      showNotice('Esta sessão está encerrada. Reabra a sessão antes de alterar seus registros.', 'warning');
+      renderActivePanel();
+      return;
+    }
     if (action === 'set-field') {
       const set = log.sets.find(item => item.id === target.dataset.setId);
       if (!set) return;
-      assignSetField(set, target.dataset.field, target.value);
+      const fieldName = target.dataset.field;
+      assignSetField(set, fieldName, target.value);
       refreshExerciseCompletion(log);
-      await persist('Série atualizada.', false);
+      // Inputs de carga e repetições já atualizam o estado durante `input`.
+      // Remontá-los no `change` pode roubar o foco do campo seguinte enquanto
+      // o IndexedDB termina de gravar. Selects ainda redesenham a semântica da
+      // série, preservando o foco vivo e os <details> abertos acima.
+      const rerender = ['rir', 'status'].includes(fieldName);
+      await persist('Série atualizada.', rerender, rerender ? {focusDescriptor: captureFocusDescriptor(target)} : {});
       return;
     }
     if (action === 'set-rest-select') {
@@ -2069,7 +2485,10 @@
     }
     if (action === 'exercise-field') {
       assignExerciseField(log, target.dataset.field, target.value);
-      await persist('Registro do exercício atualizado.', false);
+      // Trocar a identificação da máquina troca o histórico comparável: a
+      // referência do treino anterior na tela precisa acompanhar. O evento é
+      // `change` (sai do campo), não `input`, então isso não atrapalha a digitação.
+      await persist('Registro do exercício atualizado.', target.dataset.field === 'machineId');
       return;
     }
     if (action === 'mobility-flag') { log.mobilityFeedback[target.dataset.side][target.dataset.flag] = target.checked; await persist('Feedback de mobilidade atualizado.', false); return; }
@@ -2079,6 +2498,8 @@
   }
 
   function assignSetField(set, fieldName, value) {
+    const previous = String(set[fieldName] == null ? '' : set[fieldName]);
+    const wasConfirmed = Core.isSetConfirmed(set);
     if (fieldName === 'load') set.load = Core.numericString(value, {max: 5000, decimals: 2});
     else if (fieldName === 'reps') set.reps = Core.integerString(value, 1000);
     else if (fieldName === 'rir') set.rir = Core.VALID_RIR.has(value) ? value : '';
@@ -2089,6 +2510,8 @@
     }
     else if (fieldName === 'nextRestSeconds') set.nextRestSeconds = Math.max(0, Math.min(1800, Number(value) || 0));
     else if (fieldName === 'note') set.note = Core.cleanText(value, 200);
+    if (['load', 'reps', 'rir'].includes(fieldName) && String(set[fieldName]) !== previous) set.completedAt = '';
+    return wasConfirmed && !Core.isSetConfirmed(set);
   }
 
   function assignExerciseField(log, fieldName, value) {
@@ -2102,12 +2525,33 @@
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
     const action = target.dataset.action;
     if (!['set-field', 'exercise-field', 'mobility-note'].includes(action)) return;
+    if (blockReadOnlyMutation(action, true)) return;
     const session = findSession(target.dataset.sessionId);
     const log = findExerciseLog(session, target.dataset.exerciseId);
     if (!session || !log) return;
+    if (!isSessionEditable(session)) {
+      renderActivePanel();
+      return;
+    }
     if (action === 'set-field') {
       const set = log.sets.find(item => item.id === target.dataset.setId);
-      if (set) assignSetField(set, target.dataset.field, target.value);
+      if (set) {
+        const invalidated = assignSetField(set, target.dataset.field, target.value);
+        refreshExerciseCompletion(log);
+        if (invalidated) {
+          const row = target.closest('.set-row');
+          if (row) {
+            row.classList.remove('is-complete');
+            const confirmation = row.querySelector('[data-action="set-complete"]');
+            if (confirmation) {
+              confirmation.classList.remove('on');
+              confirmation.textContent = '○';
+              confirmation.setAttribute('aria-pressed', 'false');
+              confirmation.setAttribute('aria-label', String(confirmation.getAttribute('aria-label') || '').replace(/^Atualizar/, 'Concluir'));
+            }
+          }
+        }
+      }
     } else if (action === 'exercise-field') assignExerciseField(log, target.dataset.field, target.value);
     else log.mobilityFeedback.note = Core.cleanText(target.value, 300);
   }
@@ -2147,6 +2591,7 @@
     const form = event.target;
     if (!(form instanceof HTMLFormElement) || !form.dataset.form) return;
     event.preventDefault();
+    if (blockReadOnlyMutation(`form-${form.dataset.form}`, true)) return;
     const data = new FormData(form);
     if (form.dataset.form === 'cardio') await saveCardio(data, form);
     else if (form.dataset.form === 'home') await saveHomeRoutine(data, form);
@@ -2154,12 +2599,15 @@
   }
 
   async function setTerminalSessionStatus(session, status) {
+    const completedAt = new Date().toISOString();
+    closeSessionTiming(session, completedAt);
     session.status = status;
-    session.completedAt = new Date().toISOString();
-    session.durationSeconds = calculateSessionDuration(session, session.completedAt);
+    session.completedAt = completedAt;
     session.updatedAt = session.completedAt;
+    const saved = await persist(`Sessão registrada como ${SESSION_LABELS[status].toLowerCase()}.`, true);
+    if (!saved) return false;
     await releaseWakeLock();
-    await persist(`Sessão registrada como ${SESSION_LABELS[status].toLowerCase()}.`, true);
+    return true;
   }
 
   function openRescheduleModal(session) {
@@ -2176,14 +2624,21 @@
     const newDate = input ? Core.validDate(input.value) : '';
     if (!newDate) { showNotice('Escolha uma data válida para remarcar.', 'warning'); return; }
     await storage.createSnapshot(state, 'Antes de remarcar sessão');
-    const replacement = Core.createSession(session.workoutId, newDate, session.week);
+    const replacement = novaSessao(session.workoutId, newDate, session.week);
     replacement.rescheduledFrom = session.plannedDate;
+    // Remarcar preserva apenas a configuração comparável, nunca a execução.
+    replacement.exercises.forEach(log => {
+      const origem = session.exercises.find(item => item.exerciseId === log.exerciseId && item.side === log.side);
+      const definition = Data.findExercise(session.workoutId, log.exerciseId);
+      mergeExerciseConfiguration(log, origem, definition, session.week, false);
+    });
+    const completedAt = new Date().toISOString();
+    closeSessionTiming(session, completedAt);
     session.status = 'rescheduled';
-    session.completedAt = new Date().toISOString();
+    session.completedAt = completedAt;
     session.updatedAt = session.completedAt;
     state.sessions.push(replacement);
-    closeModal();
-    await persist(`Sessão remarcada para ${formatDate(newDate)}.`, true);
+    if (await persist(`Sessão remarcada para ${formatDate(newDate)}.`, true)) closeModal();
   }
 
   async function reopenSession(session) {
@@ -2210,6 +2665,10 @@
     const first = workSets[0];
     if (!first || (!first.load && !first.reps)) {
       showNotice('Preencha a primeira série antes de repeti-la nas demais.', 'warning');
+      return;
+    }
+    if (first.status && first.status !== 'completed') {
+      showNotice('A primeira série está marcada com ocorrência adversa e não pode servir de referência para copiar valores.', 'warning');
       return;
     }
     const alvo = workSets.slice(1).filter(set => !Core.isSetConfirmed(set));
@@ -2245,7 +2704,7 @@
     markSessionStarted(session);
     log.completed = workSets.length > 0;
     session.updatedAt = new Date().toISOString();
-    await persist('Exercício marcado como concluído.', true);
+    if (await persist('Exercício marcado como concluído.', true)) await requestWakeLock();
   }
 
   async function pickFeeling(session, exerciseId, feeling) {
@@ -2284,17 +2743,23 @@
     if (fieldName === 'completed' && log.completed) log.skipped = false;
     if (fieldName === 'skipped' && log.skipped) log.completed = false;
     session.updatedAt = new Date().toISOString();
-    await persist('Mobilidade atualizada.', true);
+    if (await persist('Mobilidade atualizada.', true)) await requestWakeLock();
   }
 
-  function hasExerciseData(log) {
-    return Boolean(log.feedback || log.feeling || log.machineId || log.sets.some(set => set.load || set.reps || set.rir || set.status || set.note));
+  function hasExerciseExecutionData(log) {
+    const mobility = log.mobilityFeedback || {};
+    const mobilityUsed = Boolean(mobility.note || ['left', 'right'].some(side =>
+      mobility[side] && Object.values(mobility[side]).some(Boolean)));
+    return Boolean(
+      log.completed || log.skipped || log.feedback || log.feeling || mobilityUsed
+      || log.sets.some(set => set.load || set.reps || set.rir || set.status || set.note || set.completedAt)
+    );
   }
 
   async function requestVariationChange(session, log, nextVariation) {
     const exercise = Data.findExercise(session.workoutId, log.exerciseId);
     if (!exercise || !exercise.variants.some(item => item.id === nextVariation) || nextVariation === log.variationId) return;
-    if (!hasExerciseData(log)) {
+    if (!hasExerciseExecutionData(log)) {
       log.variationId = nextVariation;
       await persist('Variação atualizada; o histórico comparável permanecerá separado.', true);
       return;
@@ -2309,8 +2774,7 @@
     const exercise = log ? Data.findExercise(session.workoutId, log.exerciseId) : null;
     if (!exercise || !exercise.variants.some(item => item.id === variationId)) return;
     log.variationId = variationId;
-    closeModal();
-    await persist('Variação confirmada; cargas de variações diferentes não serão misturadas.', true);
+    if (await persist('Variação confirmada; cargas de variações diferentes não serão misturadas.', true)) closeModal();
   }
 
   function updateHighRepPreference(session, log, enabled) {
@@ -2326,7 +2790,7 @@
     const date = Core.localDateKey();
     const existing = state.sessions.find(session => session.workoutId === workoutId && session.plannedDate === date && !['cancelled', 'rescheduled'].includes(session.status));
     if (existing) { renderActivePanel(); return; }
-    state.sessions.push(Core.createSession(workoutId, date, state.cycle.currentWeek));
+    state.sessions.push(novaSessao(workoutId, date, state.cycle.currentWeek));
     await persist('Sessão planejada para hoje.', true);
   }
 
@@ -2369,8 +2833,7 @@
     state.cardio.push(normalized);
     const related = findSession(normalized.relatedSessionId);
     if (related) related.cardioId = normalized.id;
-    await persist('Caminhada registrada.', true);
-    form.reset();
+    if (await persist('Caminhada registrada.', true, {keepDomOnFailure: true})) form.reset();
   }
 
   async function saveHomeRoutine(formData, form) {
@@ -2383,8 +2846,7 @@
     const normalized = Core.normalizeHomeRoutine(raw, state.homeRoutines.length);
     if (!normalized) { showNotice('A data da rotina em casa não é válida.', 'warning'); return; }
     state.homeRoutines.push(normalized);
-    await persist('Rotina em casa registrada.', true);
-    form.reset();
+    if (await persist('Rotina em casa registrada.', true, {keepDomOnFailure: true})) form.reset();
   }
 
   async function saveMeasurement(formData, form) {
@@ -2396,24 +2858,82 @@
     }
     const raw = {id: Core.uid('measurement'), date: formData.get('date'), measuredAt, note: formData.get('note'), savedAt: new Date().toISOString()};
     Object.keys(Measurements.METRICS).forEach(key => { raw[key] = formData.get(key); });
+    if (!Core.validDate(raw.date)) {
+      showNotice('Informe uma data válida para a medição.', 'warning');
+      const input = form.elements.namedItem('date');
+      if (input && typeof input.focus === 'function') input.focus();
+      return;
+    }
+    if (measuredInput && !measuredAt) {
+      showNotice('O horário da medição não é válido.', 'warning');
+      const input = form.elements.namedItem('measuredAt');
+      if (input && typeof input.focus === 'function') input.focus();
+      return;
+    }
     const normalized = Core.normalizeMeasurement(raw, state.measurements.length);
-    if (!normalized) { showNotice('Informe uma data e ao menos uma medida numérica válida.', 'warning'); return; }
+    const invalidMetric = Object.entries(Measurements.METRICS).find(([key]) =>
+      String(raw[key] == null ? '' : raw[key]).trim() && (!normalized || !normalized[key]));
+    if (invalidMetric) {
+      const [key, metric] = invalidMetric;
+      const input = form.elements.namedItem(key);
+      const message = `${metric.label}: informe um número maior que zero e de até 500 ${metric.unit}.`;
+      showNotice(message, 'warning');
+      if (input && typeof input.setCustomValidity === 'function') {
+        input.setCustomValidity(message);
+        input.addEventListener('input', () => input.setCustomValidity(''), {once: true});
+        input.reportValidity();
+        input.focus();
+      }
+      return;
+    }
+    if (!normalized) {
+      showNotice('Informe ao menos uma medida numérica maior que zero.', 'warning');
+      const firstMetric = form.elements.namedItem(Object.keys(Measurements.METRICS)[0]);
+      if (firstMetric && typeof firstMetric.focus === 'function') firstMetric.focus();
+      return;
+    }
     state.measurements.push(normalized);
-    await persist('Medidas corporais registradas.', true);
-    form.reset();
+    if (await persist('Medidas corporais registradas.', true, {keepDomOnFailure: true})) form.reset();
+  }
+
+  function mergeExerciseConfiguration(fresh, previous, definition, week, preserveId) {
+    if (!previous) return fresh;
+    if (preserveId) fresh.id = previous.id;
+    fresh.machineId = previous.machineId || '';
+    const variants = definition && Array.isArray(definition.variants) ? definition.variants : [];
+    if (variants.some(item => item.id === previous.variationId)) fresh.variationId = previous.variationId;
+    fresh.highRepPreference = Boolean(definition && definition.allowHighReps && previous.highRepPreference);
+    if (definition && fresh.prescriptionSnapshot) {
+      const prescription = Data.prescriptionFor(definition, week, fresh.highRepPreference);
+      Object.assign(fresh.prescriptionSnapshot, {
+        min: prescription.min,
+        max: prescription.max,
+        label: prescription.label,
+        rirMin: prescription.rirMin,
+        rirMax: prescription.rirMax,
+        deload: prescription.deload
+      });
+    }
+    return fresh;
   }
 
   function replacePlannedSessionPrescription(session, week) {
     if (session.status !== 'planned' || hasSessionInput(session)) return false;
     const workout = Data.WORKOUT_BY_ID[session.workoutId];
     session.week = week;
-    session.exercises = workout.exercises.flatMap(exercise => Core.createExerciseLogs(exercise, week));
+    const previousLogs = session.exercises;
+    session.exercises = workout.exercises.flatMap(exercise => Core.createExerciseLogs(exercise, week)).map(fresh => {
+      const previous = previousLogs.find(log => log.exerciseId === fresh.exerciseId && log.side === fresh.side);
+      if (!previous) return fresh;
+      const definition = Data.findExercise(session.workoutId, fresh.exerciseId);
+      return mergeExerciseConfiguration(fresh, previous, definition, week, true);
+    });
     session.updatedAt = new Date().toISOString();
     return true;
   }
 
   function hasSessionInput(session) {
-    return session.exercises.some(log => log.completed || log.skipped || hasExerciseData(log));
+    return session.exercises.some(hasExerciseExecutionData);
   }
 
   async function changeCycleWeek(week) {
@@ -2441,26 +2961,36 @@
     state.sessions = [];
     state.cycle = {id: Core.uid('cycle'), startedAt: archivedAt, currentWeek: 1, status: 'active'};
     ensureCurrentWeekSessions();
+    const saved = await persist('Periodização zerada; o ciclo anterior foi arquivado e a semana 1 foi iniciada.', true);
+    if (!saved) return;
     closeModal();
     stopTimer();
     await releaseWakeLock();
-    await persist('Periodização zerada; o ciclo anterior foi arquivado e a semana 1 foi iniciada.', true);
   }
 
   async function restoreSnapshot() {
-    const snapshot = await storage.latestSnapshot();
-    if (!snapshot || !snapshot.state) { closeModal(); showNotice('Nenhum snapshot válido está disponível.', 'warning'); return; }
-    await storage.createSnapshot(state, 'Antes de restaurar snapshot anterior');
-    const restored = Core.normalizeState(snapshot.state);
-    restored.revision = persistedRevision;
-    state = await storage.writeDocument(restored, persistedRevision, {});
-    persistedRevision = state.revision;
-    rememberConsistentState(state);
-    closeModal();
-    applyPreferences();
-    renderActivePanel();
-    setSaveState('Snapshot restaurado', false);
-    announce('Snapshot restaurado com sucesso.');
+    try {
+      const snapshot = await storage.latestSnapshot();
+      if (!snapshot || !snapshot.state) { closeModal(); showNotice('Nenhum snapshot válido está disponível.', 'warning'); return; }
+      // O snapshot escolhido precisa ser validado antes da normalização e antes
+      // de criar a cópia de segurança. Assim, um registro interno corrompido não
+      // pode ser transformado em lista vazia e depois substituir o documento.
+      Core.assertCurrentStateStructure(snapshot.state);
+      await storage.createSnapshot(state, 'Antes de restaurar snapshot anterior');
+      const restored = Core.deepClone(snapshot.state);
+      restored.revision = persistedRevision;
+      state = await storage.writeDocument(restored, persistedRevision, {});
+      persistedRevision = state.revision;
+      rememberConsistentState(state);
+      closeModal();
+      applyPreferences();
+      renderActivePanel();
+      setSaveState('Snapshot restaurado', false);
+      announce('Snapshot restaurado com sucesso.');
+    } catch (error) {
+      setSaveState('Snapshot não restaurado', true);
+      showNotice(`O snapshot foi rejeitado e o documento atual permaneceu intacto: ${error.message || error}`, 'error');
+    }
   }
 
   function downloadText(text, filename, mimeType) {
@@ -2634,7 +3164,7 @@
       closeModal();
       applyPreferences();
       const planned = ensureCurrentWeekSessions();
-      if (planned) await persist('Sessões da semana incluídas após a importação.', false);
+      if (planned && !(await persist('Sessões da semana incluídas após a importação.', false))) return;
       renderTabs();
       renderActivePanel();
       setSaveState('Importação concluída', false);
@@ -2677,13 +3207,19 @@
   async function updateOnlineStatus() {
     const online = navigator.onLine;
     if (!online) {
-      showNotice('Você está offline. Registros, histórico e orientações locais continuam disponíveis; vídeos exigem internet.', 'warning');
-      dom.notice.dataset.source = 'offline';
+      showOfflineNotice();
     } else if (dom.notice.dataset.source === 'offline') {
       hideNotice();
-      delete dom.notice.dataset.source;
       announce('Conexão restabelecida.');
     }
+  }
+
+  function showOfflineNotice() {
+    // Conectividade é aviso informativo; nunca deve esconder uma falha de
+    // gravação, conflito ou atualização que já esteja pedindo ação do usuário.
+    if (!dom.notice.hidden && dom.notice.dataset.source !== 'offline') return;
+    showNotice('Você está offline. Registros, histórico e orientações locais continuam disponíveis; vídeos exigem internet.', 'warning');
+    dom.notice.dataset.source = 'offline';
   }
 
   async function installApp() {
@@ -2712,14 +3248,14 @@
 
   async function registerPwa() {
     if (!('serviceWorker' in navigator) || location.protocol === 'file:') {
-      showNotice('Este navegador ou modo de abertura não permite instalar o pacote offline. Use HTTPS ou localhost.', 'warning');
+      showPwaAvailabilityNotice('Este navegador ou modo de abertura não permite instalar o pacote offline. Use HTTPS ou localhost.', 'warning');
       return;
     }
     try {
       const registration = await navigator.serviceWorker.register('./sw.js');
       // Perfis que bloqueiam service worker podem resolver sem registro.
       if (!registration) {
-        showNotice('Este navegador está bloqueando o pacote offline. O aplicativo continua funcionando com os dados locais.', 'warning');
+        showPwaAvailabilityNotice('Este navegador está bloqueando o pacote offline. O aplicativo continua funcionando com os dados locais.', 'warning');
         return;
       }
       if (registration.waiting) showPwaUpdate(registration);
@@ -2736,8 +3272,7 @@
         if (message.type === 'SW_UPDATE_READY') showPwaUpdate(registration);
         else if (message.type === 'SW_OFFLINE_READY') announce('Aplicativo pronto para uso offline.');
         else if (message.type === 'SW_CONNECTION_STATE' && message.offline) {
-          showNotice('Você está offline. Registros, histórico e orientações locais continuam disponíveis; vídeos exigem internet.', 'warning');
-          dom.notice.dataset.source = 'offline';
+          showOfflineNotice();
         }
         else if (['SW_CACHE_ERROR', 'SW_UPDATE_ERROR', 'SW_ACTIVATION_ERROR'].includes(message.type)) showNotice(`Falha da PWA: ${message.message || 'erro não detalhado'}`, 'error');
       });
@@ -2758,7 +3293,7 @@
         global.location.reload();
       });
     } catch (error) {
-      showNotice(`Não foi possível registrar o modo offline: ${error.message || error}`, 'error');
+      showPwaAvailabilityNotice(`Não foi possível registrar o modo offline: ${error.message || error}`, 'error');
     }
   }
 

@@ -2,6 +2,66 @@
 
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
 
+## [3.4.0] — histórico comparável, integridade e progressão — 2026-08-30
+
+Esquema **11** inalterado. Ficha e periodização permanecem intactas; a
+classificação dos vídeos foi revisada para aplicar a política brasileira.
+
+### O que mudou na comparação entre treinos
+
+- A carga passou a pertencer ao **aparelho**, não à faixa da semana. Antes, a
+  periodização trocar de 12–15 para 10–12 apagava o histórico daquela máquina —
+  exatamente na semana em que saber a carga anterior importa mais. Agora a
+  identidade de carga é exercício + variação + máquina + lado, e a faixa entra
+  declarada na tela (`Faixa naquele dia: 12–15 reps`).
+- A **identificação da máquina é herdada** da última execução registrada do
+  mesmo exercício e lado. Sem isso seria preciso redigitar o nome do aparelho
+  toda semana para que qualquer histórico existisse. O campo continua editável;
+  trocar o nome inicia outro histórico, como deve ser.
+- Sem histórico comparável, o app diz **por quê**: "há registro em máquina
+  'polia 1'", em vez de ficar mudo. Máquina, variação e lado diferentes nunca
+  têm as cargas convertidas entre si.
+
+### Referência da execução anterior
+
+- A linha do último treino ganhou o **RIR** registrado, a faixa vigente naquele
+  dia e a marca de deload quando for o caso.
+- Novo botão **☰ Histórico** em cada exercício: as últimas oito execuções
+  comparáveis com data, semana, séries, RIR e faixa, mais a melhor série
+  registrada — **semanas de deload ficam fora da melhor marca**, porque deload é
+  recuperação planejada e não referência de progressão.
+
+### Progressão com um número em vez de um conselho
+
+- Ao completar o topo da faixa com o RIR planejado, a recomendação passou a
+  dizer a carga concreta: *"Considere testar 35 kg"*. O valor cai sempre num
+  degrau que o aparelho tem — com passo de 5 kg, 40 vira 45 e 42 vira 45, nunca
+  42,5.
+- O degrau é **presumido por equipamento** (5 kg em máquinas e polias, 2 kg em
+  halteres, 2,5 kg na barra W), não medido. Está declarado no catálogo e não
+  altera prescrição nenhuma. Se as séries usaram cargas diferentes, nenhum
+  número único é sugerido.
+- A carga continua sem nunca ser alterada sozinha pelo aplicativo.
+
+### Testes
+
+Além da cobertura de histórico e progressão, a rodada final fechou:
+
+- validação profunda, recuperação de corrupção e rejeição de importações que
+  exigiriam truncamento ou trouxessem estrutura inesperada;
+- concorrência por revisão exata, staging, Web Lock e modo somente leitura
+  quando não há garantia de persistência durável;
+- presença das sessões arquivadas em histórico, evolução, exportação e herança,
+  sem recolocá-las na fila corrente;
+- tempo de pausa, finalização idempotente, foco semântico, rolagem e edição
+  contínua de carga/repetições sem remontagem destrutiva da interface;
+- prioridade correta para avisos críticos de armazenamento e isolamento do
+  service worker nos testes comuns, mantendo casos offline/PWA explícitos;
+- inventário de vídeo com 41 entradas: **10 aprovadas**, **31 pendentes** e
+  **0 rejeitadas**, exigindo pt-BR, criador/canal brasileiro e proveniência;
+- **78/78 testes de núcleo** e **50/50 cenários em Chrome real**, sem falha nem
+  erro de console/página aceito.
+
 ## [3.3.0] — experiência durante o treino — 2026-08-09
 
 Esquema **11** inalterado. Ficha, periodização e catálogo de vídeos intocados.

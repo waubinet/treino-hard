@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'treino-hard-';
-const CACHE_NAME = `${CACHE_PREFIX}v3.3.0`;
+const CACHE_NAME = `${CACHE_PREFIX}v3.4.0`;
 const OFFLINE_DOCUMENT = './index.html';
 
 const APP_SHELL = Object.freeze([
@@ -188,7 +188,7 @@ async function networkFirstNavigation(request) {
 
 async function revalidateAsset(request) {
   try {
-    const response = await fetch(request);
+    const response = await fetch(request, {cache: 'no-cache'});
     if (!response.ok) return null;
 
     const cache = await caches.open(CACHE_NAME);
@@ -204,13 +204,13 @@ async function revalidateAsset(request) {
   }
 }
 
-async function cacheFirstAsset(request, revalidation) {
-  const cached = await caches.match(request);
-
-  if (cached) return cached;
-
-  const response = await revalidation;
+async function networkFirstAsset(request) {
+  const response = await revalidateAsset(request);
   if (response) return response;
+
+  const cache = await caches.open(CACHE_NAME);
+  const cached = await cache.match(request);
+  if (cached) return cached;
 
   return new Response('Recurso indisponível enquanto o aplicativo está offline.', {
     status: 503,
@@ -232,7 +232,8 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  const revalidation = revalidateAsset(request);
-  event.waitUntil(revalidation);
-  event.respondWith(cacheFirstAsset(request, revalidation));
+  // Os nomes dos arquivos são estáveis entre versões. Servir primeiro uma
+  // cópia antiga enquanto o HTML já é novo poderia misturar esquemas de código
+  // na mesma abertura. Online, a rede vence; offline, o shell versionado assume.
+  event.respondWith(networkFirstAsset(request));
 });

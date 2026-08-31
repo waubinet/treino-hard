@@ -1,104 +1,81 @@
 # Plano e evidências de teste
 
-## Estado
+## Estado da versão 3.4.0
 
-Atualizado em **2026-08-08**, versão do app **3.1.0**, esquema **11**, commit publicado
-`b877d1f`, URL `https://waubinet.github.io/treino-hard/`.
+Validado localmente em **2026-08-30**, esquema persistido **11**, cache
+`treino-hard-v3.4.0`. No momento desta atualização documental, o commit ainda
+não havia sido integrado em `main` nem confirmado no GitHub Pages.
 
-Resultados atuais:
+Resultados do gate local:
 
-- `node --check` em `js/workouts.js`, `js/core.js`, `js/storage.js`, `js/measurements.js`, `js/app.js` e `sw.js`: **6/6 aprovados**;
-- `node --test tests/app.test.cjs`: **34/34 aprovados, 0 falhas** (20 originais + 14 de conformidade da ficha);
-- `node --test tests/browser.test.cjs`: **26/26 aprovados, 0 falhas**, em Chrome real via Playwright;
-- capturas visuais em 360×800, 430×900 e 1280×800 para Hoje, Empurrar A, Pernas A, Evolução e Ajustes: **0 transbordamentos e 0 erros de console**;
-- console/page errors nos cenários automatizados: **0**;
-- smoke test no app publicado: **42/42 verificações aprovadas, 0 erros de console**.
+- sintaxe de `js/workouts.js`, `js/core.js`, `js/storage.js`,
+  `js/measurements.js`, `js/app.js`, `sw.js` e do teste de navegador: **aprovada**;
+- `manifest.webmanifest`: **JSON válido**;
+- `git diff --check`: **aprovado**, sem erro de whitespace;
+- `node --test --test-reporter=tap tests/app.test.cjs`: **78/78 aprovados**;
+- `node --test --test-reporter=tap tests/browser.test.cjs`: **50/50 aprovados**
+  em Google Chrome real via Playwright, **0 falhas**, exit code 0;
+- suíte completa de navegador: **831.593,5065 ms**;
+- erros de console/página aceitos: **0**.
 
-Legenda:
-
-- `PENDENTE`: ainda não executado ou sem evidência anexada;
-- `PASSOU`: executado com procedimento e evidência registrados;
-- `PARCIAL`: a parte descrita na evidência passou, mas o procedimento completo ainda tem etapas pendentes;
-- `FALHOU`: falha reproduzida e ainda aberta;
-- `N/A JUSTIFICADO`: inaplicável com justificativa técnica explícita.
-
-## Ambiente
+## Ambiente e comandos
 
 | Item | Valor |
 |---|---|
-| commit testado e publicado | `b877d1f` |
-| URL pública | `https://waubinet.github.io/treino-hard/` (GitHub Pages, branch `main`, raiz) |
-| navegador | Google Chrome via Playwright 1.61.1, executável local |
-| sistema/tela | Windows; viewports 320, 360, 430, 640 e 1280 px |
-| dependência de teste | Playwright fora do repositório; use `NODE_PATH` apontando para um `node_modules` com `playwright` |
-| data | 2026-08-08 |
+| sistema | Windows, PowerShell |
+| navegador | Google Chrome local controlado pelo Playwright |
+| app | estático, servido em `127.0.0.1` por porta efêmera |
+| dados | IndexedDB; testes explícitos de `localStorage` e somente leitura |
+| branch validada | `codex/3.4-integrity` |
+| commit-base | `e2a5ef0ab0c6dc6d9785504c32da9edeb637a043` |
 
-## Cobertura automatizada por cenário
-
-| Cenário de `tests/browser.test.cjs` | Estado |
-|---|---|
-| Fluxos essenciais, responsivo e offline | PASSOU |
-| Ciclo de vida da sessão com reload em cada estado | PASSOU |
-| Modo sequência sem avanço, conclusão ou reordenação automática | PASSOU |
-| Treze abas montam o próprio painel sem erro | PASSOU |
-| Descanso padrão, personalizado, manual, automático, +30 s e desfazer | PASSOU |
-| Caminhada e vacuum com todos os campos e reload | PASSOU |
-| Semana, deload, arquivamento e snapshot | PASSOU |
-| Exportação JSON, reimportação, snapshot e CSV de 27 colunas | PASSOU |
-| Backup criptografado: ida e volta, senha errada, adulteração de ciphertext, IV, salt e truncamento | PASSOU |
-| Importações hostis, malformadas, de esquema futuro e com chaves proibidas | PASSOU |
-| Cópias automáticas e recuperação bruta listadas, restauradas e exportadas | PASSOU |
-| Conflito de revisão entre duas abas | PASSOU |
-| Fallback para `localStorage` e falha de gravação por quota | PASSOU |
-| Injeção de HTML em notas, feedback, máquina, caminhada, vacuum e medidas | PASSOU |
-| CSP bloqueando script inline | PASSOU |
-| Teclado completo nas abas e retenção cíclica de foco no modal | PASSOU |
-| Papéis, relações ARIA, regiões vivas e rótulos | PASSOU |
-| Contraste medido em nove abas contra o mínimo do WCAG AA | PASSOU |
-| 320, 360, 430, 640 e 1280 px, texto ampliado e movimento reduzido | PASSOU |
-| Manifesto, ícones e zona segura do maskable | PASSOU |
-| Offline: recarregar, registrar série, salvar caminhada, fechar e reabrir | PASSOU |
-| Atualização entre duas versões de cache com confirmação do usuário | PASSOU |
-| Falha de cache do service worker avisada | PASSOU |
-| Ficha canônica na interface dos seis treinos | PASSOU |
-| Versão do app e esquema em Ajustes e no rodapé | PASSOU |
-| Atualização de quem tem a 2.2 instalada, com histórico legado preservado | PASSOU |
-
-## Conformidade da ficha
-
-Os 14 testes de conformidade em `tests/app.test.cjs` falham se qualquer exercício,
-ordem, número de séries, categoria, descanso, aquecimento, variação ou faixa semanal
-divergir da ficha. Cobrem os seis treinos, os totais 17/15/14/15/14/14, a periodização
-das oito semanas por categoria, a faixa alta 12–20, os descansos 120/150/180/90 s,
-a remada unilateral por lado, as duas execuções do tríceps de Empurrar B, a ausência
-de stiff e terra romeno, o terra restrito a Pernas B, a mobilidade idêntica em
-Pernas A/B, o domingo sem sessão e a independência entre versão do app e esquema.
-
-## Ainda não testado
-
-| Item | Estado | Motivo |
-|---|---|---|
-| Leitor de tela real | PENDENTE | nenhum leitor de tela foi executado; apenas papéis, nomes e regiões vivas foram auditados por código |
-| Vídeos de apoio | PENDENTE | nenhum candidato assistido; todos os 34 itens permanecem `pending` |
-| Instalação da PWA pelo prompt do sistema | PENDENTE | `beforeinstallprompt` não é disparado em Chrome headless |
-| Conferência das colunas da ficha contra o PDF | PENDENTE | `Ficha_de_Treino_Hipertrofia_Waubin.pdf` é um placeholder do iCloud e não pôde ser hidratado |
-
-## Modelo de evidência
-
-
-Para converter um item em `PASSOU` ou `FALHOU`, registrar:
-
-```text
-Teste:
-Data/hora:
-Commit:
-Ambiente:
-Preparação:
-Passos:
-Resultado esperado:
-Resultado observado:
-Console/rede:
-Artefato (captura/log):
-Estado:
-Correção/reteste:
+```powershell
+node --check js\workouts.js
+node --check js\core.js
+node --check js\storage.js
+node --check js\measurements.js
+node --check js\app.js
+node --check sw.js
+node --test --test-reporter=tap tests\app.test.cjs
+$env:NODE_PATH = 'C:\Users\waubi\AppData\Local\npm-cache\_npx\e41f203b7505f1fb\node_modules'
+node --test --test-reporter=tap tests\browser.test.cjs
 ```
+
+Nunca execute duas suítes Playwright ao mesmo tempo. O harness bloqueia service
+workers por padrão para os testes de aplicação e os habilita explicitamente nos
+casos offline/PWA, reduzindo acúmulo de sockets sem retirar a cobertura real.
+
+## Cobertura comprovada
+
+Os 78 testes de núcleo cobrem catálogo e ficha canônica, periodização,
+progressão dupla, comparabilidade por máquina/variação/lado/faixa, migrações,
+limites sem truncamento silencioso, IDs únicos, documentos corrompidos,
+recuperação, staging, concorrência, snapshots, backups, criptografia,
+prototype pollution, CSV, medidas, silhueta e inventário brasileiro de vídeos.
+
+Os 50 cenários em Chrome cobrem:
+
+- início, pausa, retomada, finalização parcial/completa, reabertura, cancelamento
+  e remarcação, incluindo duração e pausa acumulada;
+- modos calendário e sequência, semanas, deload, arquivamento e continuidade;
+- carga, repetições, RIR, confirmação explícita, status, foco, rolagem,
+  descanso, desfazer, histórico por máquina e séries adversas;
+- caminhada, vacuum, medidas bilaterais, ciclos, evolução, JSON, CSV,
+  snapshots, backups comuns e criptografados;
+- corrupção, importação hostil, esquema futuro, duas abas, queda de IndexedDB,
+  falha de quota e ausência total de persistência em modo somente leitura;
+- XSS, CSP, teclado, ARIA, contraste WCAG AA, 320–1280 px, zoom de 200%,
+  texto ampliado e movimento reduzido;
+- manifesto, ícones, zona maskable, funcionamento offline, atualização de cache,
+  falha do service worker e migração da versão 2.2;
+- ficha canônica dos seis treinos e política de vídeo em pt-BR de criador/canal
+  brasileiro com proveniência verificada.
+
+## Limites ainda manuais
+
+- leitor de tela real (NVDA, JAWS ou Narrador);
+- instalação pelo prompt nativo `beforeinstallprompt` em perfil limpo;
+- importação de um backup real do usuário, depois de guardar cópia externa;
+- smoke test da URL pública e confirmação do commit exato do Pages após o push.
+
+Esses itens não são contados como aprovados pela suíte local.
