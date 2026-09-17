@@ -8,7 +8,7 @@ Também foi corrigido o plano futuro preso à ficha antiga: sessões planejadas 
 
 Inventário de vídeos atual: 46 entradas, 20 aprovadas e 26 pendentes. Entradas sem correspondência visual rigorosa continuam sinalizadas como pendentes. A pesquisa científica não muda automaticamente a prescrição nem define diagnóstico ou limiar universal de assimetria.
 
-Evidências locais: 124/124 testes de lógica/dados e 60/60 cenários em Chrome aprovados, além da revisão visual das telas desktop e móvel, sem erro de página/console. Resultado consolidado em `TESTES.md`; o estado público só será declarado depois da confirmação do GitHub Pages.
+Evidências: 124/124 testes de lógica/dados e 60/60 cenários em Chrome aprovados, além da revisão visual das telas desktop e móvel, sem erro de página/console. O GitHub Pages publicou o commit `99a5c67d4629b3e72ce2d898bef30a3ce812bc08`; o smoke público confirmou versão 3.6.0, esquema 13, cache correto, migração, backup e funcionamento offline. Resultado consolidado em `TESTES.md`.
 
 ## Publicação anterior — 3.5.1
 

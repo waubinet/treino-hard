@@ -2,7 +2,7 @@
 
 ## Rodada 3.6.0 / esquema 13 — 2026-09-17
 
-Gate local concluído; a confirmação pública deve ser registrada separadamente depois do deploy.
+Gate local e publicação pública concluídos.
 
 - Núcleo, medidas e lateralidade: **124/124 aprovados**.
 - Chrome/Playwright: **60/60 aprovados** em uma única execução final, 0 falhas, em 367.705,480 ms.
@@ -12,7 +12,8 @@ Gate local concluído; a confirmação pública deve ser registrada separadament
 - Migração física 12 → 13: documento, recuperação e backup preservados após recargas; apenas o plano futuro completamente vazio é atualizado para `3.6.0-r2`.
 - Núcleo: `node --test tests/app.test.cjs tests/measurements-sides.test.cjs tests/laterality.test.cjs`.
 - Navegador: `node --test --test-concurrency=1 tests/browser.test.cjs`, com o `NODE_PATH` abaixo.
-- Publicar somente após commit e confirmar versão/cache públicos com cache-busting.
+- GitHub Pages confirmou como `built` o commit `99a5c67d4629b3e72ce2d898bef30a3ce812bc08`.
+- Smoke público com cache-busting confirmou versão 3.6.0, esquema 13, cache `treino-hard-v3.6.0`, migração, backup, recarga offline e zero erros de página/console.
 
 ## Estado da versão 3.5.1
 
