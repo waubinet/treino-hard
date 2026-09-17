@@ -6,6 +6,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const {chromium} = require('playwright');
+const {readLegacyBackup, readLegacyState} = require('./legacy-fixture.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const CHROME = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
@@ -120,6 +121,48 @@ function readStoredDocument(page) {
   }));
 }
 
+function writeStoredDocument(page, document) {
+  return page.evaluate(value => new Promise((resolve, reject) => {
+    const request = indexedDB.open('treino-hard-v3');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction('documents', 'readwrite');
+      transaction.objectStore('documents').put(value, 'current');
+      transaction.oncomplete = () => { database.close(); resolve(); };
+      transaction.onerror = () => { database.close(); reject(transaction.error); };
+    };
+  }), document);
+}
+
+function readStoredRows(page, storeName) {
+  return page.evaluate(name => new Promise((resolve, reject) => {
+    const request = indexedDB.open('treino-hard-v3');
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => {
+      const database = request.result;
+      const transaction = database.transaction(name, 'readonly');
+      const get = transaction.objectStore(name).getAll();
+      get.onsuccess = () => { database.close(); resolve(get.result); };
+      get.onerror = () => { database.close(); reject(get.error); };
+    };
+  }), storeName);
+}
+
+async function fillSideWorkSets(page, card, load, reps, rir) {
+  const rows = card.locator('.set-row:not(.is-warmup)');
+  const count = await rows.count();
+  for (let index = 0; index < count; index += 1) {
+    const row = rows.nth(index);
+    await row.locator('.set-field-load input').fill(String(load));
+    await row.locator('.set-field-reps input').fill(String(reps));
+    await row.locator('.set-field-rir select').selectOption(String(rir));
+    const before = await readStoredDocument(page);
+    await row.getByRole('button', {name: /^(Concluir|Atualizar) série \d+$/}).click();
+    await waitForStoredRevision(page, before.revision);
+  }
+}
+
 // Espera uma gravação nova chegar ao IndexedDB. Evita depender de pausas
 // arbitrárias nos cenários em que o conteúdo persistido é a própria evidência.
 async function waitForStoredRevision(page, previousRevision, timeout) {
@@ -151,7 +194,13 @@ function openTab(page, label) {
 // Leg press 45° possui vídeo pt-BR de canal brasileiro, origem documentada e
 // incorporação disponível. Usá-lo evita que estes testes dependam de candidatos
 // estrangeiros que a política de curadoria deve manter bloqueados.
-function legPressVideoButton(page) {
+async function legPressVideoButton(page) {
+  const bilateral = page.locator('#exercicio-leg_press_45 button[data-action="variation-pick"][data-variation-id="machine_unspecified"]');
+  if (await bilateral.getAttribute('aria-pressed') !== 'true') {
+    const before = await readStoredDocument(page);
+    await bilateral.click();
+    await waitForStoredRevision(page, before.revision);
+  }
   return page.locator('#panel-legs_a article.section-card')
     .filter({hasText: 'Leg press 45°'})
     .first()
@@ -180,7 +229,7 @@ async function openSetMore(row) {
 // Preenche repetições e status de todas as séries de trabalho visíveis.
 async function fillWorkSets(page, reps, options) {
   const settings = options || {};
-  const rows = page.locator('.set-row:not(.is-warmup)');
+  const rows = (settings.scope || page).locator('.set-row:not(.is-warmup)');
   const total = await rows.count();
   for (let index = 0; index < total; index += 1) {
     const row = rows.nth(index);
@@ -228,13 +277,18 @@ async function finishSessionCompletely(page, workoutLabel) {
   if (await start.count()) await start.click();
   await waitStatus(page, 'Iniciado');
   await completeMobilityItems(page);
-  await fillWorkSets(page, 12);
-  // Exercícios unilaterais escondem o outro lado atrás do chip: registrar os dois.
-  const chipsLado = page.locator('button[data-action="side-pick"][aria-pressed="false"]');
-  for (let guarda = 0; guarda < 6 && await chipsLado.count() > 0; guarda += 1) {
-    await chipsLado.first().click();
-    await page.waitForTimeout(200);
-    await fillWorkSets(page, 12);
+  // Capture a identidade de cada cartão. Alternar o primeiro chip disponível
+  // repetidamente reencontrava o mesmo exercício e deixava os demais por fazer.
+  const cardIds = await page.locator('#panels article.section-card').filter({has: page.locator('.set-row')}).evaluateAll(cards => cards.map(card => card.id));
+  for (const cardId of cardIds) {
+    const card = page.locator(`[id="${cardId}"]`);
+    const sides = await card.locator('button[data-action="side-pick"][aria-pressed]').evaluateAll(chips => chips.map(chip => chip.dataset.side));
+    if (!sides.length) await fillWorkSets(page, 12, {scope: card, waitForPersistence: true});
+    for (const side of sides) {
+      const chip = card.locator(`button[data-action="side-pick"][aria-pressed][data-side="${side}"]`);
+      if (await chip.getAttribute('aria-pressed') !== 'true') await chip.click();
+      await fillWorkSets(page, 12, {scope: card, waitForPersistence: true});
+    }
   }
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await page.waitForTimeout(500);
@@ -434,7 +488,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   await waitStatus(page, 'Pausado');
   await completeMobilityItems(page);
   const filled = await fillWorkSets(page, 14, {waitForPersistence: true});
-  assert.equal(filled, 17, 'Empurrar A deve expor 17 séries de trabalho');
+  assert.equal(filled, 19, 'Empurrar A deve expor 19 séries de trabalho');
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await page.waitForTimeout(500);
   await fecharResumo(page);
@@ -447,7 +501,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   const finishedSession = finished.sessions.find(session => session.id === trackedId);
   assert.equal(finishedSession.status, 'completed');
   assert.ok(Number.isFinite(finishedSession.durationSeconds));
-  assert.equal(finishedSession.exercises.flatMap(exercise => exercise.sets).filter(set => set.type === 'work' && set.status).length, 17);
+  assert.equal(finishedSession.exercises.flatMap(exercise => exercise.sets).filter(set => set.type === 'work' && set.status).length, 19);
   assert.equal(finished.sessions.length, 6, 'nenhuma sessão pode ser criada ou removida pelo ciclo de vida');
 
   assert.deepEqual(errors, []);
@@ -582,7 +636,7 @@ test('status escolhido só conta depois da confirmação explícita da série', 
   await openTab(page, 'Empurrar A');
   row = page.locator('.set-row:not(.is-warmup)').first();
   assert.doesNotMatch(await row.getAttribute('class'), /is-complete/);
-  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^0 de 17 itens · 0%$/);
+  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^0 de 19 itens · 0%$/);
 
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await page.locator('#app-modal').waitFor({state: 'visible'});
@@ -599,7 +653,7 @@ test('status escolhido só conta depois da confirmação explícita da série', 
   set = exercise.sets.find(item => item.type === 'work');
   assert.match(set.completedAt, /^2026-08-10T/);
   assert.match(await page.locator('.set-row:not(.is-warmup)').first().getAttribute('class'), /is-complete/);
-  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^1 de 17 itens · 6%$/);
+  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^1 de 19 itens · 5%$/);
 
   assert.deepEqual(errors, []);
 });
@@ -623,6 +677,7 @@ test('instalação e reinício na sexta não inventam pendências retroativas', 
   await openTab(page, 'Ciclos');
   await page.getByRole('button', {name: 'Zerar e iniciar novo ciclo', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Arquivar e começar na semana 1', exact: true}).click();
+  await page.locator('#live-region').filter({hasText: 'Periodização zerada'}).waitFor({state: 'attached', timeout: 15000});
   stored = await waitForStoredRevision(page, beforeResetRevision);
 
   assert.equal(stored.archives.length, 1);
@@ -696,7 +751,8 @@ test('mudança manual de semana não reescreve pendências passadas', {timeout: 
   assert.equal(before.sessions.every(session => session.week === 1), true);
 
   await page.locator('button[data-action="cycle-week-set"][data-week="2"]').click();
-  const changed = await waitForStoredRevision(page, before.revision);
+  await page.locator('#live-region').filter({hasText: 'Semana alterada para 2'}).waitFor({state: 'attached', timeout: 15000});
+  const changed = await readStoredDocument(page);
   assert.equal(changed.cycle.currentWeek, 2);
 
   const past = changed.sessions.filter(session => session.plannedDate < '2026-08-13');
@@ -794,7 +850,7 @@ test('todas as treze abas montam o próprio painel sem erro de página', {timeou
   for (const label of ['Pernas A', 'Pernas B']) {
     await openTab(page, label);
     assert.equal(await page.getByRole('button', {name: 'Marcar mobilidade concluída', exact: true}).count(), 4, `${label} deve trazer as quatro mobilidades`);
-    assert.equal(await page.locator('.set-row:not(.is-warmup)').count(), 14, `${label} deve trazer 14 séries de trabalho`);
+    assert.equal(await page.locator('.set-row:not(.is-warmup)').count(), 15, `${label} deve trazer 15 séries de trabalho`);
   }
   assert.deepEqual(errors, []);
 });
@@ -1192,7 +1248,7 @@ test('exportação JSON, reimportação, snapshot e CSV de 27 colunas pela inter
   assert.match(json.filename, /^treino-hard-backup-\d{8}\.json$/);
   const backup = JSON.parse(json.text);
   assert.equal(backup.app, 'treino-hard-fofo');
-  assert.equal(backup.schemaVersion, 12);
+  assert.equal(backup.schemaVersion, 13);
   assert.equal(backup.format, 'treino-hard-backup');
   assert.equal(backup.state.sessions.length, before.sessions.length);
   assert.equal(backup.state.cardio.length, 1);
@@ -1227,7 +1283,7 @@ test('exportação JSON, reimportação, snapshot e CSV de 27 colunas pela inter
   await page.locator('#app-modal').waitFor({state: 'visible'});
   const previewText = await page.locator('#app-modal').innerText();
   assert.match(previewText, /Prévia da importação/);
-  assert.match(previewText, /Versão de origem\s*12/);
+  assert.match(previewText, /Versão de origem\s*13/);
   assert.match(previewText, new RegExp(`Sessões novas\\s*${before.sessions.length}`));
   assert.match(previewText, /Medições\s*1/);
   assert.equal((await readStoredDocument(page)).cardio.length, 2, 'a prévia não pode alterar nada');
@@ -1399,7 +1455,7 @@ test('importações hostis e malformadas são recusadas sem tocar no documento',
   const directory = scratchDir(t);
   await seedSampleData(page);
   const before = await readStoredDocument(page);
-  const envelope = {app: 'treino-hard-fofo', schemaVersion: 12, format: 'treino-hard-backup', exportedAt: new Date().toISOString(), state: before};
+  const envelope = {app: 'treino-hard-fofo', schemaVersion: 13, format: 'treino-hard-backup', exportedAt: new Date().toISOString(), state: before};
 
   const withState = extra => JSON.stringify(Object.assign({}, envelope, {state: Object.assign({}, before, extra)}));
   let deep = {value: 1};
@@ -1413,12 +1469,12 @@ test('importações hostis e malformadas são recusadas sem tocar no documento',
     ['JSON inválido', writeScratchFile(directory, 'invalido.json', '{isto não é json}'), /Importação rejeitada/i],
     ['documento truncado', writeScratchFile(directory, 'truncado.json', JSON.stringify(envelope).slice(0, 800)), /Importação rejeitada/i],
     ['array em vez de objeto', writeScratchFile(directory, 'array.json', '[1,2,3]'), /objeto JSON/i],
-    ['chave __proto__', writeScratchFile(directory, 'proto.json', '{"app":"treino-hard-fofo","schemaVersion":12,"state":{"__proto__":{"poluido":true}}}'), /propriedades proibidas|profundidade/i],
-    ['chave constructor', writeScratchFile(directory, 'ctor.json', '{"app":"treino-hard-fofo","schemaVersion":12,"state":{"sessions":[{"constructor":{"x":1}}]}}'), /propriedades proibidas|profundidade/i],
-    ['profundidade excessiva', writeScratchFile(directory, 'fundo.json', JSON.stringify({app: 'treino-hard-fofo', schemaVersion: 12, state: deep})), /propriedades proibidas|profundidade/i],
+    ['chave __proto__', writeScratchFile(directory, 'proto.json', '{"app":"treino-hard-fofo","schemaVersion":13,"state":{"__proto__":{"poluido":true}}}'), /propriedades proibidas|profundidade/i],
+    ['chave constructor', writeScratchFile(directory, 'ctor.json', '{"app":"treino-hard-fofo","schemaVersion":13,"state":{"sessions":[{"constructor":{"x":1}}]}}'), /propriedades proibidas|profundidade/i],
+    ['profundidade excessiva', writeScratchFile(directory, 'fundo.json', JSON.stringify({app: 'treino-hard-fofo', schemaVersion: 13, state: deep})), /propriedades proibidas|profundidade/i],
     ['campo inesperado no estado', writeScratchFile(directory, 'extra.json', withState({campoDesconhecido: 1})), /Campos inesperados/i],
     ['texto acima do limite', longFile, /texto inválido|acima do limite/i],
-    ['esquema futuro', writeScratchFile(directory, 'futuro.json', JSON.stringify(Object.assign({}, envelope, {schemaVersion: 13}))), /versão mais nova/i],
+    ['esquema futuro', writeScratchFile(directory, 'futuro.json', JSON.stringify(Object.assign({}, envelope, {schemaVersion: 14}))), /versão mais nova/i],
     ['outro aplicativo', writeScratchFile(directory, 'outro.json', JSON.stringify(Object.assign({}, envelope, {app: 'outro-app'}))), /não pertence ao Treino Hard/i]
   ];
 
@@ -1473,7 +1529,7 @@ test('cópias automáticas e recuperação bruta podem ser listadas, restauradas
 
   // Uma importação registra material bruto recuperável.
   const source = writeScratchFile(directory, 'origem.json', JSON.stringify({
-    app: 'treino-hard-fofo', schemaVersion: 12, format: 'treino-hard-backup', state: await readStoredDocument(page)
+    app: 'treino-hard-fofo', schemaVersion: 13, format: 'treino-hard-backup', state: await readStoredDocument(page)
   }));
   await openTab(page, 'Ajustes');
   await page.locator('#import-file').setInputFiles(source);
@@ -2426,8 +2482,8 @@ test('falha de cache do service worker é avisada em vez de silenciada', {timeou
 
 // Ficha canônica conferida na interface real, e não apenas no catálogo.
 const FICHA_NA_TELA = Object.freeze({
-  'Empurrar A': {total: 17, linhas: 17, itens: [
-    '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Crossover na polia',
+  'Empurrar A': {total: 19, linhas: 19, itens: [
+    '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Voador (peck deck)',
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa com halteres', '7. Tríceps na polia com corda'
   ]},
@@ -2436,23 +2492,23 @@ const FICHA_NA_TELA = Object.freeze({
     '3. Remada unilateral na máquina',
     '4. Crucifixo invertido no aparelho', '5. Rosca direta com barra W', '6. Rosca martelo em pé'
   ]},
-  'Pernas A': {total: 14, linhas: 14, itens: [
+  'Pernas A': {total: 15, linhas: 15, itens: [
     '1. Alongamento de adutores em borboleta', '2. Mobilidade de quadril em borboleta',
     '3. Alongamento de posterior da coxa sentado', '4. Mobilidade de tornozelo',
     '5. Agachamento', '6. Leg press 45°', '7. Cadeira extensora', '8. Flexora',
     '9. Panturrilha em pé ou no leg press'
   ]},
-  'Empurrar B': {total: 15, linhas: 15, itens: [
-    '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Crucifixo no aparelho',
+  'Empurrar B': {total: 19, linhas: 19, itens: [
+    '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Voador (peck deck)',
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa ou extensão acima da cabeça', '7. Tríceps na polia com corda'
   ]},
-  'Puxar B': {total: 14, linhas: 14, itens: [
+  'Puxar B': {total: 15, linhas: 15, itens: [
     '1. Puxada frontal com pegada neutra', '2. Remada sentada ou articulada',
     '3. Remada unilateral na máquina',
     '4. Crucifixo invertido no aparelho', '5. Rosca direta com barra W', '6. Rosca martelo em pé'
   ]},
-  'Pernas B': {total: 14, linhas: 14, itens: [
+  'Pernas B': {total: 15, linhas: 15, itens: [
     '1. Alongamento de adutores em borboleta', '2. Mobilidade de quadril em borboleta',
     '3. Alongamento de posterior da coxa sentado', '4. Mobilidade de tornozelo',
     '5. Levantamento terra com barra', '6. Leg press 45°', '7. Flexora',
@@ -2504,7 +2560,7 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
   const armazenado = await readStoredDocument(page);
   const registros = armazenado.sessions.find(session => session.workoutId === 'pull_a').exercises
     .filter(log => log.exerciseId === 'unilateral_row_machine');
-  assert.deepEqual(registros.map(log => log.side), ['left', 'right']);
+  assert.deepEqual(registros.map(log => log.side).sort(), ['left', 'right']);
   assert.equal(new Set(registros.map(log => log.id)).size, 2);
   assert.equal(registros.find(log => log.side === 'right').machineId, 'articulada direita');
   assert.equal(registros.find(log => log.side === 'left').machineId, 'articulada esquerda');
@@ -2659,7 +2715,7 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
 
   // 4. O histórico do esquema 9 vira ciclo legado, sem virar treino atual.
   const documento = await readStoredDocument(nova);
-  assert.equal(documento.schemaVersion, 12);
+  assert.equal(documento.schemaVersion, 13);
   assert.equal(documento.legacyCycles.length >= 1, true, 'o ciclo ABC precisa ser preservado');
   const registros = documento.legacyCycles.flatMap(cycle => cycle.records);
   assert.equal(registros.length >= 2, true);
@@ -2683,12 +2739,322 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
   assert.deepEqual(erros, []);
 });
 
-test('atualização 3.4 para 3.5 confirma a migração antes do backup inicial', {timeout: 90000}, async t => {
+test('preferências de lado mudam a ordem e novas sessões sem remodelar registros existentes', {timeout: 120000}, async t => {
   const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
-  const current = await readStoredDocument(page);
-  const oldState = JSON.parse(JSON.stringify(current));
-  oldState.schemaVersion = 11;
-  delete oldState.settings.equipmentLoadSteps;
+  const initial = await readStoredDocument(page);
+  assert.deepEqual(initial.settings.sideTracking, {enabled: true, affectedSide: 'right'});
+  await openTab(page, 'Pernas A');
+  const card = page.locator('#exercicio-leg_press_45');
+  assert.deepEqual(await card.locator('[data-action="side-pick"][aria-pressed]').evaluateAll(items => items.map(item => item.dataset.side)), ['right', 'left']);
+  await openTab(page, 'Ajustes');
+  let revision = (await readStoredDocument(page)).revision;
+  await page.locator('[data-action="setting-affected-side"]').selectOption('left');
+  let stored = await waitForStoredRevision(page, revision);
+  assert.deepEqual(stored.sessions, initial.sessions, 'mudar a preferência não regrava os registros');
+  await openTab(page, 'Pernas A');
+  assert.deepEqual(await card.locator('[data-action="side-pick"][aria-pressed]').evaluateAll(items => items.map(item => item.dataset.side)), ['left', 'right']);
+  assert.equal(await card.locator('[data-action="side-pick"][aria-pressed="true"]').getAttribute('data-side'), 'left');
+  await openTab(page, 'Ajustes');
+  revision = stored.revision;
+  await page.locator('[data-action="setting-side-tracking"]').uncheck();
+  stored = await waitForStoredRevision(page, revision);
+  assert.equal(stored.settings.sideTracking.enabled, false);
+  assert.deepEqual(stored.sessions, initial.sessions, 'desligar acompanhamento também preserva as sessões antigas');
+  await reloadApp(page);
+  assert.deepEqual((await readStoredDocument(page)).sessions, initial.sessions);
+  await page.clock.setFixedTime(new Date(2026, 7, 17, 8));
+  await reloadApp(page);
+  const next = await readStoredDocument(page);
+  const newLegs = next.sessions.find(item => item.workoutId === 'legs_a' && item.plannedDate === '2026-08-19');
+  assert.ok(newLegs);
+  assert.deepEqual(newLegs.exercises.filter(item => item.exerciseId === 'leg_press_45').map(item => item.side), ['bilateral']);
+  for (const old of initial.sessions) assert.deepEqual(next.sessions.find(item => item.id === old.id), old);
+  assert.deepEqual(errors, []);
+});
+
+test('leg press e extensora trocam cardinalidade somente antes de qualquer registro', {timeout: 150000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Pernas A');
+  for (const exerciseId of ['leg_press_45', 'leg_extension']) {
+    const card = page.locator(`#exercicio-${exerciseId}`);
+    let before = await readStoredDocument(page);
+    await card.locator('[data-action="variation-pick"][data-variation-id="machine_unspecified"]').click();
+    let stored = await waitForStoredRevision(page, before.revision);
+    let logs = stored.sessions.find(item => item.workoutId === 'legs_a').exercises.filter(item => item.exerciseId === exerciseId);
+    assert.deepEqual(logs.map(item => item.side), ['bilateral']);
+    assert.equal(await card.locator('[data-action="side-pick"][aria-pressed]').count(), 0);
+    before = stored;
+    await card.locator('[data-action="variation-pick"][data-variation-id="machine_unilateral"]').click();
+    stored = await waitForStoredRevision(page, before.revision);
+    logs = stored.sessions.find(item => item.workoutId === 'legs_a').exercises.filter(item => item.exerciseId === exerciseId);
+    assert.deepEqual(logs.map(item => item.side).sort(), ['left', 'right']);
+    assert.equal(logs.every(item => item.sideModeSnapshot === 'unilateral'), true);
+    assert.match(await card.innerText(), /curadoria|pendente|revisão/i, 'o modo novo não deve herdar o vídeo bilateral como aprovado');
+    const input = card.locator('.set-row:not(.is-warmup) .set-field-load input').first();
+    before = stored;
+    await input.fill('20');
+    await input.blur();
+    stored = await waitForStoredRevision(page, before.revision);
+    const beforeAttempt = stored.sessions.find(item => item.workoutId === 'legs_a');
+    await card.locator('[data-action="variation-pick"][data-variation-id="machine_unspecified"]').click();
+    await page.waitForFunction(() => /Já existem registros neste exercício/.test(document.getElementById('app-notice').textContent));
+    assert.deepEqual((await readStoredDocument(page)).sessions.find(item => item.id === beforeAttempt.id), beforeAttempt);
+    assert.equal(await card.locator('[data-action="side-pick"][aria-pressed]').count(), 2);
+  }
+  await reloadApp(page);
+  assert.deepEqual(errors, []);
+});
+
+test('execução e carga anterior permanecem independentes por lado, inclusive após concluir o primeiro', {timeout: 180000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Puxar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  const card = page.locator('#exercicio-unilateral_row_machine');
+  await fillSideWorkSets(page, card, 20, 15, 3);
+  assert.equal(await card.getByRole('button', {name: 'Ir para o lado esquerdo', exact: true}).count(), 1);
+  assert.doesNotMatch(await card.getAttribute('class'), /\bdone\b/, 'o primeiro lado não conclui o exercício todo');
+  const feedback = card.locator('details[id^="execution-feedback-"]');
+  await feedback.locator('summary').click();
+  let before = await readStoredDocument(page);
+  await feedback.locator('[data-action="execution-flag"][data-flag="controlDifficulty"]').check();
+  let stored = await waitForStoredRevision(page, before.revision);
+  await feedback.locator('[data-action="execution-note"]').fill('Controle registrado somente à direita.');
+  await feedback.locator('[data-action="execution-note"]').blur();
+  await waitForStoredRevision(page, stored.revision);
+  assert.match(await card.locator('.recommendation').getAttribute('class'), /is-review/);
+  await card.locator('[data-action="side-pick"][aria-pressed][data-side="left"]').click();
+  await fillSideWorkSets(page, card, 30, 15, 3);
+  assert.match(await card.getAttribute('class'), /\bdone\b/);
+  assert.match(await card.locator('.recommendation').getAttribute('class'), /is-increase/, 'a dificuldade direita não se atribui automaticamente à esquerda');
+  before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  stored = await waitForStoredRevision(page, before.revision);
+  await fecharResumo(page);
+  const finished = stored.sessions.find(item => item.workoutId === 'pull_a');
+  const right = finished.exercises.find(item => item.exerciseId === 'unilateral_row_machine' && item.side === 'right');
+  const left = finished.exercises.find(item => item.exerciseId === 'unilateral_row_machine' && item.side === 'left');
+  assert.equal(right.executionFeedback.controlDifficulty, true);
+  assert.equal(right.executionFeedback.note, 'Controle registrado somente à direita.');
+  assert.equal(left.executionFeedback, null);
+  assert.equal(stored.progressionDecisions.find(item => item.sessionId === finished.id && item.exerciseId === right.exerciseId && item.side === 'right').recommendation, 'review');
+  assert.equal(stored.progressionDecisions.find(item => item.sessionId === finished.id && item.exerciseId === right.exerciseId && item.side === 'left').recommendation, 'increase');
+  await page.clock.setFixedTime(new Date(2026, 7, 17, 8));
+  await reloadApp(page);
+  await openTab(page, 'Puxar A');
+  for (const [side, expectedLoad] of [['right', '20'], ['left', '30']]) {
+    await card.locator(`[data-action="side-pick"][aria-pressed][data-side="${side}"]`).click();
+    before = await readStoredDocument(page);
+    await card.getByRole('button', {name: '↩ Copiar anterior', exact: true}).click();
+    stored = await waitForStoredRevision(page, before.revision);
+    const current = stored.sessions.find(item => item.workoutId === 'pull_a' && item.plannedDate === '2026-08-18');
+    const copied = current.exercises.find(item => item.exerciseId === 'unilateral_row_machine' && item.side === side);
+    assert.equal(copied.executionFeedback, null, 'copiar carga não copia feedback');
+    for (const set of copied.sets.filter(item => item.type === 'work')) {
+      assert.equal(set.load, expectedLoad);
+      assert.equal(set.reps, '');
+      assert.equal(set.rir, '');
+      assert.equal(set.status, '');
+      assert.equal(set.completedAt, '');
+    }
+  }
+  assert.deepEqual(errors, []);
+});
+
+test('check após pernas salva em sessões parciais e completas sem reabrir nem alterar séries', {timeout: 150000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: new Date(2026, 7, 12, 8)});
+  for (const status of ['partial', 'completed']) {
+    const document = await readStoredDocument(page);
+    const session = document.sessions.find(item => item.workoutId === 'legs_a');
+    Object.assign(session, {status, actualDate: session.plannedDate, startedAt: `${session.plannedDate}T10:00:00.000Z`, completedAt: `${session.plannedDate}T11:00:00.000Z`, durationSeconds: 3600, postLegCheck: null});
+    session.exercises.forEach(log => {
+      log.completed = true;
+      log.sets.forEach(set => Object.assign(set, {load: '20', reps: String(log.prescriptionSnapshot.max || 10), rir: '3', status: 'completed', completedAt: session.completedAt}));
+    });
+    if (status === 'partial') {
+      const last = session.exercises.at(-1);
+      last.completed = false;
+      Object.assign(last.sets.at(-1), {load: '', reps: '', rir: '', status: '', completedAt: ''});
+    }
+    await writeStoredDocument(page, document);
+    await reloadApp(page);
+    await openTab(page, 'Pernas A');
+    const before = await readStoredDocument(page);
+    const frozen = before.sessions.find(item => item.id === session.id);
+    assert.equal(await page.locator('#panel-legs_a').getAttribute('aria-readonly'), 'true');
+    const card = page.locator('#exercicio-leg_press_45');
+    assert.equal(await card.locator('.set-field-load input').first().isDisabled(), true);
+    // Mesmo forçando um controle encerrado a emitir evento, a defesa central
+    // precisa preservar o registro; o check tem autorização separada e estreita.
+    await card.locator('[data-action="execution-flag"]').first().evaluate(input => {
+      input.disabled = false;
+      input.checked = true;
+      input.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    await page.waitForFunction(() => /sessão está encerrada/i.test(document.getElementById('app-notice').textContent));
+    assert.deepEqual((await readStoredDocument(page)).sessions.find(item => item.id === session.id), frozen);
+    const details = page.locator(`[id="post-leg-check-${session.id}"]`);
+    await details.locator('summary').click();
+    const form = details.locator('form[data-form="post-leg-check"]');
+    await form.locator('[name="noRelevantChange"]').check();
+    await form.locator('[name="rightCalfPain"]').check();
+    assert.equal(await form.locator('[name="noRelevantChange"]').isChecked(), false);
+    await form.locator('[name="note"]').fill(`Registro após sessão ${status}.`);
+    await form.getByRole('button', {name: 'Salvar check após pernas', exact: true}).click();
+    const saved = await waitForStoredRevision(page, before.revision);
+    const checked = saved.sessions.find(item => item.id === session.id);
+    assert.equal(checked.status, status);
+    assert.deepEqual(checked.exercises, frozen.exercises);
+    assert.deepEqual(checked.workoutSnapshot, frozen.workoutSnapshot);
+    assert.equal(checked.postLegCheck.rightCalfPain, true);
+    assert.equal(checked.postLegCheck.noRelevantChange, false);
+    assert.equal(checked.postLegCheck.note, `Registro após sessão ${status}.`);
+    assert.ok(checked.postLegCheck.savedAt);
+    const decisions = saved.progressionDecisions.filter(item => item.sessionId === session.id);
+    assert.ok(decisions.length > 0);
+    assert.equal(decisions.every(item => item.recommendation === 'review'), true);
+    await reloadApp(page);
+    assert.deepEqual((await readStoredDocument(page)).sessions.find(item => item.id === session.id).postLegCheck, checked.postLegCheck);
+  }
+  const cancelled = await readStoredDocument(page);
+  cancelled.sessions.find(item => item.workoutId === 'legs_a').status = 'cancelled';
+  await writeStoredDocument(page, cancelled);
+  await reloadApp(page);
+  await openTab(page, 'Pernas A');
+  assert.equal(await page.locator('form[data-form="post-leg-check"]').count(), 0, 'cancelamento não apresenta check de treino executado');
+  assert.deepEqual(errors, []);
+});
+
+test('medidas por lado exibem valores absolutos, diferença de 3,5 cm e 5,7% sem inferência clínica', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA, viewport: {width: 390, height: 844}});
+  await openTab(page, 'Medidas');
+  const form = page.locator('form[data-form="measurement"]');
+  await form.locator('[name="thighRight"]').fill('58');
+  await form.locator('[name="thighLeft"]').fill('61.5');
+  const before = await readStoredDocument(page);
+  await form.locator('button[type="submit"]').click();
+  await waitForStoredRevision(page, before.revision);
+  const pair = page.locator('#measurement-pair-thigh');
+  await pair.locator('summary').click();
+  assert.deepEqual(await pair.locator('thead th').allTextContents(), ['Data', 'Direito (cm)', 'Esquerdo (cm)', 'Diferença (cm)', 'Diferença (%)']);
+  assert.deepEqual(await pair.locator('tbody tr').first().locator('td').allTextContents(), ['58', '61,5', '3,5', '5,7%']);
+  assert.match(await page.locator('.measurement-side-history').innerText(), /Circunferência não mede força nem composição corporal/);
+  assert.doesNotMatch(await pair.innerText(), /assimetria (grave|moderada)|risco alto|diagnóstico de/i);
+  await form.locator('[name="date"]').fill('2026-08-11');
+  await form.locator('[name="thighRight"]').fill('59');
+  await form.locator('[name="thighLeft"]').fill('');
+  const revision = (await readStoredDocument(page)).revision;
+  await form.locator('button[type="submit"]').click();
+  await waitForStoredRevision(page, revision);
+  if (!(await pair.evaluate(node => node.open))) await pair.locator('summary').click();
+  assert.deepEqual(await pair.locator('tbody tr').first().locator('td').allTextContents(), ['59', 'Não informado', 'Sem par direto', 'Sem par direto']);
+  assert.match(await pair.innerText(), /\+1 cm/);
+  assert.match(await pair.innerText(), /São necessárias duas medições diretas deste lado/);
+  const geometry = await page.evaluate(() => ({width: window.innerWidth, document: document.documentElement.scrollWidth}));
+  assert.ok(geometry.document <= geometry.width + 1, 'a tabela rola dentro do próprio quadro sem alargar a página móvel');
+  await reloadApp(page);
+  await openTab(page, 'Medidas');
+  await pair.locator('summary').click();
+  assert.equal(await pair.locator('tbody tr').count(), 2);
+  assert.deepEqual(errors, []);
+});
+
+test('a ficha histórica renderiza seu próprio retrato mesmo com nome e cardinalidade diferentes do catálogo', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  const document = await readStoredDocument(page);
+  const session = document.sessions.find(item => item.workoutId === 'push_a');
+  session.status = 'partial';
+  session.actualDate = session.plannedDate;
+  session.startedAt = `${session.plannedDate}T10:00:00.000Z`;
+  session.completedAt = `${session.plannedDate}T11:00:00.000Z`;
+  session.durationSeconds = 3600;
+  const removed = session.workoutSnapshot.exercises.pop();
+  session.workoutSnapshot.workSetTotal -= removed.workSets;
+  session.exercises = session.exercises.filter(item => item.exerciseId !== removed.id);
+  session.workoutSnapshot.exercises[0].name = 'Supino do retrato histórico preservado';
+  session.workoutSnapshot.label = 'Empurrar A — ficha anterior';
+  const archive = await page.evaluate(value => {
+    const state = THFCore.migratePayload(value);
+    return state.archives[0];
+  }, readLegacyState(12));
+  archive.sessions[0].workoutSnapshot.label = 'Pernas B — retrato arquivado';
+  document.archives.push(archive);
+  await writeStoredDocument(page, document);
+  await reloadApp(page);
+  await openTab(page, 'Empurrar A');
+  assert.equal(await page.locator('#exercicio-chest_press_machine h3').innerText(), '1. Supino do retrato histórico preservado');
+  assert.equal(await page.locator(`#exercicio-${removed.id}`).count(), 0, 'o catálogo atual não pode preencher artificialmente o exercício ausente no retrato');
+  assert.equal(await page.locator('#panel-push_a').getAttribute('aria-readonly'), 'true');
+  assert.match(await page.locator('#panel-push_a').innerText(), /Empurrar A — ficha anterior/);
+  await openTab(page, 'Ciclos');
+  await page.locator('#panel-cycles details.timeline-item > summary').first().click();
+  assert.match(await page.locator('#panel-cycles').innerText(), /Pernas B — retrato arquivado/);
+  await reloadApp(page);
+  const saved = await readStoredDocument(page);
+  assert.deepEqual(saved.sessions.find(item => item.id === session.id), session);
+  assert.deepEqual(saved.archives.find(item => item.id === archive.id), archive);
+  assert.deepEqual(errors, []);
+});
+
+test('atualização física 12 para 13 preserva registros reais, recuperação e backup após dois reloads', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: new Date(2026, 7, 30, 8)});
+  const old = readLegacyState(12);
+  await writeStoredDocument(page, old);
+  // A cópia diária do primeiro boot é legítima. Uma nova data força a criação
+  // de outra cópia, permitindo verificar o estado posterior à migração.
+  await page.clock.setFixedTime(new Date(2026, 7, 31, 8));
+  await reloadApp(page);
+  const migrated = await readStoredDocument(page);
+  assert.equal(migrated.schemaVersion, 13);
+  assert.ok(migrated.revision > old.revision);
+  const all = state => [...state.sessions, ...state.archives.flatMap(item => item.sessions)];
+  for (const source of all(old)) {
+    const target = all(migrated).find(item => item.id === source.id);
+    assert.ok(target, `sessão preservada: ${source.id}`);
+    const refreshablePlan = source.status === 'planned' && source.exercises.every(log =>
+      !log.sets.some(set => set.load !== '' || set.reps !== '' || set.rir !== '' || set.status)
+      && !log.feedback && !log.note
+    );
+    if (refreshablePlan) {
+      assert.equal(target.workoutSnapshot.revision, '3.6.0-r2', 'somente o plano futuro vazio recebe a ficha atual');
+      assert.equal(target.id, source.id);
+      assert.equal(target.status, 'planned');
+      continue;
+    }
+    assert.equal(target.workoutSnapshot.revision, '3.5.1', 'sessões executadas mantêm o retrato histórico');
+    assert.equal(target.exercises.length, source.exercises.length);
+    for (const sourceLog of source.exercises) {
+      const targetLog = target.exercises.find(item => item.id === sourceLog.id);
+      assert.ok(targetLog);
+      for (const key of Object.keys(sourceLog)) assert.deepEqual(targetLog[key], sourceLog[key], `${sourceLog.id}.${key}`);
+      assert.equal(targetLog.sideModeSnapshot, sourceLog.side === 'bilateral' ? 'bilateral' : 'unilateral');
+      assert.equal(targetLog.executionFeedback, null, 'a migração não inventa relato de execução');
+    }
+    assert.equal(target.postLegCheck, null);
+  }
+  const oldCurl = all(migrated).find(item => item.id === 'fixture-session-legs-partial').exercises.filter(item => item.exerciseId === 'leg_curl');
+  assert.equal(oldCurl.length, 1, 'flexora em pé antiga não pode virar dois registros fictícios');
+  assert.equal(oldCurl[0].variationId, 'standing_unilateral');
+  assert.equal(oldCurl[0].side, 'bilateral');
+  const recovery = await readStoredRows(page, 'migrationRecovery');
+  assert.ok(recovery.some(item => item.sourceSchemaVersion === 12 && JSON.stringify(JSON.parse(item.raw)) === JSON.stringify(old)));
+  const backups = await readStoredRows(page, 'automaticBackups');
+  const backup = backups.find(item => item.id === 'auto-2026-08-31');
+  assert.ok(backup, 'o backup diário deve existir depois da confirmação física');
+  assert.equal(backup.state.schemaVersion, 13);
+  assert.deepEqual(backup.state.sessions.find(item => item.id === 'fixture-session-legs-partial'), migrated.sessions.find(item => item.id === 'fixture-session-legs-partial'));
+  await reloadApp(page);
+  await reloadApp(page);
+  const reopened = await readStoredDocument(page);
+  for (const source of all(old)) assert.deepEqual(all(reopened).find(item => item.id === source.id), all(migrated).find(item => item.id === source.id));
+  assert.equal(await page.locator('#save-state').innerText(), 'Salvo neste aparelho');
+  assert.deepEqual(errors, []);
+});
+
+test('atualização física 11 para 13 confirma a migração antes do backup inicial', {timeout: 90000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: new Date(2026, 7, 30, 8)});
+  const oldState = readLegacyState(11);
 
   await page.evaluate(document11 => new Promise((resolve, reject) => {
     const request = indexedDB.open('treino-hard-v3');
@@ -2706,7 +3072,7 @@ test('atualização 3.4 para 3.5 confirma a migração antes do backup inicial',
   assert.equal(await page.locator('#save-state').innerText(), 'Salvo neste aparelho');
   assert.doesNotMatch(await page.locator('#app-notice').innerText().catch(() => ''), /esquema atual|falha na inicialização/i);
   const migrated = await readStoredDocument(page);
-  assert.equal(migrated.schemaVersion, 12);
+  assert.equal(migrated.schemaVersion, 13);
   assert.ok(migrated.revision > oldState.revision, 'a migração precisa ser confirmada no documento físico');
   assert.equal(migrated.sessions.length, oldState.sessions.length, 'as sessões existentes precisam ser preservadas');
   assert.deepEqual(errors, []);
@@ -2734,7 +3100,7 @@ test('preferência de reprodução de vídeo: três modos, persistência e domí
 
   // Modo interno: iframe restrito ao domínio sem cookies, com o recorte revisado.
   await openTab(page, 'Pernas A');
-  const botao = legPressVideoButton(page);
+  const botao = await legPressVideoButton(page);
   assert.equal(await botao.count(), 1, 'o leg press precisa expor o vídeo brasileiro aprovado');
   await botao.click();
   await page.locator('#video-modal iframe').waitFor({state: 'attached', timeout: 15000});
@@ -2750,7 +3116,7 @@ test('preferência de reprodução de vídeo: três modos, persistência e domí
   await page.locator('select[data-action="setting-video-mode"]').selectOption('ask');
   await page.waitForTimeout(400);
   await openTab(page, 'Pernas A');
-  await legPressVideoButton(page).click();
+  await (await legPressVideoButton(page)).click();
   await page.locator('#app-modal').waitFor({state: 'visible', timeout: 10000});
   const rotulos = (await page.locator('#app-modal button').allInnerTexts()).map(item => item.trim());
   assert.ok(rotulos.includes('Abrir no YouTube'), `faltou a opção externa: ${rotulos.join(' | ')}`);
@@ -2764,14 +3130,43 @@ test('preferência de reprodução de vídeo: três modos, persistência e domí
   await page.locator('select[data-action="setting-video-mode"]').selectOption('external');
   await page.waitForTimeout(400);
   await openTab(page, 'Pernas A');
+  const externalVideo = await legPressVideoButton(page);
   const [aba] = await Promise.all([
     context.waitForEvent('page', {timeout: 15000}),
-    legPressVideoButton(page).click()
+    externalVideo.click()
   ]);
   assert.ok(aba, 'o modo externo precisa abrir uma aba');
   assert.equal(await page.locator('#video-modal').isHidden(), true, 'o modo externo não abre a prévia interna');
   await aba.close();
 
+  assert.deepEqual(errors, []);
+});
+
+test('vídeos revisados mostram o recorte e limitam o player à variante correta', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>Player isolado para testar integração</body></html>'}));
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('inline');
+  for (const [tab, key, start, end, label] of [
+    ['Empurrar A', 'lateral_raise_dumbbell', 0, 55, '0:00–0:55'],
+    ['Empurrar A', 'triceps_rope', 72, 90, '1:12–1:30'],
+    ['Puxar A', 'pulldown_supinated', 81, 100, '1:21–1:40'],
+    ['Puxar B', 'pulldown_neutral', 114, 140, '1:54–2:20']
+  ]) {
+    await openTab(page, tab);
+    const button = page.locator(`#panels [data-action="open-video"][data-video-key="${key}"]`);
+    assert.ok((await button.innerText()).includes(`Trecho indicado: ${label}`));
+    await button.click();
+    const frame = page.locator('#video-modal iframe');
+    await frame.waitFor({state: 'attached'});
+    const url = new URL(await frame.getAttribute('src'));
+    assert.equal(Number(url.searchParams.get('start') || 0), start);
+    assert.equal(Number(url.searchParams.get('end')), end);
+    assert.ok((await page.locator('#video-modal').innerText()).includes(label));
+    const external = new URL(await page.locator('#video-external').getAttribute('href'));
+    assert.equal(external.searchParams.get('t'), start ? `${start}s` : null);
+    await page.keyboard.press('Escape');
+  }
   assert.deepEqual(errors, []);
 });
 
@@ -2781,7 +3176,7 @@ test('cartão de exercício expõe a estrutura da referência', {timeout: 120000
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
 
-  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Voador (peck deck)'}).first();
   const itens = [
     ['nome', '.cname'],
     ['selo', '.badges .badge'],
@@ -2865,7 +3260,7 @@ test('vídeo bloqueado para incorporação abre no YouTube sem prévia interna',
   // O modal interno sempre oferece a saída para o YouTube.
   await openTab(page, 'Pernas A');
   await page.waitForTimeout(200);
-  await legPressVideoButton(page).click();
+  await (await legPressVideoButton(page)).click();
   await page.locator('#video-modal iframe').waitFor({state: 'attached', timeout: 15000});
   assert.equal(await page.locator('#video-fallback').isVisible(), true, 'o modal precisa explicar o que fazer se não tocar');
   assert.equal(await page.locator('#video-external').isVisible(), true, 'o modal precisa oferecer o YouTube');
@@ -2885,11 +3280,9 @@ test('vídeo pendente e vídeo em revisão nunca se apresentam como recomendaç�
   const textos = (await pendentes.allInnerTexts()).map(item => item.trim());
   textos.forEach(texto => assert.match(texto, /Vídeo(?: brasileiro)? em (?:revisão|curadoria)|não está mais disponível/, texto));
   textos.forEach(texto => assert.doesNotMatch(texto, /Ver demonstração|Abrir no YouTube/, texto));
-  assert.equal(
-    await page.locator('#panel-pull_a button[data-action="open-video"]').count(),
-    0,
-    'um candidato pendente nunca vira botão clicável de vídeo'
-  );
+  const botoesPendentes = await page.locator('#panel-pull_a button[data-action="open-video"]').evaluateAll(nodes =>
+    nodes.map(node => node.dataset.videoKey).filter(key => window.THFData.VIDEOS[key].status !== 'accepted'));
+  assert.deepEqual(botoesPendentes, [], 'um candidato pendente nunca vira botão clicável de vídeo');
 
   // E o caminho positivo também é fiscalizado na interface: cada botão visível
   // precisa apontar para uma entrada que cumpra integralmente a política.
@@ -2929,7 +3322,7 @@ test('tela Hoje responde treino, semana, faixa, progresso e próxima ação', {t
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Voador (peck deck)'}).first();
   const quantidade = await cartao.locator('.set-row:not(.is-warmup)').count();
   for (let index = 0; index < quantidade; index += 1) {
     const linha = cartao.locator('.set-row:not(.is-warmup)').nth(index);
@@ -3009,7 +3402,7 @@ test('copiar anterior e repetir 1ª nunca confirmam série nem sobrescrevem conf
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
 
-  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const cartao = page.locator('#panels article.section-card').filter({hasText: 'Voador (peck deck)'}).first();
   const primeira = cartao.locator('.set-row:not(.is-warmup)').nth(0);
   await primeira.locator('.set-field-load input').fill('32');
   await primeira.locator('.set-field-reps input').fill('13');
@@ -3026,7 +3419,7 @@ test('copiar anterior e repetir 1ª nunca confirmam série nem sobrescrevem conf
 
   const documento = await readStoredDocument(page);
   const registro = documento.sessions.find(session => session.workoutId === 'push_a').exercises
-    .find(log => log.exerciseId === 'cable_crossover');
+    .find(log => log.exerciseId === 'machine_fly');
   const series = registro.sets.filter(set => set.type === 'work');
   assert.equal(series[0].status, 'completed');
   assert.ok(series[0].completedAt, 'a série confirmada guarda o horário');
@@ -3063,7 +3456,7 @@ test('degrau personalizado persiste por aparelho e o volume muscular usa apenas 
   await degrau.fill('7.5');
   await degrau.blur();
   const documentoComDegrau = await waitForStoredRevision(page, documentoComMaquina.revision);
-  assert.equal(documentoComDegrau.schemaVersion, 12);
+  assert.equal(documentoComDegrau.schemaVersion, 13);
   assert.deepEqual(documentoComDegrau.settings.equipmentLoadSteps.map(item => ({
     machineId: item.machineId,
     step: item.step
@@ -3087,7 +3480,7 @@ test('degrau personalizado persiste por aparelho e o volume muscular usa apenas 
 
   await openTab(page, 'Evolução');
   const peito = page.locator('.muscle-volume-row').filter({hasText: 'Peito'}).first();
-  assert.match(await peito.innerText(), /1 de 14 séries diretas/);
+  assert.match(await peito.innerText(), /1 de 18 séries diretas/);
   const triceps = page.locator('.muscle-volume-row').filter({hasText: 'Tríceps'}).first();
   assert.match(await triceps.innerText(), /Participação secundária: 1 de/);
   assert.deepEqual(errors, []);
@@ -3099,7 +3492,7 @@ test('histórico por máquina: referência anterior, degrau real e configuraçã
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
 
-  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Voador (peck deck)'}).first();
 
   // Uma máquina nomeada é o que torna duas execuções comparáveis.
   await abrirDetalhes(cartao());
@@ -3186,7 +3579,7 @@ test('faixa nova da periodização não apaga o histórico de carga da máquina'
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
 
-  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Voador (peck deck)'}).first();
   const primeira = cartao().locator('.set-row:not(.is-warmup)').first();
   await primeira.locator('.set-field-load input').fill('28');
   await primeira.locator('.set-field-reps input').fill('13');
@@ -3233,7 +3626,7 @@ test('faixa nova da periodização não apaga o histórico de carga da máquina'
 
   await openTab(page, 'Evolução');
   const seletor = page.locator('select[data-action="evolution-key"]');
-  const opcoesCrossover = seletor.locator('option').filter({hasText: 'Crossover na polia'});
+  const opcoesCrossover = seletor.locator('option').filter({hasText: 'Voador (peck deck)'});
   assert.equal(await opcoesCrossover.count(), 1, 'a faixa não pode criar outra opção para a mesma configuração');
   await seletor.selectOption(await opcoesCrossover.first().getAttribute('value'));
   await page.waitForTimeout(150);
@@ -3470,7 +3863,7 @@ test('série adversa permanece no histórico bruto mas nunca vira referência ou
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const card = () => page.locator('article.section-card').filter({hasText: 'Crossover na polia'}).first();
+  const card = () => page.locator('article.section-card').filter({hasText: 'Voador (peck deck)'}).first();
   await abrirDetalhes(card());
   await card().locator('input[data-field="machineId"]').fill('polia segura');
   await card().locator('input[data-field="machineId"]').blur();
@@ -3496,9 +3889,9 @@ test('série adversa permanece no histórico bruto mas nunca vira referência ou
 
   const previous = await readStoredDocument(page);
   const oldSession = previous.sessions.find(session => session.workoutId === 'push_a');
-  const oldLog = oldSession.exercises.find(log => log.exerciseId === 'cable_crossover');
+  const oldLog = oldSession.exercises.find(log => log.exerciseId === 'machine_fly');
   assert.equal(oldLog.sets.some(set => set.load === '99' && set.status === 'pain'), true, 'a ocorrência adversa deve permanecer registrada');
-  const decision = previous.progressionDecisions.find(item => item.sessionId === oldSession.id && item.exerciseId === 'cable_crossover');
+  const decision = previous.progressionDecisions.find(item => item.sessionId === oldSession.id && item.exerciseId === 'machine_fly');
   assert.equal(decision.load, '30', 'a decisão não pode usar os 99 kg associados à dor');
 
   await page.clock.setFixedTime(new Date(2026, 7, 17, 8, 0, 0));

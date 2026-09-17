@@ -1,4 +1,20 @@
-# Migração de dados — esquema 11
+# Migração de dados — esquema 13
+
+## Atualização 3.6.0 — 2026-09-06
+
+Esquema atual em implementação: **13**. Banco `treino-hard-v3`, versão 1, e chaves terminadas em `_v11` permanecem estáveis para não esconder dados anteriores.
+
+`migrate12To13` valida o documento antigo contra `js/legacy-v12.js`, congelado do commit `bcef68ea252bad5a71e7ef4e92bfedcb01bfa5c1`. Cada sessão recebe `workoutSnapshot` e cada log recebe `sideModeSnapshot`; campos antigos não são recalculados pela ficha atual. A flexora em pé antes bilateral mantém exatamente um log. A migração percorre ciclos arquivados e acrescenta lado às decisões apenas quando a identidade antiga é inequívoca.
+
+As configurações recebem `sideTracking: {enabled: true, affectedSide: 'right'}`. Feedbacks novos começam `null`, não como avaliações retrospectivas. A cardinalidade passa a ser validada contra a ficha da sessão. Definições essenciais ausentes, lados duplicados, campos inesperados e esquemas futuros/fracionários são recusados. Degraus de aparelhos podem referenciar variantes históricas retiradas da ficha atual.
+
+A origem física é preservada antes da atualização. `AppStorage.init()` grava o documento migrado antes da cópia automática. Staging 11/12 válido é reconciliado conservando o texto e hashes originais; só depois ocorre a migração normal. Conflitos, hashes inválidos ou falha ao preservar recuperação bloqueiam a escrita.
+
+Backups/snapshots antigos são validados como migráveis sem edição ao listar. Uma cópia é migrada para restauração. Backups criptografados 11/12/13 usam seu cabeçalho original no AAD, que deve corresponder ao esquema interno.
+
+Fixtures de estrutura 12, geradas pelo código antigo com dados fictícios, estão em `tests/fixtures/`. A cadeia é 9 → 10 → 11 → 12 → 13. Evidências finais de recarga, backup, staging, navegador e publicação estão em `TESTES.md`.
+
+## Registro histórico da migração inicial para 11
 
 ## Escopo e fonte
 

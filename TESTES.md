@@ -1,5 +1,19 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.0 / esquema 13 — 2026-09-17
+
+Gate local concluído; a confirmação pública deve ser registrada separadamente depois do deploy.
+
+- Núcleo, medidas e lateralidade: **124/124 aprovados**.
+- Chrome/Playwright: **60/60 aprovados** em uma única execução final, 0 falhas, em 367.705,480 ms.
+- Cobertura dirigida da correção atual: planos futuros vazios recebem a revisão atual da ficha, com aquecimento e séries corrigidos, sem remodelar sessão iniciada, parcial, concluída ou qualquer exercício com execução.
+- Ficha atual: exercícios bilaterais de força em máquina usam três séries efetivas; unilaterais mantêm duas séries por lado e o deload limita a duas.
+- Revisão visual automatizada e inspeção das quatro capturas: desktop de medidas, leg press móvel, medidas móveis e mobilidade, sem erro de página/console.
+- Migração física 12 → 13: documento, recuperação e backup preservados após recargas; apenas o plano futuro completamente vazio é atualizado para `3.6.0-r2`.
+- Núcleo: `node --test tests/app.test.cjs tests/measurements-sides.test.cjs tests/laterality.test.cjs`.
+- Navegador: `node --test --test-concurrency=1 tests/browser.test.cjs`, com o `NODE_PATH` abaixo.
+- Publicar somente após commit e confirmar versão/cache públicos com cache-busting.
+
 ## Estado da versão 3.5.1
 
 Validado localmente e publicado em **2026-08-31**, esquema persistido **12**,

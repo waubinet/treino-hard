@@ -30,10 +30,12 @@
     ['', 'Não informado'], ['good', 'Senti-me bem'], ['awkward', 'Execução estranha'], ['pain', 'Dor'], ['replace', 'Quero conversar sobre substituição']
   ]);
   const RIR_OPTIONS = Object.freeze([['', 'Não informado'], ['0', '0'], ['1', '1'], ['2', '2'], ['3', '3'], ['4', '4'], ['5+', '5 ou mais']]);
+  const EXECUTION_FEEDBACK_LABELS = Object.freeze({rangeBelowUsual: 'Amplitude menor que a habitual', compensation: 'Compensação durante a execução', controlDifficulty: 'Dificuldade de controlar o movimento', unusualStiffness: 'Rigidez diferente da habitual'});
+  const POST_LEG_CHECK_LABELS = Object.freeze({rightCalfPain: 'Dor na panturrilha direita', kneePain: 'Dor no joelho', anklePain: 'Dor no tornozelo', gaitChange: 'Mudança na caminhada', unusualStiffness: 'Rigidez diferente da habitual', controlDrop: 'Queda de controle do movimento'});
   const TERMINAL_STATUSES = new Set(['completed', 'partial', 'skipped', 'rescheduled', 'cancelled']);
   const TERMINAL_MUTATION_ACTIONS = new Set([
     'set-field', 'set-rest-select', 'set-complete', 'exercise-field', 'exercise-complete',
-    'mobility-complete', 'mobility-skip', 'mobility-flag', 'mobility-note', 'feeling-pick',
+    'mobility-complete', 'mobility-skip', 'mobility-flag', 'mobility-note', 'feeling-pick', 'execution-flag', 'execution-note',
     'variation-pick', 'variation-confirm', 'high-rep-toggle', 'repeat-first-set',
     'copy-previous-loads', 'timer-undo', 'timer-start-set', 'timer-start-rest',
     'session-start', 'session-pause', 'session-resume', 'session-complete', 'session-partial',
@@ -44,7 +46,7 @@
     'activate-tab', 'open-workout', 'close-modal', 'close-video', 'open-video',
     'video-open-external', 'video-open-inline', 'exercise-history', 'timer-stop',
     'install-app', 'pwa-update', 'reload-external', 'recovery-export',
-    'evolution-key', 'evolution-metric'
+    'evolution-key', 'evolution-metric', 'side-pick', 'goto-exercise', 'copy-feedback', 'summary-evolution', 'summary-today'
   ]);
   const FOCUS_DATA_KEYS = Object.freeze(['action', 'sessionId', 'exerciseId', 'setId', 'field', 'side', 'variationId', 'flag', 'setting']);
 
@@ -109,6 +111,21 @@
 
   function isSessionEditable(session) {
     return Boolean(session) && !storage.writeBlocked && !TERMINAL_STATUSES.has(session.status);
+  }
+
+  function sideLabel(side) {
+    return side === 'right' ? 'Direito' : side === 'left' ? 'Esquerdo' : side === 'bilateral' ? 'Bilateral' : 'Lado não identificado';
+  }
+
+  function orderedLogs(logs) {
+    const sides = Core.orderedSides(state.settings);
+    const exerciseOrder = [...new Set(logs.map(log => log.exerciseId))];
+    return logs.slice().sort((a, b) => exerciseOrder.indexOf(a.exerciseId) - exerciseOrder.indexOf(b.exerciseId) || sides.indexOf(a.side) - sides.indexOf(b.side));
+  }
+
+  function exerciseWithSide(session, log) {
+    const exercise = Core.sessionExercise(session, log.exerciseId);
+    return `${exercise ? exercise.name : 'Exercício'}${log.side !== 'bilateral' ? ` · lado ${sideLabel(log.side).toLowerCase()}` : ''}`;
   }
 
   function blockReadOnlyMutation(action, rerender) {
@@ -296,7 +313,7 @@
       if (log.machineId) return;
       for (const anterior of anteriores) {
         const igual = anterior.exercises.find(item =>
-          item.exerciseId === log.exerciseId && item.side === log.side && item.machineId);
+          item.exerciseId === log.exerciseId && item.variationId === log.variationId && item.side === log.side && item.machineId);
         if (igual) { log.machineId = igual.machineId; return; }
       }
     });
@@ -304,7 +321,7 @@
   }
 
   function novaSessao(workoutId, date, week) {
-    return herdarMaquinas(Core.createSession(workoutId, date, week));
+    return herdarMaquinas(Core.createSession(workoutId, date, week, state.settings));
   }
 
   async function persist(reason, rerender, options) {
@@ -421,7 +438,8 @@
   function renderWeekSummary() {
     if (!dom.weekSummary || !state) return;
     const week = state.cycle.currentWeek;
-    const focused = Data.WORKOUT_BY_ID[currentTab] || (sessionForToday() ? Data.WORKOUT_BY_ID[sessionForToday().workoutId] : null);
+    const focusedSession = Data.WORKOUT_BY_ID[currentTab] ? sessionForWorkout(currentTab) : sessionForToday();
+    const focused = focusedSession ? Core.sessionWorkout(focusedSession) : Data.WORKOUT_BY_ID[currentTab];
     const prescription = Data.prescriptionFor(Data.CATALOG.chest_press_machine, week, false);
     const rir = prescription.rirMin == null ? '—' : prescription.rirMin === prescription.rirMax ? String(prescription.rirMin) : `${prescription.rirMin}–${prescription.rirMax}`;
     const cell = (label, value, big) => element('div', {className: 'wcell'}, [
@@ -527,6 +545,9 @@
       persistedRevision = state.revision;
       rememberConsistentState(state);
       applyPreferences();
+      const refreshed = storage.writeBlocked ? false : state.sessions
+        .filter(session => session.status === 'planned')
+        .reduce((changed, session) => Core.refreshEmptyPlannedSession(session, state.settings) || changed, false);
       const planned = storage.writeBlocked ? false : ensureCurrentWeekSessions();
       dom.loading.remove();
       renderTabs();
@@ -535,7 +556,9 @@
         setSaveState('Somente leitura', true);
         showNotice(storage.lastError, 'error');
       } else {
-        const plannedSaved = !planned || await persist('Sessões desta semana planejadas.', true);
+        const plannedSaved = (!planned && !refreshed) || await persist(refreshed
+          ? 'Sessões futuras vazias atualizadas para a ficha atual.'
+          : 'Sessões desta semana planejadas.', true);
         if (plannedSaved) {
           const backedUp = await storage.automaticBackup(state, false);
           lastBackupState = backedUp ? 'Cópia automática criada hoje' : 'Cópia automática diária em dia';
@@ -603,7 +626,7 @@
   // treino ("3 de 7"), e não em itens soltos.
   function exerciseProgress(session) {
     if (!session) return {done: 0, total: 0, percent: 0};
-    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    const workout = Core.sessionWorkout(session);
     if (!workout) return {done: 0, total: 0, percent: 0};
     const total = workout.exercises.length;
     const done = workout.exercises.filter(exercise => {
@@ -651,7 +674,7 @@
           element('h3', {className: 'cname', text: 'Descanso completo'}),
           element('p', {className: 'cdetail', text: 'Hoje não há musculação nem meta obrigatória de caminhada.'})
         ]),
-        next ? element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Data.WORKOUT_BY_ID[next.workoutId].label}, planejada para ${formatDate(next.plannedDate)}.`}) : null
+        next ? element('p', {className: 'fine-print', text: `Próxima sessão pendente: ${Core.sessionWorkout(next).label}, planejada para ${formatDate(next.plannedDate)}.`}) : null
       ]));
     } else if (!session) {
       children.push(element('div', {className: 'empty-state'}, [
@@ -659,7 +682,7 @@
         element('p', {text: 'Abra uma ficha para planejar ou remarcar uma sessão explicitamente.'})
       ]));
     } else {
-      const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      const workout = Core.sessionWorkout(session);
       const prescription = sessionPrimaryPrescription(session);
       const snapshot = prescription ? prescription.prescriptionSnapshot : null;
       const progress = exerciseProgress(session);
@@ -695,7 +718,7 @@
     // Sessão pendente de outro dia: aparece explícita, com as duas saídas.
     const pendente = pendingSessions().find(item => item.id !== (session && session.id) && item.plannedDate < today);
     if (pendente) {
-      const treino = Data.WORKOUT_BY_ID[pendente.workoutId];
+      const treino = Core.sessionWorkout(pendente);
       const diaPendente = new Intl.DateTimeFormat('pt-BR', {weekday: 'long'}).format(new Date(`${pendente.plannedDate}T12:00:00`));
       children.push(element('article', {className: 'card k-fix pendingcard'}, [
         element('div', {className: 'card-title'}, [
@@ -734,11 +757,10 @@
   function discomfortWarning(session) {
     const anterior = lastFinishedSession(session.workoutId, session.id);
     if (!anterior) return null;
-    const marcados = anterior.exercises.filter(log => ['pain', 'awkward'].includes(log.feeling));
+    const marcados = orderedLogs(anterior.exercises).filter(log => ['pain', 'awkward'].includes(log.feeling) || Core.EXECUTION_FEEDBACK_FLAGS.some(flag => log.executionFeedback && log.executionFeedback[flag]));
     if (!marcados.length) return null;
     const nomes = marcados.map(log => {
-      const exercise = Data.findExercise(anterior.workoutId, log.exerciseId);
-      return exercise ? exercise.name : log.exerciseId;
+      return exerciseWithSide(anterior, log);
     });
     return element('p', {className: 'discomfort', text: `Na última sessão você registrou desconforto em: ${nomes.join(', ')}.`});
   }
@@ -829,6 +851,7 @@
     }
     const externo = !videoIncorporavel(video);
     const revisao = video.reviewedAt ? formatReviewDate(video.reviewedAt) : '';
+    const recorte = videoClipLabel(video);
     const cobertura = externo
       ? ['Reprodução externa', video.duration].filter(Boolean).join(' · ')
       : ['Cobre: ' + resumirCobertura(video.positives || ''), video.duration].filter(Boolean).join(' · ');
@@ -842,7 +865,8 @@
         element('strong', {text: label || (externo ? 'Abrir no YouTube' : 'Ver demonstração')}),
         element('span', {className: 'vs', text: `Canal brasileiro: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
         element('span', {className: 'vquality', text: videoClassificationLabel(video).toUpperCase()}),
-        cobertura ? element('span', {className: 'vreason', text: cobertura}) : null
+        cobertura ? element('span', {className: 'vreason', text: cobertura}) : null,
+        recorte ? element('span', {className: 'vclip', text: recorte}) : null
       ]),
       element('span', {className: 'ext', text: '▸'})
     ]);
@@ -898,11 +922,85 @@
     ]);
   }
 
+  function executionFeedbackText(log) {
+    const feedback = log.executionFeedback;
+    if (!feedback) return '';
+    return [...Core.EXECUTION_FEEDBACK_FLAGS.filter(flag => feedback[flag]).map(flag => EXECUTION_FEEDBACK_LABELS[flag]), feedback.note].filter(Boolean).join('; ');
+  }
+
+  function videoClipLabel(video) {
+    const start = video.startSeconds || 0;
+    const end = video.endSeconds || 0;
+    if (!start && !end) return '';
+    const time = seconds => `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+    return end > start ? `Trecho indicado: ${time(start)}–${time(end)}` : `Trecho indicado: a partir de ${time(start)}`;
+  }
+
+  function executionFeedbackBlock(session, log) {
+    const feedback = log.executionFeedback || Core.normalizeExecutionFeedback({});
+    return element('details', {className: 'feedback', attrs: {id: `execution-feedback-${session.id}-${log.id}`}}, [
+      element('summary', {text: `Controle da execução · lado ${sideLabel(log.side).toLowerCase()}${executionFeedbackText(log) ? ' · registrado' : ''}`}),
+      element('div', {className: 'feedbackbody'}, [
+        element('p', {className: 'feedbackhint', text: 'Compare com sua execução habitual neste lado. Estes registros ajudam a revisar a progressão.'}),
+        ...Core.EXECUTION_FEEDBACK_FLAGS.map(flag => element('label', {className: 'check-field'}, [
+          element('input', {attrs: {type: 'checkbox'}, props: {checked: feedback[flag]}, dataset: {action: 'execution-flag', sessionId: session.id, exerciseId: log.id, flag}}),
+          element('span', {text: EXECUTION_FEEDBACK_LABELS[flag]})
+        ])),
+        field('Observação da execução neste lado', element('textarea', {className: 'feedbacktext', attrs: {rows: '2', maxlength: '300'}, props: {value: feedback.note}, dataset: {action: 'execution-note', sessionId: session.id, exerciseId: log.id}}), 'field full')
+      ])
+    ]);
+  }
+
+  function canRecordPostLegCheck(session) {
+    return Boolean(session && ['completed', 'partial'].includes(session.status) && /^legs_/.test(session.workoutId));
+  }
+
+  function postLegCheckForm(session) {
+    const check = session.postLegCheck || Core.normalizePostLegCheck({});
+    return element('form', {dataset: {form: 'post-leg-check', sessionId: session.id}}, [
+      element('p', {text: 'Opcional: como você ficou depois deste treino? Registrar aqui preserva a sessão encerrada e atualiza a revisão das progressões relacionadas.'}),
+      element('label', {className: 'check-field'}, [
+        element('input', {attrs: {type: 'checkbox', name: 'noRelevantChange'}, props: {checked: check.noRelevantChange}, dataset: {action: 'post-leg-choice', sessionId: session.id}}),
+        element('span', {text: 'Sem mudança relevante em relação ao habitual'})
+      ]),
+      ...Object.entries(POST_LEG_CHECK_LABELS).map(([name, label]) => element('label', {className: 'check-field'}, [
+        element('input', {attrs: {type: 'checkbox', name}, props: {checked: check[name]}, dataset: {action: 'post-leg-choice', sessionId: session.id}}),
+        element('span', {text: label})
+      ])),
+      field('Observação após o treino', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '500'}, props: {value: check.note}}), 'field full'),
+      check.savedAt ? element('p', {className: 'fine-print', text: `Último registro: ${formatDateTime(check.savedAt)}`}) : null,
+      element('div', {className: 'button-row'}, [element('button', {className: 'primary-button', text: 'Salvar check após pernas', attrs: {type: 'submit', disabled: storage.writeBlocked}})])
+    ]);
+  }
+
+  function renderPostLegCheckCard(session) {
+    if (!canRecordPostLegCheck(session)) return null;
+    return element('section', {className: 'section-card'}, [
+      element('h3', {text: 'Check após pernas'}),
+      element('details', {className: 'feedback', attrs: {id: `post-leg-check-${session.id}`}}, [element('summary', {text: session.postLegCheck ? 'Consultar ou atualizar check' : 'Registrar como fiquei depois do treino'}), postLegCheckForm(session)])
+    ]);
+  }
+
+  async function savePostLegCheck(formData, form) {
+    const session = findSession(form.dataset.sessionId);
+    if (storage.writeBlocked || !canRecordPostLegCheck(session)) {
+      showNotice('O check fica disponível após concluir ou encerrar parcialmente uma sessão de pernas.', 'warning');
+      return;
+    }
+    const flags = Object.fromEntries(Object.keys(POST_LEG_CHECK_LABELS).map(flag => [flag, formData.has(flag)]));
+    session.postLegCheck = Core.normalizePostLegCheck(Object.assign(flags, {noRelevantChange: formData.has('noRelevantChange') && !Object.values(flags).some(Boolean), note: formData.get('note'), savedAt: new Date().toISOString()}));
+    session.updatedAt = new Date().toISOString();
+    recordProgressionDecisions(session);
+    if (await persist('Check após pernas salvo; progressões relacionadas revisadas.', true, {keepDomOnFailure: true})) {
+      if (!dom.modal.hidden) closeModal();
+    }
+  }
+
   function renderMobilityExercise(session, workoutExercise, exerciseLog, order) {
     const feedback = exerciseLog.mobilityFeedback;
     const sideFlags = [['stiffness', 'Rigidez'], ['pain', 'Dor'], ['range_limit', 'Limitação de amplitude'], ['support_difficulty', 'Dificuldade de apoio']];
-    const feedbackFields = ['left', 'right'].map(side => element('fieldset', {className: 'measurement-group'}, [
-      element('legend', {text: side === 'left' ? 'Lado esquerdo' : 'Lado direito'}),
+    const feedbackFields = Core.orderedSides(state.settings).map(side => element('fieldset', {className: 'measurement-group'}, [
+      element('legend', {text: `Lado ${sideLabel(side).toLowerCase()}`}),
       ...sideFlags.map(([key, label]) => element('label', {className: 'check-field'}, [
         element('input', {attrs: {type: 'checkbox'}, props: {checked: feedback[side][key]}, dataset: {action: 'mobility-flag', sessionId: session.id, exerciseId: exerciseLog.id, side, flag: key}}),
         element('span', {text: label})
@@ -957,7 +1055,7 @@
     const restValues = [60, 90, 120, 150, 180];
     const dataset = {sessionId: session.id, exerciseId: exerciseLog.id, setId: set.id};
     const tag = warmup ? `A${displayIndex}` : String(displayIndex);
-    const name = settings.exerciseName || 'exercício';
+    const name = `${settings.exerciseName || 'exercício'}${exerciseLog.side !== 'bilateral' ? ` · lado ${sideLabel(exerciseLog.side).toLowerCase()}` : ''}`;
     const row = [
       element('div', {className: `stag${warmup ? ' warm' : ''}`, attrs: {'aria-hidden': 'true'}, text: tag}),
       setField(`Carga em quilos — ${name} — série ${tag}`, element('input', {
@@ -998,7 +1096,7 @@
   }
 
   function proximoExercicioPendente(session, depoisDe) {
-    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    const workout = Core.sessionWorkout(session);
     if (!workout) return null;
     const posicao = workout.exercises.findIndex(exercise => exercise.id === depoisDe);
     const ordem = workout.exercises.slice(posicao + 1).concat(workout.exercises.slice(0, Math.max(0, posicao)));
@@ -1082,7 +1180,7 @@
 
   function activeSideLog(session, logs) {
     if (logs.length === 1) return logs[0];
-    const chosen = sideSelection[`${session.id}:${logs[0].exerciseId}`] || 'right';
+    const chosen = sideSelection[`${session.id}:${logs[0].exerciseId}`] || Core.orderedSides(state.settings)[0];
     return logs.find(log => log.side === chosen) || logs[0];
   }
 
@@ -1093,7 +1191,7 @@
     const loadStepKey = Core.equipmentLoadStepKey(workoutExercise.id, exerciseLog.variationId, exerciseLog.machineId);
     const customLoadStep = state.settings.equipmentLoadSteps.find(item =>
       Core.equipmentLoadStepKey(item.exerciseId, item.variationId, item.machineId) === loadStepKey);
-    const recommendation = Core.doubleProgressionRecommendation(workoutExercise, exerciseLog, session.week, configuredStep);
+    const recommendation = Core.sessionProgressionRecommendation(workoutExercise, exerciseLog, session, state.settings, allSessions(), state.cardio);
     const previous = previousComparablePerformance(session, exerciseLog);
     const variants = Array.isArray(workoutExercise.variants) ? workoutExercise.variants : [];
     const warmupSets = exerciseLog.sets.filter(set => set.type === 'warmup');
@@ -1121,14 +1219,14 @@
 
     const sideBox = logs.length > 1 ? chips('Lado registrado',
       'As cargas de cada lado ficam em históricos separados. O volume planejado conta o exercício uma vez.',
-      ['right', 'left'].map(side => {
+      Core.orderedSides(state.settings).map(side => {
         const item = logs.find(entry => entry.side === side);
         if (!item) return null;
         const seriesLado = item.sets.filter(set => set.type === 'work');
         const feitasLado = seriesLado.filter(Core.isSetConfirmed).length;
         return element('button', {
           className: `variantbtn${item.id === exerciseLog.id ? ' on' : ''}${item.completed ? ' is-done' : ''}`,
-          text: `${side === 'right' ? 'Direito' : 'Esquerdo'} ${feitasLado}/${seriesLado.length}`,
+          text: `${sideLabel(side)} ${feitasLado}/${seriesLado.length}`,
           attrs: {type: 'button', 'aria-pressed': item.id === exerciseLog.id ? 'true' : 'false'},
           dataset: {action: 'side-pick', sessionId: session.id, exerciseId: workoutExercise.id, side}
         });
@@ -1152,12 +1250,12 @@
           element('div', {className: 'badges'}, [
             statusBadge(workoutExercise.category === 'accessory' ? 'Acessório' : 'Periodizado', 'b-per'),
             snapshot.deload ? statusBadge('Deload', 'is-deload') : null,
-            workoutExercise.unilateral ? statusBadge('Unilateral', 'is-side') : null
+            logs.length > 1 ? statusBadge('Unilateral', 'is-side') : null
           ])
         ]),
         button(exerciseLog.completed ? '✓' : 'Marcar', 'exercise-complete', `donebtn${exerciseLog.completed ? ' on' : ''}`,
           {sessionId: session.id, exerciseId: exerciseLog.id},
-          {'aria-pressed': exerciseLog.completed ? 'true' : 'false', 'aria-label': exerciseLog.completed ? `Desmarcar ${workoutExercise.name}` : `Marcar ${workoutExercise.name} como concluído`})
+          {'aria-pressed': exerciseLog.completed ? 'true' : 'false', 'aria-label': exerciseLog.completed ? `Desmarcar ${exerciseWithSide(session, exerciseLog)}` : `Marcar ${exerciseWithSide(session, exerciseLog)} como concluído`})
       ]),
       variantBox,
       element('div', {className: `target${snapshot.deload ? ' dl' : ''}`}, [
@@ -1204,6 +1302,11 @@
         ])
       ]),
       feelingBlock(session, exerciseLog, workoutExercise.name),
+      logs.length > 1 ? executionFeedbackBlock(session, exerciseLog) : null,
+      exerciseLog.completed && !exercicioConcluido ? element('div', {className: 'donebox'}, [
+        element('strong', {text: `Lado ${sideLabel(exerciseLog.side).toLowerCase()} concluído`}),
+        button(`Ir para o lado ${sideLabel(logs.find(item => !item.completed).side).toLowerCase()}`, 'side-pick', 'secondary-button', {sessionId: session.id, exerciseId: workoutExercise.id, side: logs.find(item => !item.completed).side})
+      ]) : null,
       exercicioConcluido ? element('div', {className: 'donebox'}, [
         element('strong', {text: '✓ Exercício concluído'}),
         proximo ? element('p', {text: `Próximo: ${proximo.name}`}) : element('p', {text: 'Este era o último exercício pendente do treino.'}),
@@ -1215,8 +1318,8 @@
   }
 
   function renderWorkoutPanel(workoutId) {
-    const workout = Data.WORKOUT_BY_ID[workoutId];
     const session = sessionForWorkout(workoutId);
+    const workout = session ? Core.sessionWorkout(session) : Data.WORKOUT_BY_ID[workoutId];
     if (!session) {
       return panelShell(workoutId, workout.label, workout.intro, element('div', {className: 'empty-state'}, [
         element('p', {text: 'Nenhuma sessão foi planejada para esta ficha.'}),
@@ -1228,7 +1331,7 @@
     const children = [
       element('article', {className: 'card'}, [
         element('div', {className: 'card-header'}, [
-          element('div', {className: 'card-title'}, [element('h3', {text: `${formatDate(session.plannedDate, true)} · Semana ${session.week}`}), element('p', {text: `${workout.workSetTotal} séries de trabalho planejadas; aquecimentos não entram no volume${workout.exercises.some(exercise => exercise.unilateral) ? ' e o exercício unilateral conta uma vez, embora seja executado nos dois lados' : ''}.`})]),
+          element('div', {className: 'card-title'}, [element('h3', {text: `${formatDate(session.plannedDate, true)} · Semana ${session.week}`}), element('p', {text: `${workout.workSetTotal} séries de trabalho planejadas; aquecimentos não entram no volume${session.exercises.some(log => log.side !== 'bilateral') ? ' e cada exercício unilateral conta uma vez, embora seja executado nos dois lados' : ''}.`})]),
           element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
         ]),
         progressBar(progress, 'itens'),
@@ -1251,7 +1354,8 @@
         return exercise.type === 'mobility'
           ? renderMobilityExercise(session, exercise, logs[0], index + 1)
           : renderStrengthExercise(session, exercise, logs, index + 1);
-      })
+      }),
+      renderPostLegCheckCard(session)
     ];
     const panel = panelShell(workoutId, workout.label, workout.intro, children);
     if (readOnly) {
@@ -1285,7 +1389,7 @@
           option('normal', 'Realizada normalmente', true), option('shorter', 'Realizada mais curta'), option('interrupted', 'Interrompida'),
           option('not_recovery', 'Não realizada por recuperação'), option('not_pain', 'Não realizada por dor'), option('not_unplanned', 'Não realizada por imprevisto')
         ])),
-        field('Treino da manhã relacionado', element('select', {className: 'select', attrs: {name: 'relatedSessionId'}}, [option('', 'Nenhum'), ...sessionOptions.map(session => option(session.id, `${formatDate(session.plannedDate)} · ${Data.WORKOUT_BY_ID[session.workoutId].label}`))])),
+        field('Treino da manhã relacionado', element('select', {className: 'select', attrs: {name: 'relatedSessionId'}}, [option('', 'Nenhum'), ...sessionOptions.map(session => option(session.id, `${formatDate(session.plannedDate)} · ${Core.sessionWorkout(session).label}`))])),
         field('Dor ou desconforto', element('input', {className: 'input', attrs: {type: 'text', name: 'discomfort', maxlength: '300'}}), 'field full'),
         field('Observação', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '500'}}), 'field full')
       ]),
@@ -1351,9 +1455,9 @@
   function comparisonRecords() {
     const groups = new Map();
     allSessions().filter(session => ['completed', 'partial'].includes(session.status)).forEach(session => {
-      const workout = Data.WORKOUT_BY_ID[session.workoutId];
+      const workout = Core.sessionWorkout(session);
       session.exercises.forEach(log => {
-        const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+        const exercise = Core.sessionExercise(session, log.exerciseId);
         if (!exercise || exercise.type !== 'strength') return;
         const snapshot = log.prescriptionSnapshot;
         const range = snapshot && snapshot.min ? `${snapshot.min}-${snapshot.max}` : 'range-unspecified';
@@ -1371,6 +1475,7 @@
           sessionId: session.id,
           workout: workout.label,
           week: session.week,
+          deload: Boolean(snapshot && snapshot.deload),
           range,
           maxLoad: loads.length ? Math.max(...loads) : null,
           volume: completed.length ? completed.reduce((sum, set) => sum + (Number(set.load) || 0) * (Number(set.reps) || 0), 0) : null,
@@ -1383,10 +1488,14 @@
     });
     return [...groups.values()].map(group => {
       const variant = group.exercise.variants.find(item => item.id === group.variationId);
-      group.label = `${group.exercise.name} · ${variant ? variant.label : group.variationId || 'variação padrão'} · ${group.machineId || 'máquina não identificada'} · ${group.side === 'bilateral' ? 'bilateral' : group.side}`;
+      group.label = `${group.exercise.name} · ${variant ? variant.label : group.variationId || 'variação padrão'} · ${group.machineId || 'máquina não identificada'} · ${sideLabel(group.side)}`;
       group.points.sort((a, b) => a.date.localeCompare(b.date));
       return group;
-    }).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+    }).sort((a, b) => {
+      const aConfig = Core.equipmentLoadStepKey(a.exercise.id, a.variationId, a.machineId);
+      const bConfig = Core.equipmentLoadStepKey(b.exercise.id, b.variationId, b.machineId);
+      return aConfig === bConfig ? Core.orderedSides(state.settings).indexOf(a.side) - Core.orderedSides(state.settings).indexOf(b.side) : a.label.localeCompare(b.label, 'pt-BR');
+    });
   }
 
   function exerciseSeriesKey(log) {
@@ -1462,7 +1571,7 @@
     return [
       variante ? variante.label : null,
       log.machineId ? `máquina "${log.machineId}"` : 'máquina não identificada',
-      log.side === 'bilateral' ? null : log.side === 'left' ? 'lado esquerdo' : 'lado direito'
+      log.side === 'bilateral' ? null : `lado ${sideLabel(log.side).toLowerCase()}`
     ].filter(Boolean).join(' · ');
   }
 
@@ -1554,10 +1663,53 @@
     ]);
   }
 
+  function renderSidePerformanceComparison(groups, selected) {
+    if (!selected || !['right', 'left'].includes(selected.side)) return null;
+    const configurationKey = Core.equipmentLoadStepKey(selected.exercise.id, selected.variationId, selected.machineId);
+    const counterpart = groups.find(group => Core.equipmentLoadStepKey(group.exercise.id, group.variationId, group.machineId) === configurationKey && group.side !== selected.side && ['right', 'left'].includes(group.side));
+    const right = selected.side === 'right' ? selected : counterpart;
+    const left = selected.side === 'left' ? selected : counterpart;
+    const points = !selected.machineId || !right || !left ? [] : right.points.flatMap(point => {
+      const other = left.points.find(candidate => candidate.sessionId === point.sessionId && candidate.range === point.range && candidate.deload === point.deload);
+      if (!other || point.maxLoad == null || other.maxLoad == null) return [];
+      const difference = Math.abs(point.maxLoad - other.maxLoad);
+      const denominator = Math.max(point.maxLoad, other.maxLoad);
+      return [{date: point.date, range: point.range, deload: point.deload, right: point.maxLoad, left: other.maxLoad, difference, relative: denominator ? difference / denominator * 100 : null}];
+    });
+    const sides = Core.orderedSides(state.settings);
+    const format = number => Number(number).toLocaleString('pt-BR', {maximumFractionDigits: 2});
+    const comparable = points.filter(point => !point.deload);
+    const gains = sides.map(side => {
+      const sideGroup = side === 'right' ? right : left;
+      const ownPoints = sideGroup ? sideGroup.points.filter(point => point.maxLoad != null && !point.deload) : [];
+      const change = ownPoints.length > 1 ? ownPoints[ownPoints.length - 1].maxLoad - ownPoints[0].maxLoad : null;
+      return summaryCard(`Lado ${sideLabel(side).toLowerCase()}`, change == null ? 'Sem variação calculável' : `${change > 0 ? '+' : ''}${format(change)} kg`, `${ownPoints.length} exposição(ões) registrada(s) fora do deload. ${ownPoints.length > 1 ? `De ${format(ownPoints[0].maxLoad)} kg (${formatDate(ownPoints[0].date)}) para ${format(ownPoints[ownPoints.length - 1].maxLoad)} kg (${formatDate(ownPoints[ownPoints.length - 1].date)}). Cada lado usa seu próprio histórico; confira as faixas em cada sessão.` : 'São necessárias duas exposições deste lado; o outro lado não preenche dados ausentes.'}`);
+    });
+    return element('section', {className: 'card side-comparison-card'}, [
+      element('h3', {text: 'Comparação entre lados'}),
+      element('p', {text: 'Carga máxima confirmada de cada lado na mesma sessão, variação, máquina e faixa. Acompanhe também a mudança absoluta de cada lado ao longo do tempo.'}),
+      element('div', {className: 'summary-grid'}, gains),
+      points.length ? element('div', {className: 'table-scroll', attrs: {tabindex: '0', role: 'region', 'aria-label': 'Tabela de cargas entre lados'}}, [
+        element('table', {className: 'comparison-table'}, [
+          element('caption', {text: `${selected.exercise.name} · ${selected.machineId}`}),
+          element('thead', {}, [element('tr', {}, ['Data / faixa', ...sides.map(side => `${sideLabel(side)} (kg)`), 'Diferença (kg)', 'Diferença (%)'].map(text => element('th', {text, attrs: {scope: 'col'}})))]),
+          element('tbody', {}, points.slice().reverse().map(point => element('tr', {}, [
+            element('th', {text: `${formatDate(point.date)} · ${point.range}${point.deload ? ' · Deload' : ''}`, attrs: {scope: 'row'}}),
+            ...sides.map(side => element('td', {text: format(point[side])})),
+            element('td', {text: format(point.difference)}),
+            element('td', {text: point.relative == null ? 'Não calculável' : `${format(point.relative)}%`})
+          ])))
+        ])
+      ]) : element('p', {className: 'empty-state', text: selected.machineId ? 'Ainda não há uma sessão com carga confirmada nos dois lados desta configuração e faixa.' : 'Identifique a máquina para comparar os lados sem presumir que aparelhos sem nome sejam o mesmo equipamento.'}),
+      element('p', {className: 'fine-print', text: 'Diferença relativa = diferença absoluta dividida pela maior carga × 100. Percentuais descrevem apenas estes registros. Reduzir a diferença porque um lado perdeu carga não representa melhora dos dois lados. Deload aparece na tabela, mas fica fora da variação de carga e das exposições acima. Carga registrada não equivale a uma medida clínica de força.'})
+    ]);
+  }
+
   function renderEvolutionPanel() {
     const groups = comparisonRecords();
     if (!groups.length) return panelShell('evolution', 'Evolução', 'Comparações preservam exercício, variação, máquina e lado; a faixa aparece em cada ponto.', [
       renderMuscleVolumeCard(),
+      renderMobilityHistoryCard(),
       element('div', {className: 'empty-state'}, [element('h3', {text: 'Sem sessões concluídas comparáveis'}), element('p', {text: 'Finalize ao menos uma sessão com séries de trabalho registradas.'})])
     ]);
     if (!groups.some(group => group.key === evolutionSelection.key)) evolutionSelection.key = groups[0].key;
@@ -1574,7 +1726,9 @@
     ]));
     return panelShell('evolution', 'Evolução', 'Nenhuma linha conecta máquinas, variações ou lados diferentes; mudanças de faixa permanecem na mesma linha e são identificadas em cada ponto.', [
       renderMuscleVolumeCard(),
+      renderMobilityHistoryCard(),
       selector,
+      renderSidePerformanceComparison(groups, group),
       element('section', {className: 'chart-card'}, [
         element('h3', {text: metricLabels[evolutionSelection.metric]}),
         element('p', {className: 'fine-print', text: `Faixas presentes: ${[...group.ranges].join(', ')} rep. A faixa contextualiza o ponto, mas não cria outro gráfico para o mesmo aparelho.`}),
@@ -1587,13 +1741,23 @@
   }
 
   function renderProgressionHistory() {
-    const decisions = state.progressionDecisions.slice().reverse().slice(0, 30);
+    const sideOrder = Core.orderedSides(state.settings);
+    const newest = state.progressionDecisions.slice().reverse();
+    const groupOrder = [...new Set(newest.map(item => `${item.sessionId}:${item.exerciseId}`))];
+    const sessions = new Map(allSessions().map(session => [session.id, session]));
+    const decisions = newest.sort((a, b) => groupOrder.indexOf(`${a.sessionId}:${a.exerciseId}`) - groupOrder.indexOf(`${b.sessionId}:${b.exerciseId}`) || sideOrder.indexOf(a.side) - sideOrder.indexOf(b.side)).slice(0, 30);
+    const identity = item => {
+      const session = sessions.get(item.sessionId);
+      const exercise = session ? Core.sessionExercise(session, item.exerciseId) : null;
+      const variant = exercise && exercise.variants.find(entry => entry.id === item.variationId);
+      return `${exercise ? exercise.name : item.exerciseId} · ${sideLabel(item.side)}${variant ? ` · ${variant.label}` : ''}${item.machineId ? ` · ${item.machineId}` : ''}`;
+    };
     if (!decisions.length) return element('section', {className: 'card'}, [element('h3', {text: 'Decisões de progressão'}), element('p', {text: 'As recomendações aparecerão aqui ao finalizar sessões completas ou parciais.'})]);
     return element('section', {className: 'card'}, [
       element('h3', {text: 'Decisões de progressão'}),
       element('p', {text: 'A recomendação nunca altera a carga automaticamente. Registre o que decidiu e, depois, a carga realmente usada.'}),
       element('div', {className: 'timeline'}, decisions.map(item => element('article', {className: 'timeline-item'}, [
-        element('strong', {text: `${formatDate(item.date)} · ${(Data.CATALOG[item.exerciseId] && Data.CATALOG[item.exerciseId].name) || item.exerciseId}`}),
+        element('strong', {text: `${formatDate(item.date)} · ${identity(item)}`}),
         element('span', {text: `${item.message} Resultado: ${item.result || 'não registrado'} · RIR: ${item.rir || 'não informado'}.`}),
         element('div', {className: 'field-grid'}, [
           field('Sua decisão', element('select', {className: 'select', dataset: {action: 'progression-decision', decisionId: item.id}}, [option('pending', 'Ainda não decidi', item.decision === 'pending'), option('accepted', 'Aceitei aumentar', item.decision === 'accepted'), option('maintained', 'Mantive a carga', item.decision === 'maintained'), option('rejected', 'Não segui a recomendação', item.decision === 'rejected')])),
@@ -1644,7 +1808,82 @@
       element('strong', {text: `${formatDate(item.date)}${item.weight ? ` · ${item.weight} kg` : ''}`}),
       element('span', {text: `${Object.keys(Measurements.METRICS).filter(key => item[key]).length} medidas diretas ou derivadas${item.note ? ` · ${item.note}` : ''}`})
     ]), 'Nenhuma medição registrada.');
-    return panelShell('measurements', 'Medidas', 'Campos bilaterais separados e representação explicitamente aproximada.', [measurementForm(), measurementComparison(latest, previous), element('section', {className: 'card'}, [element('h3', {text: 'Histórico'}), history])]);
+    return panelShell('measurements', 'Medidas', 'Campos bilaterais separados e representação explicitamente aproximada.', [measurementForm(), measurementSideHistory(), measurementComparison(latest, previous), element('section', {className: 'card'}, [element('h3', {text: 'Histórico'}), history])]);
+  }
+
+  function renderMobilityHistoryCard() {
+    const flags = [['stiffness', 'Rigidez'], ['pain', 'Dor'], ['range_limit', 'Amplitude limitada'], ['support_difficulty', 'Apoio difícil']];
+    const groups = new Map();
+    const notes = [];
+    allSessions().filter(session => ['completed', 'partial'].includes(session.status)).forEach(session => {
+      session.exercises.forEach(log => {
+        const exercise = Core.sessionExercise(session, log.exerciseId);
+        if (!exercise || exercise.type !== 'mobility') return;
+        if (!groups.has(exercise.id)) groups.set(exercise.id, {exercise, right: {}, left: {}});
+        const group = groups.get(exercise.id);
+        Core.orderedSides(state.settings).forEach(side => flags.forEach(([key]) => {
+          if (log.mobilityFeedback && log.mobilityFeedback[side] && log.mobilityFeedback[side][key]) group[side][key] = (group[side][key] || 0) + 1;
+        }));
+        if (log.mobilityFeedback && log.mobilityFeedback.note) notes.push({date: session.actualDate || session.plannedDate, text: `${exercise.name}: ${log.mobilityFeedback.note}`});
+      });
+    });
+    return element('section', {className: 'card mobility-history-card'}, [
+      element('h3', {text: 'Mobilidade — relatos por lado'}),
+      element('p', {className: 'fine-print', text: 'Frequência de marcações em sessões concluídas ou parciais, incluindo ciclos arquivados. Um campo não marcado não comprova ausência de desconforto; estes números não são uma escala clínica.'}),
+      groups.size ? element('details', {className: 'feedback', attrs: {id: 'mobility-history-details'}}, [
+        element('summary', {text: 'Ver frequência e observações de mobilidade'}),
+        element('div', {className: 'table-scroll', attrs: {tabindex: '0', role: 'region', 'aria-label': 'Frequência de relatos de mobilidade'}}, [
+          element('table', {className: 'comparison-table'}, [
+            element('caption', {text: 'Marcações por exercício e lado — contagens, sem classificação automática'}),
+            element('thead', {}, [element('tr', {}, ['Mobilidade / lado', ...flags.map(([, label]) => label)].map(text => element('th', {text, attrs: {scope: 'col'}})))]),
+            element('tbody', {}, [...groups.values()].flatMap(group => Core.orderedSides(state.settings).map(side => element('tr', {}, [
+              element('th', {text: `${group.exercise.name} · ${sideLabel(side)}`, attrs: {scope: 'row'}}),
+              ...flags.map(([key]) => element('td', {text: String(group[side][key] || 0)}))
+            ]))))
+          ])
+        ]),
+        ...notes.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 10).map(note => element('p', {className: 'fine-print', text: `${formatDate(note.date)} · ${note.text}`}))
+      ]) : element('p', {text: 'Os relatos aparecerão após registrar e encerrar sessões com mobilidade.'})
+    ]);
+  }
+
+  // Exact lookup is the primary task here: separate circumference entries may
+  // be sparse, so never interpolate dates or imply missing paired measurements.
+  function measurementSideHistory() {
+    const format = value => value == null ? 'Não informado' : Number(value).toLocaleString('pt-BR', {maximumFractionDigits: 1});
+    const sides = Core.orderedSides(state.settings);
+    return element('section', {className: 'card measurement-side-history'}, [
+      element('h3', {text: 'Evolução das medidas por lado'}),
+      element('p', {text: 'Veja o valor de cada lado e sua evolução independente. A diferença só é calculada quando ambos foram medidos diretamente no mesmo registro.'}),
+      ...Object.keys(Measurements.BILATERAL_PAIRS).map(pairId => {
+        const history = Measurements.bilateralMeasurementHistory(state.measurements, pairId);
+        return element('details', {className: 'feedback', attrs: {id: `measurement-pair-${pairId}`}}, [
+          element('summary', {text: `${history.label} · ${history.points.length} registro(s)`}),
+          element('div', {className: 'feedbackbody'}, [
+            element('div', {className: 'summary-grid'}, sides.map(side => {
+              const data = history[side];
+              const last = data.latest;
+              return summaryCard(`Lado ${sideLabel(side).toLowerCase()}`, last ? `${format(last.value)} cm` : 'Sem medição direta', data.delta == null
+                ? 'São necessárias duas medições diretas deste lado para mostrar a variação.'
+                : `${data.delta > 0 ? '+' : ''}${format(data.delta)} cm de ${formatDate(data.first.date)} a ${formatDate(last.date)}. ${data.recordCount} medições diretas.`);
+            })),
+            history.points.length ? element('div', {className: 'table-scroll', attrs: {tabindex: '0', role: 'region', 'aria-label': `Histórico bilateral: ${history.label}`}}, [
+              element('table', {className: 'comparison-table'}, [
+                element('caption', {text: `${history.label} — valores em centímetros; diferença relativa em porcentagem`}),
+                element('thead', {}, [element('tr', {}, ['Data', ...sides.map(side => `${sideLabel(side)} (cm)`), 'Diferença (cm)', 'Diferença (%)'].map(text => element('th', {text, attrs: {scope: 'col'}})))]),
+                element('tbody', {}, history.points.slice().reverse().map(point => element('tr', {}, [
+                  element('th', {text: `${formatDate(point.date)}${point.measuredAt ? ` · ${formatDateTime(point.measuredAt)}` : ''}`, attrs: {scope: 'row'}}),
+                  ...sides.map(side => element('td', {text: `${format(point[side])}${point[`${side}Derived`] ? ' (derivado do registro antigo)' : ''}`})),
+                  element('td', {text: point.difference == null ? 'Sem par direto' : format(point.difference)}),
+                  element('td', {text: point.relativeDifference == null ? 'Sem par direto' : `${format(point.relativeDifference)}%`})
+                ])))
+              ])
+            ]) : element('p', {className: 'empty-state', text: 'Registre as medidas deste membro para acompanhar os lados.'})
+          ])
+        ]);
+      }),
+      element('p', {className: 'fine-print', text: 'Diferença relativa = |direita − esquerda| ÷ maior medida × 100. Valores antigos copiados de uma medida única são identificados como derivados e não entram na comparação. Circunferência não mede força nem composição corporal; não há classificação automática de gravidade.'})
+    ]);
   }
 
   function periodizationRows() {
@@ -1679,7 +1918,7 @@
         state.archives.length ? element('div', {className: 'timeline'}, state.archives.slice().reverse().map(archive => element('details', {className: 'timeline-item'}, [
           element('summary', {text: `${formatDateTime(archive.archivedAt)} · ${archive.sessions.length} sessão(ões) · ciclo encerrado na semana ${archive.cycle.currentWeek}`}),
           element('div', {className: 'split-list'}, archive.sessions.slice().sort((a, b) => a.plannedDate.localeCompare(b.plannedDate)).map(session => element('div', {className: 'split-row'}, [
-            element('strong', {text: `${formatDate(session.actualDate || session.plannedDate)} · ${(Data.WORKOUT_BY_ID[session.workoutId] && Data.WORKOUT_BY_ID[session.workoutId].label) || session.workoutId}`}),
+            element('strong', {text: `${formatDate(session.actualDate || session.plannedDate)} · ${Core.sessionWorkout(session).label}`}),
             element('span', {text: `${SESSION_LABELS[session.status] || session.status} · semana ${session.week}${session.durationSeconds ? ` · ${formatDuration(session.durationSeconds)}` : ''}`})
           ])))
         ]))) : element('p', {className: 'fine-print', text: 'Nenhum ciclo novo foi arquivado ainda.'}),
@@ -1743,6 +1982,22 @@
   function renderSettingsPanel() {
     return panelShell('settings', 'Ajustes', 'Preferências, modo de agenda, backups e privacidade.', [
       renderAboutCard(),
+      element('section', {className: 'section-card'}, [
+        element('h3', {text: 'Acompanhamento entre lados'}),
+        element('p', {text: 'Registre cada lado quando a variação for unilateral. O lado escolhido aparece primeiro; cargas e progressões continuam independentes.'}),
+        element('div', {className: 'field-grid'}, [
+          element('label', {className: 'check-field'}, [
+            element('input', {attrs: {type: 'checkbox'}, props: {checked: state.settings.sideTracking.enabled}, dataset: {action: 'setting-side-tracking'}}),
+            element('span', {text: 'Ativar acompanhamento bilateral'})
+          ]),
+          field('Lado que quero acompanhar primeiro', element('select', {className: 'select', dataset: {action: 'setting-affected-side'}}, [
+            option('right', 'Direito', state.settings.sideTracking.affectedSide === 'right'),
+            option('left', 'Esquerdo', state.settings.sideTracking.affectedSide === 'left'),
+            option('unspecified', 'Não especificado', state.settings.sideTracking.affectedSide === 'unspecified')
+          ]))
+        ]),
+        element('p', {className: 'fine-print', text: 'A preferência orienta novas sessões. Os registros existentes mantêm a variação e os lados usados na época. Diferenças de medidas ou cargas são descritivas e não identificam uma condição clínica.'})
+      ]),
       element('section', {className: 'section-card'}, [
         element('h3', {text: 'Agenda e experiência'}),
         element('div', {className: 'field-grid'}, [
@@ -1909,23 +2164,21 @@
     // Percorre os registros da sessão para que exercícios unilaterais gerem uma
     // decisão por lado, sem misturar as cargas dos dois lados.
     const currentSeriesKeys = new Set();
-    session.exercises.forEach(log => {
-      const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    orderedLogs(session.exercises).forEach(log => {
+      const exercise = Core.sessionExercise(session, log.exerciseId);
       if (!exercise || exercise.type !== 'strength') return;
       const range = `${log.prescriptionSnapshot.min}-${log.prescriptionSnapshot.max}`;
       const seriesKey = Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range);
       currentSeriesKeys.add(seriesKey);
-      const recommendation = Core.doubleProgressionRecommendation(
-        exercise,
-        log,
-        session.week,
-        Core.configuredLoadStep(state.settings, exercise, log)
-      );
+      const recommendation = Core.sessionProgressionRecommendation(exercise, log, session, state.settings, allSessions(), state.cardio);
       const workSets = log.sets.filter(isProgressionEligibleSet);
       const existing = state.progressionDecisions.find(item => item.sessionId === session.id && item.seriesKey === seriesKey);
       const payload = {
         sessionId: session.id,
         exerciseId: log.exerciseId,
+        side: log.side,
+        variationId: log.variationId,
+        machineId: log.machineId,
         seriesKey,
         date: session.actualDate || session.plannedDate,
         recommendation: recommendation.code,
@@ -1982,7 +2235,7 @@
   }
 
   function pendingItems(session) {
-    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    const workout = Core.sessionWorkout(session);
     if (!workout) return {exercicios: 0, series: 0};
     let exercicios = 0;
     let series = 0;
@@ -2042,13 +2295,13 @@
 
   // Resumo factual do que foi registrado. Sem pontuação nem gamificação.
   function showSessionSummary(session, status) {
-    const workout = Data.WORKOUT_BY_ID[session.workoutId];
+    const workout = Core.sessionWorkout(session);
     const progresso = exerciseProgress(session);
     const series = session.exercises.flatMap(log => log.sets.filter(set => set.type === 'work'));
     const confirmadas = series.filter(Core.isSetConfirmed);
-    const volume = series.filter(isProgressionEligibleSet).reduce((total, set) => total + (Number(set.load) || 0) * (Number(set.reps) || 0), 0);
-    const melhores = session.exercises.map(log => {
-      const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    const volume = session.exercises.reduce((total, log) => total + log.sets.filter(isProgressionEligibleSet).reduce((sum, set) => sum + (Number(set.load) || 0) * (Number(set.reps) || 0), 0) / (log.sideModeSnapshot === 'unilateral' ? 2 : 1), 0);
+    const melhores = orderedLogs(session.exercises).map(log => {
+      const exercise = Core.sessionExercise(session, log.exerciseId);
       const melhor = log.sets.filter(set => isProgressionEligibleSet(set) && set.load && set.reps)
         .sort((a, b) => (Number(b.load) || 0) - (Number(a.load) || 0) || (Number(b.reps) || 0) - (Number(a.reps) || 0))[0];
       return melhor && exercise ? `${exercise.name}${log.side !== 'bilateral' ? ` (${log.side === 'left' ? 'esq.' : 'dir.'})` : ''} · ${melhor.load} × ${melhor.reps}` : null;
@@ -2061,15 +2314,17 @@
       element('div', {className: 'split-list'}, [
         linha('Duração', session.durationSeconds ? formatDuration(session.durationSeconds) : 'não registrada'),
         linha('Exercícios', `${progresso.done}/${progresso.total}`),
-        linha('Séries confirmadas', `${confirmadas.length}/${series.length}`),
-        linha('Volume registrado', `${Math.round(volume).toLocaleString('pt-BR')} kg`),
+        linha('Séries confirmadas', `${confirmadas.length}/${series.length}${session.exercises.some(log => log.side !== 'bilateral') ? ' registros, com cada lado identificado' : ''}`),
+        linha('Volume registrado', `${Math.round(volume).toLocaleString('pt-BR')} kg × rep. equivalentes`),
         linha('Desconforto registrado', desconfortos ? `${desconfortos} exercício(s)` : 'nenhum')
       ]),
+      session.exercises.some(log => log.side !== 'bilateral') ? element('p', {className: 'fine-print', text: 'No volume equivalente, os dois lados juntos contam uma vez. Cada registro unilateral contribui com metade; isso evita dobrar o volume ao registrar os dois lados.'}) : null,
       melhores.length ? element('div', {className: 'summarybest'}, [
         element('strong', {text: 'Melhores séries'}),
         element('ul', {className: 'notes'}, melhores.map(texto => element('li', {text: texto})))
       ]) : null,
       element('div', {className: 'button-row'}, [
+        canRecordPostLegCheck(session) ? button('Registrar check após pernas', 'post-leg-check-open', 'secondary-button', {sessionId: session.id}) : null,
         button('Ver evolução', 'summary-evolution', 'secondary-button'),
         button('Voltar para Hoje', 'summary-today', 'primary-button')
       ])
@@ -2107,7 +2362,7 @@
       return false;
     }
     await requestWakeLock();
-    if (state.settings.autoStartRest && set.nextRestSeconds) startTimer(set.nextRestSeconds, Data.CATALOG[log.exerciseId] ? Data.CATALOG[log.exerciseId].name : 'Exercício', {sessionId: session.id, exerciseId: log.id, setId: set.id});
+    if (state.settings.autoStartRest && set.nextRestSeconds) startTimer(set.nextRestSeconds, exerciseWithSide(session, log), {sessionId: session.id, exerciseId: log.id, setId: set.id});
     return true;
   }
 
@@ -2308,9 +2563,10 @@
     }
     if (!dom.modal.hidden) closeModal();
     modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    dom.videoTitle.textContent = video.title || 'Vídeo de apoio';
+    dom.videoTitle.textContent = [video.title || 'Vídeo de apoio', videoClipLabel(video)].filter(Boolean).join(' · ');
     const parameters = new URLSearchParams({rel: '0'});
     if (video.startSeconds) parameters.set('start', String(video.startSeconds));
+    if (video.endSeconds > (video.startSeconds || 0)) parameters.set('end', String(video.endSeconds));
     if (/^https?:$/.test(location.protocol)) parameters.set('origin', location.origin);
     const iframe = element('iframe', {attrs: {src: `https://www.youtube-nocookie.com/embed/${encodeURIComponent(video.youtubeId)}?${parameters}`, title: video.title || 'Vídeo de apoio', allow: 'accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture', referrerpolicy: 'strict-origin-when-cross-origin', allowfullscreen: true}});
     dom.videoStage.replaceChildren(iframe);
@@ -2431,6 +2687,11 @@
     }
     if (action === 'snapshot-restore-confirm') { await restoreSnapshot(); return; }
     if (action === 'plan-workout-today') { await planWorkoutToday(target.dataset.workoutId); return; }
+    if (action === 'post-leg-check-open') {
+      const checkedSession = findSession(target.dataset.sessionId);
+      if (canRecordPostLegCheck(checkedSession)) openModal('Check após pernas', postLegCheckForm(checkedSession));
+      return;
+    }
     const mutationSession = findSession(target.dataset.sessionId);
     if (TERMINAL_MUTATION_ACTIONS.has(action) && mutationSession && !isSessionEditable(mutationSession)) {
       showNotice('Esta sessão está encerrada. Reabra a sessão antes de alterar seus registros.', 'warning');
@@ -2441,7 +2702,7 @@
       const alvo = findSession(target.dataset.sessionId);
       const registro = findExerciseLog(alvo, target.dataset.exerciseId);
       if (!alvo || !registro) return;
-      const exercicio = Data.findExercise(alvo.workoutId, registro.exerciseId);
+      const exercicio = Core.sessionExercise(alvo, registro.exerciseId);
       if (exercicio) showExerciseHistory(alvo, exercicio, registro);
       return;
     }
@@ -2474,7 +2735,7 @@
     const found = findSet(session, target.dataset.exerciseId, target.dataset.setId);
     if (action === 'set-complete' && found.set) { await completeSet(session, found.exercise, found.set); return; }
     if (action === 'timer-start-set' && found.set) {
-      startTimer(found.set.nextRestSeconds, Data.CATALOG[found.exercise.exerciseId] ? Data.CATALOG[found.exercise.exerciseId].name : 'Exercício', {sessionId: session.id, exerciseId: found.exercise.id, setId: found.set.id});
+      startTimer(found.set.nextRestSeconds, exerciseWithSide(session, found.exercise), {sessionId: session.id, exerciseId: found.exercise.id, setId: found.set.id});
       return;
     }
     if (action === 'mobility-complete') { await toggleMobility(session, target.dataset.exerciseId, 'completed'); return; }
@@ -2492,7 +2753,7 @@
     if (action === 'summary-today') { closeModal(); activateTab('today', true); return; }
     if (action === 'side-pick') {
       sideSelection[`${target.dataset.sessionId}:${target.dataset.exerciseId}`] = target.dataset.side === 'left' ? 'left' : 'right';
-      renderActivePanel();
+      renderActivePanel({tagName: 'BUTTON', name: '', data: {action: 'side-pick', sessionId: target.dataset.sessionId, exerciseId: target.dataset.exerciseId, side: target.dataset.side}});
       return;
     }
     if (action === 'repeat-first-set') { await repeatFirstWorkSet(session, target.dataset.exerciseId); return; }
@@ -2501,7 +2762,7 @@
     if (action === 'copy-feedback') { await copyFeedbackReport(session, target.dataset.exerciseId); return; }
     if (action === 'timer-start-rest') {
       const log = findExerciseLog(session, target.dataset.exerciseId);
-      const name = log && Data.CATALOG[log.exerciseId] ? Data.CATALOG[log.exerciseId].name : 'Exercício';
+      const name = log ? exerciseWithSide(session, log) : 'Exercício';
       startTimer(Number(target.dataset.seconds) || 90, name, log ? {sessionId: session.id, exerciseId: log.id, setId: ''} : null);
       return;
     }
@@ -2522,6 +2783,27 @@
     if (action === 'evolution-key') { evolutionSelection.key = target.value; renderActivePanel(); return; }
     if (action === 'evolution-metric') { evolutionSelection.metric = target.value; renderActivePanel(); return; }
     if (blockReadOnlyMutation(action, true)) return;
+    if (action === 'setting-side-tracking') {
+      state.settings.sideTracking.enabled = target.checked;
+      await persist('Acompanhamento entre lados atualizado para novas sessões.', true);
+      return;
+    }
+    if (action === 'setting-affected-side') {
+      state.settings.sideTracking.affectedSide = ['left', 'right', 'unspecified'].includes(target.value) ? target.value : 'unspecified';
+      Object.keys(sideSelection).forEach(key => delete sideSelection[key]);
+      await persist('Lado de acompanhamento atualizado.', true);
+      return;
+    }
+    if (action === 'post-leg-choice') {
+      const checkedSession = findSession(target.dataset.sessionId);
+      const form = target.closest('form');
+      if (!canRecordPostLegCheck(checkedSession) || !form) return;
+      if (target.checked) {
+        if (target.name === 'noRelevantChange') Object.keys(POST_LEG_CHECK_LABELS).forEach(name => { form.elements.namedItem(name).checked = false; });
+        else form.elements.namedItem('noRelevantChange').checked = false;
+      }
+      return;
+    }
     if (action === 'setting-mode') { state.settings.mode = target.value === 'sequence' ? 'sequence' : 'calendar'; await persist('Modo de agenda atualizado.', true); return; }
     if (action === 'setting-video-mode') { state.settings.videoMode = ['external', 'inline', 'ask'].includes(target.value) ? target.value : 'external'; await persist('Preferência de vídeo atualizada.', true); return; }
     if (action === 'setting-toggle') { state.settings[target.dataset.setting] = target.checked; applyPreferences(); await persist('Preferência atualizada.', true); return; }
@@ -2536,7 +2818,7 @@
     if (action === 'equipment-load-step') {
       const stepSession = findSession(target.dataset.sessionId);
       const stepLog = findExerciseLog(stepSession, target.dataset.exerciseId);
-      const stepExercise = stepSession && stepLog ? Data.findExercise(stepSession.workoutId, stepLog.exerciseId) : null;
+      const stepExercise = stepSession && stepLog ? Core.sessionExercise(stepSession, stepLog.exerciseId) : null;
       if (!stepSession || !stepLog || !stepExercise) return;
       const key = Core.equipmentLoadStepKey(stepExercise.id, stepLog.variationId, stepLog.machineId);
       const remaining = state.settings.equipmentLoadSteps.filter(item =>
@@ -2610,6 +2892,18 @@
     }
     if (action === 'mobility-flag') { log.mobilityFeedback[target.dataset.side][target.dataset.flag] = target.checked; await persist('Feedback de mobilidade atualizado.', false); return; }
     if (action === 'mobility-note') { log.mobilityFeedback.note = Core.cleanText(target.value, 300); await persist('Observação de mobilidade atualizada.', false); return; }
+    if (action === 'execution-flag') {
+      if (!Core.EXECUTION_FEEDBACK_FLAGS.includes(target.dataset.flag) || log.side === 'bilateral') return;
+      log.executionFeedback = Core.normalizeExecutionFeedback(Object.assign({}, log.executionFeedback, {[target.dataset.flag]: target.checked}));
+      await persist('Controle da execução atualizado neste lado.', true);
+      return;
+    }
+    if (action === 'execution-note') {
+      if (log.side === 'bilateral') return;
+      log.executionFeedback = Core.normalizeExecutionFeedback(Object.assign({}, log.executionFeedback, {note: Core.cleanText(target.value, 300)}));
+      await persist('Observação da execução salva neste lado.', false);
+      return;
+    }
     if (action === 'variation-change') { await requestVariationChange(session, log, target.value); return; }
     if (action === 'high-rep-toggle') { updateHighRepPreference(session, log, target.checked); await persist('Faixa preferencial atualizada.', true); }
   }
@@ -2641,7 +2935,7 @@
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
     const action = target.dataset.action;
-    if (!['set-field', 'exercise-field', 'mobility-note'].includes(action)) return;
+    if (!['set-field', 'exercise-field', 'mobility-note', 'execution-note'].includes(action)) return;
     if (blockReadOnlyMutation(action, true)) return;
     const session = findSession(target.dataset.sessionId);
     const log = findExerciseLog(session, target.dataset.exerciseId);
@@ -2670,6 +2964,7 @@
         }
       }
     } else if (action === 'exercise-field') assignExerciseField(log, target.dataset.field, target.value);
+    else if (action === 'execution-note') log.executionFeedback = Core.normalizeExecutionFeedback(Object.assign({}, log.executionFeedback, {note: Core.cleanText(target.value, 300)}));
     else log.mobilityFeedback.note = Core.cleanText(target.value, 300);
   }
 
@@ -2713,6 +3008,7 @@
     if (form.dataset.form === 'cardio') await saveCardio(data, form);
     else if (form.dataset.form === 'home') await saveHomeRoutine(data, form);
     else if (form.dataset.form === 'measurement') await saveMeasurement(data, form);
+    else if (form.dataset.form === 'post-leg-check') await savePostLegCheck(data, form);
   }
 
   async function setTerminalSessionStatus(session, status) {
@@ -2741,14 +3037,7 @@
     const newDate = input ? Core.validDate(input.value) : '';
     if (!newDate) { showNotice('Escolha uma data válida para remarcar.', 'warning'); return; }
     await storage.createSnapshot(state, 'Antes de remarcar sessão');
-    const replacement = novaSessao(session.workoutId, newDate, session.week);
-    replacement.rescheduledFrom = session.plannedDate;
-    // Remarcar preserva apenas a configuração comparável, nunca a execução.
-    replacement.exercises.forEach(log => {
-      const origem = session.exercises.find(item => item.exerciseId === log.exerciseId && item.side === log.side);
-      const definition = Data.findExercise(session.workoutId, log.exerciseId);
-      mergeExerciseConfiguration(log, origem, definition, session.week, false);
-    });
+    const replacement = Core.createRescheduledSession(session, newDate, session.week, state.settings);
     const completedAt = new Date().toISOString();
     closeSessionTiming(session, completedAt);
     session.status = 'rescheduled';
@@ -2835,13 +3124,14 @@
   async function copyFeedbackReport(session, exerciseId) {
     const log = findExerciseLog(session, exerciseId);
     if (!log) return;
-    const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    const exercise = Core.sessionExercise(session, log.exerciseId);
     const labels = Object.fromEntries(FEELING_OPTIONS);
     const linhas = [
-      `Treino: ${Data.WORKOUT_BY_ID[session.workoutId].label} · ${formatDate(session.actualDate || session.plannedDate)} · Semana ${session.week}`,
+      `Treino: ${Core.sessionWorkout(session).label} · ${formatDate(session.actualDate || session.plannedDate)} · Semana ${session.week}`,
       `Exercício: ${exercise ? exercise.name : log.exerciseId}${log.side !== 'bilateral' ? ` (lado ${log.side === 'left' ? 'esquerdo' : 'direito'})` : ''}`,
       `Sensação: ${labels[log.feeling] || 'não informada'}`,
       `Observação: ${log.feedback || 'sem observação'}`,
+      `Controle da execução: ${executionFeedbackText(log) || 'não informado'}`,
       `Séries: ${log.sets.filter(set => set.type === 'work').map(set => `${set.load || '–'}×${set.reps || '–'}${set.rir ? ` RIR ${set.rir}` : ''}`).join(' · ')}`
     ].join('\n');
     try {
@@ -2863,39 +3153,35 @@
     if (await persist('Mobilidade atualizada.', true)) await requestWakeLock();
   }
 
-  function hasExerciseExecutionData(log) {
-    const mobility = log.mobilityFeedback || {};
-    const mobilityUsed = Boolean(mobility.note || ['left', 'right'].some(side =>
-      mobility[side] && Object.values(mobility[side]).some(Boolean)));
-    return Boolean(
-      log.completed || log.skipped || log.feedback || log.feeling || mobilityUsed
-      || log.sets.some(set => set.load || set.reps || set.rir || set.status || set.note || set.completedAt)
-    );
-  }
-
   async function requestVariationChange(session, log, nextVariation) {
-    const exercise = Data.findExercise(session.workoutId, log.exerciseId);
-    if (!exercise || !exercise.variants.some(item => item.id === nextVariation) || nextVariation === log.variationId) return;
-    if (!hasExerciseExecutionData(log)) {
-      log.variationId = nextVariation;
-      await persist('Variação atualizada; o histórico comparável permanecerá separado.', true);
+    const result = Core.changeExerciseVariant(session, log.id, nextVariation, state.settings);
+    if (result.blocked) {
+      showNotice(result.message, 'warning');
+      renderActivePanel();
       return;
     }
-    renderActivePanel();
-    confirmationModal('Trocar variação', 'Os registros já digitados serão preservados nesta sessão, mas a comparação futura usará uma chave diferente. Confirme somente se esta foi realmente a variação executada.', 'variation-confirm', {sessionId: session.id, exerciseId: log.id, variationId: nextVariation}, 'Confirmar variação executada');
+    if (result.changed) {
+      const currentLog = activeSideLog(session, session.exercises.filter(item => item.exerciseId === log.exerciseId));
+      await persist(result.message || 'Variação atualizada; cada lado mantém um histórico próprio.', true, {focusDescriptor: {tagName: 'BUTTON', name: '', data: {action: 'variation-pick', sessionId: session.id, exerciseId: currentLog.id, variationId: nextVariation}}});
+      return;
+    }
+    if (result.requiresConfirmation) {
+      renderActivePanel();
+      confirmationModal('Trocar variação', result.message || 'Confirme somente se esta foi a variação executada. Os dados existentes serão preservados.', 'variation-confirm', {sessionId: session.id, exerciseId: log.id, variationId: nextVariation}, 'Confirmar variação executada');
+    }
   }
 
   async function confirmVariation(sessionId, exerciseId, variationId) {
     const session = findSession(sessionId);
     const log = findExerciseLog(session, exerciseId);
-    const exercise = log ? Data.findExercise(session.workoutId, log.exerciseId) : null;
-    if (!exercise || !exercise.variants.some(item => item.id === variationId)) return;
-    log.variationId = variationId;
-    if (await persist('Variação confirmada; cargas de variações diferentes não serão misturadas.', true)) closeModal();
+    if (!session || !log || !isSessionEditable(session)) return;
+    const result = Core.changeExerciseVariant(session, log.id, variationId, state.settings, {confirmed: true});
+    if (result.blocked) { showNotice(result.message, 'warning'); closeModal(); return; }
+    if (result.changed && await persist(result.message || 'Variação confirmada; histórico preservado.', true)) closeModal();
   }
 
   function updateHighRepPreference(session, log, enabled) {
-    const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+    const exercise = Core.sessionExercise(session, log.exerciseId);
     if (!exercise || !exercise.allowHighReps) return;
     log.highRepPreference = Boolean(enabled);
     const prescription = Data.prescriptionFor(exercise, session.week, log.highRepPreference);
@@ -2949,7 +3235,10 @@
     if (!normalized) { showNotice('A data da caminhada não é válida.', 'warning'); return; }
     state.cardio.push(normalized);
     const related = findSession(normalized.relatedSessionId);
-    if (related) related.cardioId = normalized.id;
+    if (related) {
+      related.cardioId = normalized.id;
+      if (['completed', 'partial'].includes(related.status)) recordProgressionDecisions(related);
+    }
     if (await persist('Caminhada registrada.', true, {keepDomOnFailure: true})) form.reset();
   }
 
@@ -3013,44 +3302,9 @@
     if (await persist('Medidas corporais registradas.', true, {keepDomOnFailure: true})) form.reset();
   }
 
-  function mergeExerciseConfiguration(fresh, previous, definition, week, preserveId) {
-    if (!previous) return fresh;
-    if (preserveId) fresh.id = previous.id;
-    fresh.machineId = previous.machineId || '';
-    const variants = definition && Array.isArray(definition.variants) ? definition.variants : [];
-    if (variants.some(item => item.id === previous.variationId)) fresh.variationId = previous.variationId;
-    fresh.highRepPreference = Boolean(definition && definition.allowHighReps && previous.highRepPreference);
-    if (definition && fresh.prescriptionSnapshot) {
-      const prescription = Data.prescriptionFor(definition, week, fresh.highRepPreference);
-      Object.assign(fresh.prescriptionSnapshot, {
-        min: prescription.min,
-        max: prescription.max,
-        label: prescription.label,
-        rirMin: prescription.rirMin,
-        rirMax: prescription.rirMax,
-        deload: prescription.deload
-      });
-    }
-    return fresh;
-  }
-
   function replacePlannedSessionPrescription(session, week) {
-    if (session.status !== 'planned' || hasSessionInput(session)) return false;
-    const workout = Data.WORKOUT_BY_ID[session.workoutId];
-    session.week = week;
-    const previousLogs = session.exercises;
-    session.exercises = workout.exercises.flatMap(exercise => Core.createExerciseLogs(exercise, week)).map(fresh => {
-      const previous = previousLogs.find(log => log.exerciseId === fresh.exerciseId && log.side === fresh.side);
-      if (!previous) return fresh;
-      const definition = Data.findExercise(session.workoutId, fresh.exerciseId);
-      return mergeExerciseConfiguration(fresh, previous, definition, week, true);
-    });
-    session.updatedAt = new Date().toISOString();
-    return true;
-  }
-
-  function hasSessionInput(session) {
-    return session.exercises.some(hasExerciseExecutionData);
+    if (session.status !== 'planned') return false;
+    return Core.replaceSessionPrescription(session, week, state.settings);
   }
 
   async function changeCycleWeek(week) {
@@ -3145,15 +3399,20 @@
     const headers = ['tipo_registro', 'sessao_id', 'data', 'horario', 'treino', 'semana', 'status_sessao', 'exercicio', 'variacao', 'maquina', 'lado', 'serie', 'tipo_serie', 'carga_kg', 'repeticoes', 'rir', 'status_serie', 'descanso_segundos', 'dor', 'feedback', 'cardio_minutos', 'cardio_distancia_km', 'cardio_esforco', 'medida', 'valor_medida', 'unidade', 'observacao'];
     const rows = [headers];
     allSessions().forEach(session => {
-      const workout = Data.WORKOUT_BY_ID[session.workoutId];
-      session.exercises.forEach(log => {
-        const exercise = Data.findExercise(session.workoutId, log.exerciseId);
+      const workout = Core.sessionWorkout(session);
+      orderedLogs(session.exercises).forEach(log => {
+        const exercise = Core.sessionExercise(session, log.exerciseId);
         if (!log.sets.length) {
           rows.push(['mobilidade', session.id, session.actualDate || session.plannedDate, session.startedAt ? new Date(session.startedAt).toLocaleTimeString('pt-BR') : '', workout ? workout.label : session.workoutId, session.week, session.status, exercise ? exercise.name : log.exerciseId, log.variationId, log.machineId, log.side, '', 'mobilidade', '', '', '', log.completed ? 'completed' : log.skipped ? 'not_done' : '', '', log.mobilityFeedback.left.pain || log.mobilityFeedback.right.pain ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', log.mobilityFeedback.note]);
           return;
         }
-        log.sets.forEach((set, index) => rows.push(['musculacao', session.id, session.actualDate || session.plannedDate, set.completedAt ? new Date(set.completedAt).toLocaleTimeString('pt-BR') : '', workout ? workout.label : session.workoutId, session.week, session.status, exercise ? exercise.name : log.exerciseId, log.variationId, log.machineId, log.side, index + 1, set.type, set.load, set.reps, set.rir, set.status, set.nextRestSeconds, set.status === 'pain' || log.feeling === 'pain' ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', set.note]));
+        log.sets.forEach((set, index) => rows.push(['musculacao', session.id, session.actualDate || session.plannedDate, set.completedAt ? new Date(set.completedAt).toLocaleTimeString('pt-BR') : '', workout ? workout.label : session.workoutId, session.week, session.status, exercise ? exercise.name : log.exerciseId, log.variationId, log.machineId, log.side, index + 1, set.type, set.load, set.reps, set.rir, set.status, set.nextRestSeconds, set.status === 'pain' || log.feeling === 'pain' ? 'sim' : 'não', log.feedback, '', '', '', '', '', '', [set.note, executionFeedbackText(log) ? `Controle da execução: ${executionFeedbackText(log)}` : ''].filter(Boolean).join('; ')]));
       });
+      if (session.postLegCheck) {
+        const check = session.postLegCheck;
+        const description = [check.noRelevantChange ? 'Sem mudança relevante' : '', ...Object.keys(POST_LEG_CHECK_LABELS).filter(flag => check[flag]).map(flag => POST_LEG_CHECK_LABELS[flag]), check.note].filter(Boolean).join('; ');
+        rows.push(['check_apos_pernas', session.id, session.actualDate || session.plannedDate, '', workout.label, session.week, session.status, '', '', '', '', '', '', '', '', '', '', '', check.rightCalfPain || check.kneePain || check.anklePain ? 'sim' : 'não', '', '', '', '', '', '', '', description]);
+      }
     });
     state.cardio.forEach(item => rows.push(['cardio', item.relatedSessionId, item.date, item.startTime, '', '', item.status, '', '', '', '', '', '', '', '', '', '', '', item.status === 'not_pain' || item.legDayFlags.rightCalfPain || item.legDayFlags.kneePain || item.legDayFlags.anklePain ? 'sim' : 'não', item.discomfort, item.durationMinutes, item.distanceKm, item.effort, '', '', '', item.note]));
     state.measurements.forEach(item => Object.entries(Measurements.METRICS).forEach(([key, metric]) => {

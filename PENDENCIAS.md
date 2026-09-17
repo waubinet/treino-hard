@@ -1,5 +1,36 @@
 # Pendências reais
 
+## Verificação de 2026-09-16
+
+### Ajuste de 2026-09-17 — aquecimento e séries em aparelhos
+
+- A ficha local passou a usar 3 séries de trabalho nos aparelhos bilaterais. Totais: Empurrar A 19, Puxar A 15, Pernas A 15, Empurrar B 19, Puxar B 15 e Pernas B 15.
+- A remada unilateral permanece com 2 séries por lado (4 execuções); terra e acessórios com peso livre mantêm suas prescrições próprias. Na semana 8/deload, a redução temporária para até 2 séries continua intencional.
+- Os primeiros exercícios mantêm aquecimento: 3 no supino reto, 2 nas puxadas, 3 no agachamento e 3 no terra. O leg press conserva 1 aquecimento adicional.
+- Sessões futuras ainda vazias com retrato antigo agora recebem automaticamente a ficha atual. Sessões iniciadas, parciais, concluídas ou com qualquer carga/repetição anotada não são reescritas.
+- Validação de lógica após a mudança: 124/124 testes passaram. Suíte completa de navegador e publicação ainda precisam terminar antes de declarar a versão pública atualizada.
+
+- URL pública ainda entrega `APP_VERSION = '3.5.1'`, conferida diretamente em `js/core.js`. Alterações locais 3.6.0 não foram publicadas.
+- Corrigido localmente o primeiro exercício de Empurrar B (3 registros de aquecimento) e Puxar B (2 registros opcionais), espelhando a exposição A. Não aumentam as séries de trabalho nem o volume principal. Retratos históricos não foram alterados.
+- Vídeos locais: 20 aprovados e 26 pendentes. Além das três aprovações de 2026-09-07, a revisão individual aprovou mesa flexora, cadeira flexora, tríceps testa com halteres, puxadas supinada/neutra em recortes distintos, tríceps corda e rosca direta com barra W. Reprodução incorporada confirmou estado 1 no IFrame Player API. Não confundir aprovação local com disponibilidade pública.
+- Ainda necessário validar recortes no app, concluir curadoria restante, oferecer atualização segura de sessões futuras vazias e concluir a suíte completa antes da publicação.
+
+## Pedido de 2026-09-07 — crossover para voador
+
+- Ficha local alterada: `machine_fly` substitui `cable_crossover` em Empurrar A, com 2 séries e 90 s. Rótulo Voador (peck deck) nas duas exposições de peito. Catálogo legado e registros existentes não foram renomeados.
+- Candidato brasileiro: Treino em FOCO, `6Jis3DZBSYU`, 18:15, vinculado pela página oficial https://www.treinoemfoco.com.br/peck-deck-como-executar/ . Reprodução e trechos visuais de apoio/ajuste/trajetória conferidos; ainda **pending**, sem alegar revisão integral ou incorporação validada.
+- Foto recebida em 2026-09-07 confirma pegadores nas mãos, sem apoio nos antebraços. Candidato do Treino em FOCO substituído por `FzCnfD0gOXo` (Leandro Twin), ainda pendente. Fila dos demais exercícios em `REVISAO-VIDEOS-2026-09-07.md`.
+- 122/122 testes de lógica passaram após trocar a ficha; suíte de navegador e publicação seguem pendentes. A alteração do catálogo vale para novas sessões; planejar aplicação explícita nas sessões futuras vazias sem alterar as já executadas.
+
+## Rodada 3.6.0 em revisão — 2026-09-06
+
+- Implementação local do esquema 13 e acompanhamento independente dos lados. Não publicada enquanto a suíte completa e a revisão final não encerrarem.
+- Inventário atual: **46 entradas, 10 aprovadas, 36 pendentes**. Cinco entradas unilaterais novas aguardam fonte brasileira/pt-BR e inspeção visual exata; nenhuma foi aprovada por título ou reutilização de vídeo bilateral.
+- A revisão não equivale a teste em iPhone físico nem a avaliação clínica. Não usar limpar dados/reinstalar como etapa de atualização.
+- Resultados desta rodada serão consolidados no topo de `TESTES.md` e `RELATORIO-FINAL.md`.
+
+## Registro da publicação anterior
+
 Atualizado em **2026-08-31**. Versão **3.5.1**, esquema **12**, publicada em
 `https://waubinet.github.io/treino-hard/`. O commit funcional
 `6834706a33236ecedacb27524aad204ed238ad74` recebeu status `built` no GitHub

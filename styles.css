@@ -2316,6 +2316,40 @@ details[open] > summary::after {
   margin-top: 16px;
 }
 
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.comparison-table caption {
+  padding: 12px;
+  text-align: left;
+  color: var(--muted);
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 12px;
+  min-width: 6rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+
+.comparison-table thead th { color: var(--muted); }
+.comparison-table tbody tr:last-child > * { border-bottom: 0; }
+
 .muscle-volume-row {
   display: grid;
   gap: 6px;

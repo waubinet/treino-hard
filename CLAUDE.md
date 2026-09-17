@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Estado atual: versão **3.5.1**, esquema **12**, cache `treino-hard-v3.5.1`.
+- Estado público de partida: **3.5.1**, esquema **12**. Rodada local **3.6.0**, esquema **13**, cache `treino-hard-v3.6.0`, em revisão (consultar `TESTES.md`).
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Arquitetura
@@ -15,6 +15,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 | `styles.css` | tema escuro único |
 | `js/workouts.js` | `THFData`: catálogo, ficha, periodização, vídeos |
 | `js/core.js` | `THFCore`: normalização, migração, backup, cripto, regras |
+| `js/legacy-v12.js` | ficha histórica congelada da 3.5.1, usada na migração 11/12; não atualizar junto do catálogo atual |
 | `js/storage.js` | `THFStorage`: IndexedDB com fallback em `localStorage` |
 | `js/measurements.js` | `THFMeasurements`: métricas e silhueta |
 | `js/app.js` | interface, eventos delegados, service worker |
@@ -22,6 +23,8 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 Toda a interface é montada por `element()` com `textContent`. Nada de `innerHTML`,
 nada de `on*` inline: a CSP proíbe.
+
+No esquema 13, renderização/validação de sessões usa `Core.sessionWorkout` / `sessionExercise` e o `sideModeSnapshot`, nunca a cardinalidade da ficha atual. Mudar acompanhamento/preferência não remodela histórico. Não remover/renomear banco ou chaves `_v11`; são os nomes estáveis do armazenamento.
 
 ## Referência visual
 
@@ -79,16 +82,18 @@ A ficha é **congelada** e vive em três lugares, nesta ordem de autoridade:
 a tabela desses testes junto com o código.
 
 ```
-Segunda  Empurrar A  17 séries
+Segunda  Empurrar A  19 séries
 Terça    Puxar A     15 séries
-Quarta   Pernas A    14 séries
-Quinta   Empurrar B  15 séries
-Sexta    Puxar B     14 séries
-Sábado   Pernas B    14 séries
+Quarta   Pernas A    15 séries
+Quinta   Empurrar B  19 séries
+Sexta    Puxar B     15 séries
+Sábado   Pernas B    15 séries
 Domingo  descanso completo, sem meta obrigatória
 ```
 
 - Supino reto e inclinado **na máquina**, nas duas exposições de peito.
+- Exercícios em máquina usam 3 séries de trabalho. A remada unilateral mantém 2 por lado (4 execuções corporais); na semana de deload a redução temporária para até 2 séries continua intencional.
+- Alteração autorizada em 2026-09-07: Empurrar A usa **Voador (peck deck)** no lugar do crossover, mantendo 2 séries e 90 s; Empurrar B usa o mesmo nome para `machine_fly`. Não converter registros históricos de crossover em voador. Sessões já existentes conservam seu retrato histórico.
 - Sem stiff e sem terra romeno. Terra com barra só em Pernas B, com periodização própria.
 - Remada unilateral: 2 séries **por lado**; dois registros (`side` esquerdo/direito),
   volume contado uma vez.

@@ -5,10 +5,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {webcrypto} = require('node:crypto');
 const {TextEncoder, TextDecoder} = require('node:util');
+const {readLegacyState, readLegacyBackup} = require('./legacy-fixture.cjs');
 
 const ROOT = path.resolve(__dirname, '..');
 const MODULES = [
   'js/workouts.js',
+  'js/legacy-v12.js',
   'js/core.js',
   'js/storage.js',
   'js/measurements.js'
@@ -107,6 +109,7 @@ function boot(initialStorage = {}, options = {}) {
     TextDecoder
   });
   MODULES.forEach(file => {
+    if (file === 'js/core.js' && options.beforeCore) vm.runInContext(options.beforeCore, context, {filename: 'test-catalog-override'});
     const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
     vm.runInContext(source, context, {filename: file});
   });
@@ -210,12 +213,12 @@ test('catálogo contém seis treinos com os volumes declarados', () => {
     calculated: app.Core.workoutVolume(workout)
   })));
   assert.deepEqual(summary, [
-    {id: 'push_a', weekday: 1, declared: 17, calculated: 17},
+    {id: 'push_a', weekday: 1, declared: 19, calculated: 19},
     {id: 'pull_a', weekday: 2, declared: 15, calculated: 15},
-    {id: 'legs_a', weekday: 3, declared: 14, calculated: 14},
-    {id: 'push_b', weekday: 4, declared: 15, calculated: 15},
-    {id: 'pull_b', weekday: 5, declared: 14, calculated: 14},
-    {id: 'legs_b', weekday: 6, declared: 14, calculated: 14}
+    {id: 'legs_a', weekday: 3, declared: 15, calculated: 15},
+    {id: 'push_b', weekday: 4, declared: 19, calculated: 19},
+    {id: 'pull_b', weekday: 5, declared: 15, calculated: 15},
+    {id: 'legs_b', weekday: 6, declared: 15, calculated: 15}
   ]);
   assert.equal(new Set(summary.map(item => item.id)).size, 6);
 });
@@ -364,8 +367,8 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
   const approvedClasses = new Set(['technical_guide', 'objective_demo', 'visual_reference']);
 
   // A política brasileira é uma barreira de publicação: a revisão anterior
-  // continua registrada, mas só dez entradas hoje comprovam origem BR e pt-BR.
-  assert.equal(accepted.length, 10, 'somente vídeos brasileiros comprovados podem permanecer aprovados');
+  // continua registrada; novas revisões exigem prova individual e data explícita.
+  assert.equal(accepted.length, 20, 'somente vídeos brasileiros comprovados podem permanecer aprovados');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.equal(video.exactMatch, true, `${key}: correspondência exata`);
@@ -375,7 +378,9 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     assert.equal(video.creatorCountry, 'BR', `${key}: origem brasileira`);
     assert.equal(video.language, 'pt-BR', `${key}: idioma brasileiro`);
     assert.match(video.originEvidence, /^https:\/\//, `${key}: evidência pública da origem`);
-    assert.match(video.reviewedAt, /^2026-08-09$/, `${key}: data da revisão visual`);
+    const recentReview = ['machine_fly', 'lateral_raise_dumbbell', 'hammer_curl_standing'].includes(key);
+    const september16 = ['leg_curl_lying', 'leg_curl_seated', 'triceps_skull_dumbbell', 'pulldown_supinated', 'pulldown_neutral', 'triceps_rope', 'ez_bar_curl'].includes(key);
+    assert.equal(video.reviewedAt, september16 ? '2026-09-16' : recentReview ? '2026-09-07' : '2026-08-09', `${key}: data da revisão visual`);
     // A incorporação foi verificada com o IFrame Player API em 2026-08-09:
     // erro 101/150 vira external_only, erro 100 viraria removed_or_private.
     assert.ok(['available', 'external_only'].includes(video.availability), `${key}: disponibilidade verificada`);
@@ -791,19 +796,18 @@ test('modo somente leitura bloqueia também snapshots e cópias automáticas', a
 
 test('primário de esquema anterior só é migrado depois de recuperação durável', async () => {
   const seed = boot();
-  const oldState = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
-  oldState.schemaVersion = 10;
+  const oldState = plain(seed.run('THFCore.migrate9To10({schemaVersion: 9, data: {}})'));
   const raw = JSON.stringify(oldState);
   const app = boot({treinohard_document_v11: raw});
   const storage = new app.Storage.AppStorage();
   storage.mode = 'localstorage';
 
   const migrated = await storage.readDocument();
-  assert.equal(migrated.schemaVersion, 12);
+  assert.equal(migrated.schemaVersion, 13);
   assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
   const saved = await storage.writeDocument(migrated, migrated.revision, {});
-  assert.equal(saved.schemaVersion, 12);
-  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).schemaVersion, 12);
+  assert.equal(saved.schemaVersion, 13);
+  assert.equal(JSON.parse(app.store.get(app.Storage.FALLBACK_KEY)).schemaVersion, 13);
 
   const blockedApp = boot(
     {treinohard_document_v11: raw},
@@ -816,21 +820,16 @@ test('primário de esquema anterior só é migrado depois de recuperação durá
   assert.equal(readOnly.sessions.length, 0);
 });
 
-test('inicialização confirma a migração 11 para 12 antes da cópia automática', async () => {
-  const seed = boot();
-  const oldState = plain(seed.Core.defaultState('2026-08-10T08:00:00.000Z'));
-  oldState.schemaVersion = 11;
-  delete oldState.settings.equipmentLoadSteps;
-  oldState.sessions = seed.Data.WORKOUTS.map((workout, index) =>
-    plain(seed.Core.createSession(workout.id, `2026-08-${String(10 + index).padStart(2, '0')}`, 1)));
+test('inicialização confirma a migração física 11 para 13 antes da cópia automática', async () => {
+  const oldState = readLegacyState(11);
   const raw = JSON.stringify(oldState);
   const app = boot({treinohard_document_v11: raw});
   const storage = new app.Storage.AppStorage();
 
   const initialized = await storage.init();
   const persisted = JSON.parse(app.store.get(app.Storage.FALLBACK_KEY));
-  assert.equal(initialized.schemaVersion, 12);
-  assert.equal(persisted.schemaVersion, 12, 'a migração não pode ficar apenas na memória');
+  assert.equal(initialized.schemaVersion, 13);
+  assert.equal(persisted.schemaVersion, 13, 'a migração não pode ficar apenas na memória');
   assert.equal(persisted.revision, oldState.revision + 1);
   assert.equal(persisted.sessions.length, oldState.sessions.length);
   assert.equal(storedRecoveryItems(app).some(recovery => recovery.raw === raw), true);
@@ -839,8 +838,7 @@ test('inicialização confirma a migração 11 para 12 antes da cópia automáti
 
 test('migração não sobrescreve revisão antiga mais nova gravada por outra aba', async () => {
   const seed = boot();
-  const oldRevisionFive = plain(seed.Core.defaultState('2026-08-08T12:00:00.000Z'));
-  oldRevisionFive.schemaVersion = 10;
+  const oldRevisionFive = plain(seed.run('THFCore.migrate9To10({schemaVersion: 9, data: {}})'));
   oldRevisionFive.revision = 5;
   const app = boot({treinohard_document_v11: JSON.stringify(oldRevisionFive)});
   const storage = new app.Storage.AppStorage();
@@ -959,7 +957,7 @@ test('ciclo legado e cópias locais corrompidos são recusados antes de substitu
 test('envelope atual não pode esconder estado interno de outro app ou esquema', () => {
   const app = boot();
   const state = plain(app.Core.defaultState('2026-08-08T12:00:00.000Z'));
-  const envelope = {app: app.Core.APP_ID, schemaVersion: 12, format: 'treino-hard-backup', state};
+  const envelope = {app: app.Core.APP_ID, schemaVersion: 13, format: 'treino-hard-backup', state};
   for (const mutation of [
     value => { value.state.app = 'outro-app'; },
     value => { value.state.schemaVersion = 99; }
@@ -1076,11 +1074,11 @@ test('inicialização migra cópias automáticas antigas sem apagar a fonte', as
   const converted = JSON.parse(app.store.get('treinohard_auto_backups_v11'));
   assert.equal(converted.length, 1);
   assert.equal(converted[0].legacy, true);
-  assert.equal(converted[0].state.schemaVersion, 12);
+  assert.equal(converted[0].state.schemaVersion, 13);
   assert.ok(app.store.get('treinohard_recovery_v11'));
 });
 
-test('migrações 10 para 11 e 11 para 12 produzem estado normalizado', () => {
+test('migrações 10 para 11, 11 para 12 e 12 para 13 produzem estado normalizado', () => {
   const app = boot();
   const result = app.run(`(() => {
     const v10 = THFCore.migrate9To10({
@@ -1095,13 +1093,14 @@ test('migrações 10 para 11 e 11 para 12 produzem estado normalizado', () => {
   assert.equal(result.direct.schemaVersion, 11, 'a etapa isolada 10→11 permanece inspecionável');
   ['wrapped', 'complete'].forEach(key => {
     const state = result[key];
-    assert.equal(state.schemaVersion, 12, key);
+    assert.equal(state.schemaVersion, 13, key);
     assert.equal(state.app, app.Core.APP_ID, key);
     assert.equal(Array.isArray(state.progressionDecisions), true, key);
     assert.equal(Array.isArray(state.quarantine), true, key);
     assert.equal(state.legacyCycles[0].records[0].canonicalId, 'pulldown_neutral', key);
     assert.equal(state.migrationLog.some(item => item.from === 10 && item.to === 11), true, key);
     assert.equal(state.migrationLog.some(item => item.from === 11 && item.to === 12), true, key);
+    assert.equal(state.migrationLog.some(item => item.from === 12 && item.to === 13), true, key);
     assert.deepEqual(plain(state.settings.equipmentLoadSteps), [], key);
   });
 });
@@ -1177,7 +1176,7 @@ test('backup criptografado rejeita senha errada, ciphertext, IV, salt e truncame
   }
 });
 
-test('JSON interno inválido falha após autenticação e esquema futuro segue para a validação normal', async () => {
+test('JSON interno inválido e esquema divergente do cabeçalho autenticado são recusados', async () => {
   const app = boot();
   const password = 'senha-muito-segura-2026';
   const malformed = await encryptedRawJson(app, '{"app":"treino-hard-fofo",', password);
@@ -1194,13 +1193,12 @@ test('JSON interno inválido falha após autenticação e esquema futuro segue p
     state: {app: app.Core.APP_ID, schemaVersion: 99}
   };
   const futureEnvelope = await encryptedRawJson(app, JSON.stringify(futureDocument), password);
-  const decrypted = await app.Core.decryptBackup(cloneIntoContext(app, futureEnvelope), password);
-  assert.equal(decrypted.schemaVersion, 99, 'a criptografia não deve normalizar nem rebaixar o esquema interno');
-  assert.throws(
-    () => app.Core.importPreview(decrypted),
-    /versão mais nova/,
-    'a mesma validação do JSON comum deve recusar o esquema futuro depois da descriptografia'
+  await assert.rejects(
+    () => app.Core.decryptBackup(cloneIntoContext(app, futureEnvelope), password),
+    /conteúdo interno.*não corresponde ao esquema autenticado/i,
+    'um esquema interno futuro não pode se esconder sob um cabeçalho atual autenticado'
   );
+  assert.throws(() => app.Core.importPreview(cloneIntoContext(app, futureDocument)), /versão mais nova/);
 });
 
 test('backup v1 anterior com 310 mil iterações continua compatível', async () => {
@@ -1410,15 +1408,15 @@ const MOBILIDADE_CANONICA = Object.freeze([
   ['mob_ankle', 'Mobilidade de tornozelo', 2, '10 repetições']
 ]);
 
-// [id, nome, séries, categoria, descanso em segundos, unilateral]
+// [id, nome, séries, categoria, descanso em segundos, modo padrão unilateral]
 const FICHA_CANONICA = Object.freeze({
   push_a: {
-    label: 'Empurrar A', weekday: 1, total: 17, mobilidade: [],
+    label: 'Empurrar A', weekday: 1, total: 19, mobilidade: [],
     exercicios: [
       ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
       ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
-      ['cable_crossover', 'Crossover na polia', 2, 'accessory', 90, false],
-      ['shoulder_press_machine', 'Desenvolvimento na máquina', 2, 'upper_compound', 120, false],
+      ['machine_fly', 'Voador (peck deck)', 3, 'accessory', 90, false],
+      ['shoulder_press_machine', 'Desenvolvimento na máquina', 3, 'upper_compound', 120, false],
       ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
       ['triceps_skull_dumbbell', 'Tríceps testa com halteres', 2, 'accessory', 90, false],
       ['triceps_rope', 'Tríceps na polia com corda', 2, 'accessory', 90, false]
@@ -1436,45 +1434,45 @@ const FICHA_CANONICA = Object.freeze({
     ]
   },
   legs_a: {
-    label: 'Pernas A', weekday: 3, total: 14, mobilidade: MOBILIDADE_CANONICA,
+    label: 'Pernas A', weekday: 3, total: 15, mobilidade: MOBILIDADE_CANONICA,
     exercicios: [
       ['squat', 'Agachamento', 3, 'squat_press', 150, false],
       ['leg_press_45', 'Leg press 45°', 3, 'squat_press', 150, false],
-      ['leg_extension', 'Cadeira extensora', 2, 'accessory', 90, false],
+      ['leg_extension', 'Cadeira extensora', 3, 'accessory', 90, false],
       ['leg_curl', 'Flexora', 3, 'accessory', 90, false],
       ['calf_standing_or_leg_press', 'Panturrilha em pé ou no leg press', 3, 'accessory', 90, false]
     ]
   },
   push_b: {
-    label: 'Empurrar B', weekday: 4, total: 15, mobilidade: [],
+    label: 'Empurrar B', weekday: 4, total: 19, mobilidade: [],
     exercicios: [
-      ['chest_press_machine', 'Supino reto na máquina', 2, 'upper_compound', 120, false],
-      ['incline_press_machine', 'Supino inclinado na máquina', 2, 'upper_compound', 120, false],
-      ['machine_fly', 'Crucifixo no aparelho', 2, 'accessory', 90, false],
-      ['shoulder_press_machine', 'Desenvolvimento na máquina', 2, 'upper_compound', 120, false],
+      ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
+      ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
+      ['machine_fly', 'Voador (peck deck)', 3, 'accessory', 90, false],
+      ['shoulder_press_machine', 'Desenvolvimento na máquina', 3, 'upper_compound', 120, false],
       ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
       ['triceps_overhead', 'Tríceps testa ou extensão acima da cabeça', 2, 'accessory', 90, false],
       ['triceps_rope', 'Tríceps na polia com corda', 2, 'accessory', 90, false]
     ]
   },
   pull_b: {
-    label: 'Puxar B', weekday: 5, total: 14, mobilidade: [],
+    label: 'Puxar B', weekday: 5, total: 15, mobilidade: [],
     exercicios: [
       ['pulldown_neutral', 'Puxada frontal com pegada neutra', 3, 'upper_compound', 120, false],
       ['row_machine_choice', 'Remada sentada ou articulada', 3, 'upper_compound', 120, false],
       ['unilateral_row_machine', 'Remada unilateral na máquina', 2, 'upper_compound', 120, true],
-      ['reverse_fly_machine', 'Crucifixo invertido no aparelho', 2, 'accessory', 90, false],
+      ['reverse_fly_machine', 'Crucifixo invertido no aparelho', 3, 'accessory', 90, false],
       ['ez_bar_curl', 'Rosca direta com barra W', 2, 'accessory', 90, false],
       ['hammer_curl_standing', 'Rosca martelo em pé', 2, 'accessory', 90, false]
     ]
   },
   legs_b: {
-    label: 'Pernas B', weekday: 6, total: 14, mobilidade: MOBILIDADE_CANONICA,
+    label: 'Pernas B', weekday: 6, total: 15, mobilidade: MOBILIDADE_CANONICA,
     exercicios: [
       ['deadlift_barbell', 'Levantamento terra com barra', 2, 'deadlift', 180, false],
       ['leg_press_45', 'Leg press 45°', 3, 'squat_press', 150, false],
       ['leg_curl', 'Flexora', 4, 'accessory', 90, false],
-      ['leg_extension', 'Cadeira extensora', 2, 'accessory', 90, false],
+      ['leg_extension', 'Cadeira extensora', 3, 'accessory', 90, false],
       ['calf_seated', 'Panturrilha sentada', 3, 'accessory', 90, false]
     ]
   }
@@ -1507,7 +1505,7 @@ test('conformidade: cada treino traz exatamente os exercícios, a ordem e as sé
 
     const forca = workout.exercises.filter(exercise => exercise.type === 'strength');
     assert.deepEqual(
-      plain(forca.map(exercise => [exercise.id, exercise.name, exercise.workSets, exercise.category, exercise.restSeconds, Boolean(exercise.unilateral)])),
+      plain(forca.map(exercise => [exercise.id, exercise.name, exercise.workSets, exercise.category, exercise.restSeconds, app.Data.sideModeFor(exercise, exercise.defaultVariant) === 'unilateral'])),
       esperado.exercicios.map(item => item.slice()),
       `exercícios divergentes em ${workoutId}`
     );
@@ -1518,10 +1516,10 @@ test('conformidade: cada treino traz exatamente os exercícios, a ordem e as sé
   }
 });
 
-test('conformidade: totais planejados são 17, 15, 14, 15, 14 e 14', () => {
+test('conformidade: aparelhos bilaterais usam três séries e os totais refletem a ficha', () => {
   const app = boot();
-  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => workout.workSetTotal)), [17, 15, 14, 15, 14, 14]);
-  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => app.Core.workoutVolume(workout))), [17, 15, 14, 15, 14, 14]);
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => workout.workSetTotal)), [19, 15, 15, 19, 15, 15]);
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => app.Core.workoutVolume(workout))), [19, 15, 15, 19, 15, 15]);
 });
 
 test('conformidade: periodização das oito semanas por categoria', () => {
@@ -1589,19 +1587,49 @@ test('conformidade: descansos por categoria seguem 2:00, 2:30, 3:00 e 1:30', () 
 
 test('conformidade: aquecimentos previstos aparecem como séries que não contam volume', () => {
   const app = boot();
-  const esperado = {chest_press_machine: 3, pulldown_supinated: 2, squat: 3, leg_press_45: 1, deadlift_barbell: 3};
+  const esperado = {chest_press_machine: 3, pulldown_supinated: 2, pulldown_neutral: 2, squat: 3, leg_press_45: 1, deadlift_barbell: 3};
   for (const exercise of Object.values(app.Data.CATALOG)) {
     assert.equal(exercise.warmupSets, esperado[exercise.id] || 0, `aquecimento divergente em ${exercise.id}`);
   }
-  // Em Empurrar B o supino reto entra sem aquecimento, porque já foi aquecido em A.
+  // Cada sessão mantém seu próprio registro de aquecimento, inclusive a exposição B.
   const supinoB = app.Data.WORKOUT_BY_ID.push_b.exercises.find(exercise => exercise.id === 'chest_press_machine');
-  assert.equal(supinoB.warmupSets, 0);
+  assert.equal(supinoB.warmupSets, 3);
+  for (const workout of app.Data.WORKOUTS) {
+    const first = workout.exercises.find(exercise => exercise.type === 'strength');
+    const created = app.Core.createSession(workout.id, '2026-09-16', 1);
+    const log = created.exercises.find(item => item.exerciseId === first.id);
+    assert.ok(first.warmupSets > 0, `${workout.label}: primeiro exercício sem aquecimento`);
+    assert.equal(log.sets.filter(set => set.type === 'warmup').length, first.warmupSets);
+    assert.equal(log.sets.filter(set => set.type === 'work').length, first.workSets);
+  }
 
   const session = app.Core.createSession('push_a', '2026-08-10', 1);
   const supino = session.exercises.find(log => log.exerciseId === 'chest_press_machine');
   assert.equal(supino.sets.filter(set => set.type === 'warmup').length, 3);
   assert.equal(supino.sets.filter(set => set.type === 'work').length, 3);
   assert.equal(supino.sets.filter(set => set.type === 'warmup').every(set => set.nextRestSeconds === 0), true);
+});
+
+test('sessão futura vazia recebe a ficha atual, mas qualquer execução preserva o retrato antigo', () => {
+  const app = boot();
+  const empty = app.Core.createSession('push_b', '2026-09-17', 1);
+  empty.workoutSnapshot.revision = '3.5.1';
+  const oldFirst = empty.exercises.find(log => log.exerciseId === 'chest_press_machine');
+  oldFirst.sets = oldFirst.sets.filter(set => set.type === 'work');
+  oldFirst.machineId = 'Supino da academia';
+  const id = oldFirst.id;
+  assert.equal(app.Core.refreshEmptyPlannedSession(empty, {}), true);
+  const refreshed = empty.exercises.find(log => log.exerciseId === 'chest_press_machine');
+  assert.equal(empty.workoutSnapshot.revision, app.Data.WORKOUT_REVISION);
+  assert.equal(refreshed.sets.filter(set => set.type === 'warmup').length, 3);
+  assert.equal(refreshed.id, id, 'identidade do registro vazio é preservada');
+  assert.equal(refreshed.machineId, 'Supino da academia', 'identificação da máquina é preservada');
+
+  const started = app.Core.createSession('push_b', '2026-09-18', 1);
+  started.workoutSnapshot.revision = '3.5.1';
+  started.exercises[0].sets[0].load = '20';
+  assert.equal(app.Core.refreshEmptyPlannedSession(started, {}), false);
+  assert.equal(started.workoutSnapshot.revision, '3.5.1');
 });
 
 test('conformidade: remada unilateral gera registro separado para cada lado', () => {
@@ -1651,11 +1679,11 @@ test('conformidade: variações permitidas por exercício', () => {
     unilateral_row_machine: ['machine_left_right', 'plate_loaded'],
     row_machine_choice: ['seated_cable_triangle', 'articulated_supported', 'articulated_unsupported'],
     squat: ['free_barbell', 'smith'],
-    leg_press_45: ['machine_unspecified'],
-    leg_extension: ['machine_unspecified'],
+    leg_press_45: ['machine_unspecified', 'machine_unilateral'],
+    leg_extension: ['machine_unspecified', 'machine_unilateral'],
     leg_curl: ['seated', 'lying', 'standing_unilateral'],
-    calf_standing_or_leg_press: ['standing_machine', 'leg_press_45'],
-    calf_seated: ['seated_machine'],
+    calf_standing_or_leg_press: ['standing_machine', 'leg_press_45', 'standing_machine_unilateral', 'leg_press_45_unilateral'],
+    calf_seated: ['seated_machine', 'seated_machine_unilateral'],
     triceps_overhead: ['overhead', 'skull_crusher']
   };
   for (const exercise of Object.values(app.Data.CATALOG)) {
@@ -1730,9 +1758,9 @@ test('conformidade: bracing é orientação e vacuum fica fora do volume da musc
 test('conformidade: versão do app e esquema de dados são independentes', () => {
   const app = boot();
   assert.match(app.Core.APP_VERSION, /^\d+\.\d+\.\d+$/);
-  assert.equal(app.Core.SCHEMA_VERSION, 12);
+  assert.equal(app.Core.SCHEMA_VERSION, 13);
   const backup = app.Core.buildBackup(app.Core.defaultState());
-  assert.equal(backup.schemaVersion, 12);
+  assert.equal(backup.schemaVersion, 13);
   assert.equal(Object.prototype.hasOwnProperty.call(backup, 'appVersion'), false, 'a versão do app não entra no formato persistido');
 });
 
@@ -1760,10 +1788,10 @@ test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
     total[videos[chave].status] = (total[videos[chave].status] || 0) + 1;
     return total;
   }, {});
-  assert.equal(chaves.length, 41, 'total de entradas do catálogo');
-  assert.deepEqual(contagem, {pending: 31, accepted: 10}, 'distribuição por estado');
-  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 32, 'entradas com identificador do YouTube');
-  assert.equal(chaves.filter(chave => videos[chave].url).length, 32, 'entradas com URL');
+  assert.equal(chaves.length, 46, 'total de entradas do catálogo');
+  assert.deepEqual(contagem, {pending: 26, accepted: 20}, 'distribuição por estado');
+  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 34, 'entradas com identificador do YouTube');
+  assert.equal(chaves.filter(chave => videos[chave].url).length, 34, 'entradas com URL');
 });
 
 test('inventário de vídeos: estados e classificações usam o enum do código', () => {
@@ -1809,7 +1837,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 10, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 19, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);
@@ -1825,7 +1853,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
     assert.notEqual(video.availability, 'removed_or_private', `${chave}: disponibilidade`);
   });
 
-  assert.equal(bloqueados.length, 19, 'todos os candidatos aceitos fora da lista brasileira devem ser bloqueados');
+  assert.equal(bloqueados.length, 11, 'todos os candidatos aceitos fora da lista brasileira devem ser bloqueados');
   bloqueados.forEach(([chave, video]) => {
     assert.equal(video.status, 'pending', `${chave}: candidato incompatível precisa ficar pendente`);
     assert.equal(video.classification, 'pending', `${chave}: classificação não pode continuar aprovada`);
@@ -1873,6 +1901,23 @@ test('inventário de vídeos: identificador repetido só com recorte diferente e
       assert.ok(video.decision, `${chave} reaproveita vídeo sem registrar a decisão`);
     });
   }
+});
+
+test('recortes revisados têm limites válidos e distinguem as pegadas', () => {
+  const videos = boot().Data.VIDEOS;
+  for (const [key, video] of Object.entries(videos)) {
+    assert.ok(Number.isInteger(video.startSeconds) && video.startSeconds >= 0, key);
+    assert.ok(Number.isInteger(video.endSeconds) && video.endSeconds >= 0, key);
+    if (!video.endSeconds) continue;
+    assert.ok(video.endSeconds > video.startSeconds, `${key}: fim depois do início`);
+    const duration = video.duration.split(':').reduce((total, part) => total * 60 + Number(part), 0);
+    assert.ok(video.endSeconds <= duration, `${key}: recorte dentro da duração`);
+  }
+  assert.equal(videos.pulldown_supinated.startSeconds, 81);
+  assert.equal(videos.pulldown_supinated.endSeconds, 100);
+  assert.equal(videos.pulldown_neutral.startSeconds, 114);
+  assert.equal(videos.pulldown_neutral.endSeconds, 140);
+  assert.ok(videos.pulldown_supinated.endSeconds < videos.pulldown_neutral.startSeconds);
 });
 
 test('inventário de vídeos: toda execução possível da ficha resolve uma entrada', () => {
@@ -2058,15 +2103,10 @@ test('degrau de carga cai sempre num valor que o aparelho tem', () => {
   );
 });
 
-test('esquema 12 migra o 11 e preserva degraus válidos por aparelho', () => {
+test('esquema 13 migra o 11 através do 12 e preserva degraus válidos por aparelho', () => {
   const app = boot();
-  const migrated = app.run(`(() => {
-    const state11 = THFCore.defaultState('2026-08-30T12:00:00.000Z');
-    state11.schemaVersion = 11;
-    delete state11.settings.equipmentLoadSteps;
-    return THFCore.migratePayload({app: THFCore.APP_ID, schemaVersion: 11, state: state11});
-  })()`);
-  assert.equal(migrated.schemaVersion, 12);
+  const migrated = app.Core.migratePayload(cloneIntoContext(app, readLegacyBackup(11)));
+  assert.equal(migrated.schemaVersion, 13);
   assert.deepEqual(plain(migrated.settings.equipmentLoadSteps), []);
   assert.equal(migrated.migrationLog.some(item => item.from === 11 && item.to === 12), true);
 
@@ -2126,12 +2166,12 @@ test('volume muscular separa séries diretas e participação secundária', () =
   const app = boot();
   const planned = plain(app.run('THFCore.plannedMuscleVolume(1)'));
   const byId = Object.fromEntries(planned.map(item => [item.id, item]));
-  assert.equal(byId.chest.direct, 14);
+  assert.equal(byId.chest.direct, 18);
   assert.equal(byId.back.direct, 18);
-  assert.equal(byId.shoulders.direct, 15);
+  assert.equal(byId.shoulders.direct, 18);
   assert.equal(byId.triceps.direct, 8);
   assert.equal(byId.biceps.direct, 8);
-  assert.equal(byId.quadriceps.direct, 13);
+  assert.equal(byId.quadriceps.direct, 15);
   assert.equal(byId.hamstrings.direct, 9);
   assert.equal(byId.glutes.direct, 11);
   assert.equal(byId.calves.direct, 6);

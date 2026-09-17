@@ -65,10 +65,26 @@
     return parsed;
   }
 
+  function migrateStoredState(state) {
+    if (!Core.isRecord(state) || state.app !== Core.APP_ID) {
+      throw new Error('O estado armazenado não pertence ao Treino Hard.');
+    }
+    const sourceVersion = Number(state.schemaVersion);
+    if (!Number.isInteger(sourceVersion) || sourceVersion < 1) {
+      throw new Error('O estado armazenado não declara um esquema válido.');
+    }
+    // A cópia impede que uma migração futura altere, por referência, o item
+    // guardado. Estados de esquema futuro e estados corrompidos continuam sendo
+    // recusados pelo migrador/validador do Core.
+    const migrated = Core.migratePayload(Core.deepClone(state));
+    Core.assertCurrentStateStructure(migrated);
+    return migrated;
+  }
+
   function isValidBackupItem(item) {
     if (!Core.isRecord(item) || !Core.cleanId(item.id, '') || !Core.validIso(item.savedAt) || !Core.isRecord(item.state)) return false;
     try {
-      Core.assertCurrentStateStructure(item.state);
+      migrateStoredState(item.state);
       return true;
     } catch (error) {
       return false;
@@ -78,7 +94,7 @@
   function isValidSnapshotItem(item) {
     if (!Core.isRecord(item) || !Core.cleanId(item.id, '') || !Core.validIso(item.savedAt) || !Core.isRecord(item.state)) return false;
     try {
-      Core.assertCurrentStateStructure(item.state);
+      migrateStoredState(item.state);
       return true;
     } catch (error) {
       return false;
@@ -425,7 +441,15 @@
         }
         const next = JSON.parse(transaction.nextRaw);
         Core.assertSafeParsed(next);
-        Core.assertCurrentStateStructure(next);
+        const sourceSchema = Number(next.schemaVersion);
+        if (!Number.isInteger(sourceSchema) || sourceSchema < 11 || sourceSchema > Core.SCHEMA_VERSION) {
+          throw new Error('O candidato da transação local usa um esquema desconhecido ou futuro.');
+        }
+        // A transação pode ter sido interrompida ANTES da atualização do app.
+        // Valide a versão antiga em cópia, mas mantenha nextRaw e seus hashes
+        // intactos: eles são a prova do commit original. A migração durável
+        // será feita pelo fluxo normal de inicialização após reconciliar.
+        migrateStoredState(next);
         const currentHash = await rawHash(currentRaw);
         const nextHash = await rawHash(transaction.nextRaw);
         if (nextHash !== transaction.nextHash || Number(next.revision) !== Number(transaction.nextRevision)) {
@@ -692,8 +716,7 @@
           if (previousRaw != null) {
             try {
               const previous = parseJsonStrict(previousRaw);
-              if (!Core.isRecord(previous) || !Core.isRecord(previous.state)) throw new Error('Snapshot em formato inválido.');
-              Core.assertCurrentStateStructure(previous.state);
+              if (!isValidSnapshotItem(previous)) throw new Error('Snapshot em formato inválido ou não migrável.');
             } catch (error) {
               await this.preserveAuxiliaryRaw(previousRaw, `Snapshot local inválido preservado antes da substituição: ${error.message || error}`);
             }
@@ -754,8 +777,7 @@
     async restoreLatestSnapshot(currentState) {
       const snapshot = await this.latestSnapshot();
       if (!snapshot || !snapshot.state) throw new Error('Nenhum snapshot válido está disponível.');
-      Core.assertCurrentStateStructure(snapshot.state);
-      const restored = Core.normalizeState(snapshot.state);
+      const restored = Core.normalizeState(migrateStoredState(snapshot.state));
       restored.revision = currentState.revision;
       return this.writeDocument(restored, currentState.revision, {});
     }
@@ -866,9 +888,8 @@
     async restoreBackup(id, currentState) {
       const backup = (await this.listBackups()).find(item => item.id === id);
       if (!backup) throw new Error('Cópia automática não encontrada.');
-      Core.assertCurrentStateStructure(backup.state);
       await this.createSnapshot(currentState, 'Antes de restaurar cópia automática');
-      const restored = Core.normalizeState(backup.state);
+      const restored = Core.normalizeState(migrateStoredState(backup.state));
       restored.revision = currentState.revision;
       return this.writeDocument(restored, currentState.revision, {});
     }

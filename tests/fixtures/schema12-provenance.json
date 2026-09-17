@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "bcef68ea252bad5a71e7ef4e92bfedcb01bfa5c1",
+  "appVersion": "3.5.1",
+  "schemaVersion": 12,
+  "sourceSha256": {
+    "js/core.js": "00840347a6c593e3088bb75aceadb1b10e3209b1aa8238b0dadb581c408b8d67",
+    "js/workouts.js": "67499146a7fd2459191c477dc8344c382c47c453c5dd4ab0de07cddcb221bf6b"
+  },
+  "fixedClock": "2026-08-31T20:00:00.000Z",
+  "syntheticData": true,
+  "generation": "Real baseline Core.defaultState/createSession/buildBackup in VM; no current schema objects."
+}

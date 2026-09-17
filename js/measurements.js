@@ -22,6 +22,90 @@
   });
 
   const MODEL_KEYS = Object.freeze(Object.keys(METRICS).filter(key => key !== 'weight'));
+  const BILATERAL_PAIRS = Object.freeze({
+    arm: Object.freeze({label: 'Braços', rightKey: 'armRight', leftKey: 'armLeft', unit: 'cm'}),
+    forearm: Object.freeze({label: 'Antebraços', rightKey: 'forearmRight', leftKey: 'forearmLeft', unit: 'cm'}),
+    thigh: Object.freeze({label: 'Coxas', rightKey: 'thighRight', leftKey: 'thighLeft', unit: 'cm'}),
+    calf: Object.freeze({label: 'Panturrilhas', rightKey: 'calfRight', leftKey: 'calfLeft', unit: 'cm'})
+  });
+
+  function measurementValue(value) {
+    if (typeof value !== 'number' && typeof value !== 'string') return null;
+    const text = String(value).trim();
+    if (!/^\d+(?:[.,]\d+)?$/.test(text)) return null;
+    const numeric = Number(text.replace(',', '.'));
+    return Number.isFinite(numeric) && numeric > 0 && numeric <= 500 ? numeric : null;
+  }
+
+  function measurementDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return '';
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : '';
+  }
+
+  function measurementOrder(item) {
+    const timestamp = [item.measuredAt, item.savedAt].find(value => typeof value === 'string' && Number.isFinite(Date.parse(value)));
+    return timestamp ? new Date(timestamp).toISOString() : '';
+  }
+
+  function roundedMeasurement(value) {
+    return Math.round((value + Number.EPSILON) * 10000000000) / 10000000000;
+  }
+
+  function bilateralMeasurementHistory(records, pairId) {
+    const pair = BILATERAL_PAIRS[pairId];
+    if (!pair || !Object.prototype.hasOwnProperty.call(BILATERAL_PAIRS, pairId)) return null;
+    const ordered = (Array.isArray(records) ? records : [])
+      .filter(item => item && typeof item === 'object' && measurementDate(item.date))
+      .map((item, index) => ({item, index, order: measurementOrder(item)}))
+      .sort((a, b) => a.item.date.localeCompare(b.item.date) || a.order.localeCompare(b.order) || String(a.item.id || '').localeCompare(String(b.item.id || '')) || a.index - b.index);
+    const points = ordered.map(({item}) => {
+      const right = measurementValue(item[pair.rightKey]);
+      const left = measurementValue(item[pair.leftKey]);
+      const derived = item.quality && Array.isArray(item.quality.derivedFields) ? item.quality.derivedFields : [];
+      const rightDerived = right !== null && derived.includes(pair.rightKey);
+      const leftDerived = left !== null && derived.includes(pair.leftKey);
+      const hasDirectPair = right !== null && left !== null && !rightDerived && !leftDerived;
+      const difference = hasDirectPair ? roundedMeasurement(Math.abs(right - left)) : null;
+      return {
+        id: typeof item.id === 'string' ? item.id : '',
+        date: item.date,
+        measuredAt: typeof item.measuredAt === 'string' ? item.measuredAt : '',
+        right,
+        left,
+        rightDerived,
+        leftDerived,
+        hasDirectPair,
+        difference,
+        relativeDifference: hasDirectPair ? roundedMeasurement(difference / Math.max(right, left) * 100) : null
+      };
+    }).filter(point => point.right !== null || point.left !== null);
+    const summarizeSide = side => {
+      const direct = points.filter(point => point[side] !== null && !point[`${side}Derived`]);
+      const reading = point => point ? {id: point.id, date: point.date, measuredAt: point.measuredAt, value: point[side]} : null;
+      const first = reading(direct[0]);
+      const latest = reading(direct[direct.length - 1]);
+      return {
+        first,
+        latest,
+        delta: direct.length > 1 ? roundedMeasurement(latest.value - first.value) : null,
+        recordCount: direct.length,
+        derivedCount: points.filter(point => point[`${side}Derived`]).length
+      };
+    };
+    const paired = points.filter(point => point.hasDirectPair);
+    return {
+      pairId,
+      label: pair.label,
+      unit: pair.unit,
+      points,
+      right: summarizeSide('right'),
+      left: summarizeSide('left'),
+      firstPair: paired[0] || null,
+      latestPair: paired[paired.length - 1] || null,
+      pairedCount: paired.length
+    };
+  }
 
   function clamp(value, min, max) {
     return Math.max(min, Math.min(max, value));
@@ -189,6 +273,8 @@
   global.THFMeasurements = Object.freeze({
     METRICS,
     MODEL_KEYS,
+    BILATERAL_PAIRS,
+    bilateralMeasurementHistory,
     clamp,
     ellipseBreadth,
     bodyGeometry,

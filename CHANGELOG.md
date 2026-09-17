@@ -1,6 +1,34 @@
 # Changelog
 
+### Correção final da ficha planejada — 2026-09-17
+
+- Sessões futuras completamente vazias deixam de ficar presas ao retrato antigo da ficha e recebem a revisão atual, incluindo o aquecimento do primeiro aparelho; IDs, máquina e preferência de faixa alta são preservados.
+- Sessões iniciadas, parciais, concluídas, canceladas ou com qualquer dado de execução continuam imutáveis.
+- Exercícios bilaterais de força em máquina passam a três séries efetivas. Exercícios unilaterais permanecem com duas por lado; a semana de deload permanece limitada a duas.
+- Totais fora do deload: Empurrar A/B 19 séries, Puxar A/B 15 e Pernas A/B 15.
+- Gate local: 124/124 testes de núcleo/medidas/lateralidade e 60/60 cenários em Chrome, além de inspeção visual desktop/móvel.
+
+### Pedido adicional em revisão — 2026-09-07
+
+- Troca autorizada do crossover por Voador (peck deck) na ficha Empurrar A, mantendo séries, descanso e periodização. Histórico de crossover preservado com identidade própria.
+- Candidato de vídeo brasileiro do Treino em FOCO cadastrado para o voador, ainda pendente de correspondência com o modelo do aparelho e revisão final.
+
 As mudanças relevantes deste projeto são registradas aqui. Este arquivo distingue implementação observada no código de validação final.
+
+## [3.6.0] — acompanhamento dos lados — 2026-09-06
+
+Esquema **13**, em revisão local. Publicação depende dos gates em `TESTES.md`.
+
+- Perfil neutro de acompanhamento entre lados, ativado por padrão com direito primeiro. Mudar preferências não remodela sessões existentes.
+- Modo bilateral/unilateral por variante: leg press/extensora oferecem ambos; flexora em pé cria dois logs; panturrilhas unilaterais são condicionais ao aparelho. Agachamento e terra continuam bilaterais.
+- Retrato completo da ficha e do modo por sessão. Migração 12 → 13 usa catálogo 3.5.1 congelado e nunca divide um registro bilateral antigo, inclusive em ciclos arquivados.
+- Feedback de amplitude habitual, compensação, controle e rigidez por lado; relato opcional após pernas e caminhada vinculada qualificam sugestões sem alterar cargas.
+- Evolução absoluta de cada lado; medidas com diferença absoluta/relativa e valores legados derivados identificados. Mobilidade mostra frequência de relatos, sem escala clínica.
+- Trocas estruturais bloqueadas após qualquer execução. Faixa alta, descansos, aparelhos e histórico preservados em mudanças de semana/variante e reagendamento.
+- Backups/snapshots 11/12 restauráveis, inclusive criptografados. Staging antigo reconciliado pelos hashes originais; esquemas inválidos/fracionários não caem no migrador ABC.
+- Cinco associações de vídeo novas pendentes, sem usar demonstração bilateral como guia unilateral. Inventário: 46 entradas, 10 aprovadas, 36 pendentes; política brasileira mantida.
+
+Pesquisa consolidada em `report-source.md`, com limites de aplicação clínica explícitos.
 
 ## [3.5.1] — correção da atualização móvel — 2026-08-31
 

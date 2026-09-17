@@ -12,6 +12,16 @@
 
   const WEEK_LABELS = Object.freeze({1: 'S1', 2: 'S2', 3: 'S3', 4: 'S4', 5: 'S5', 6: 'S6', 7: 'S7', 8: 'DL'});
 
+  const SIDE_MODES = Object.freeze({
+    BILATERAL: 'bilateral',
+    UNILATERAL: 'unilateral'
+  });
+
+  // Identifica a ficha que originou o retrato persistido de uma sessão. A
+  // versão fica separada do esquema de armazenamento porque a ficha pode
+  // evoluir sem exigir, por si só, uma migração de todos os documentos.
+  const WORKOUT_REVISION = '3.6.0-r2';
+
   const MOBILITY_SEQUENCE = Object.freeze([
     {
       id: 'mob_adductor_butterfly',
@@ -116,6 +126,20 @@
   function strength(id, name, category, sets, options) {
     const config = options || {};
     const muscles = MUSCLE_TARGETS[id] || {primary: [], secondary: []};
+    // `unilateral` é aceito apenas para que definições antigas materializadas
+    // por esta função não mudem silenciosamente de sentido. O catálogo novo e
+    // seus consumidores usam exclusivamente `defaultSideMode` e o modo da
+    // variante escolhida.
+    const legacySideMode = config.unilateral ? SIDE_MODES.UNILATERAL : SIDE_MODES.BILATERAL;
+    const defaultSideMode = Object.values(SIDE_MODES).includes(config.defaultSideMode)
+      ? config.defaultSideMode
+      : legacySideMode;
+    const variants = Object.freeze((config.variants || []).map(variant => Object.freeze(Object.assign({}, variant, {
+      sideMode: Object.values(SIDE_MODES).includes(variant.sideMode) ? variant.sideMode : defaultSideMode
+    }))));
+    const preferredTrackingVariant = variants.some(variant => variant.id === config.preferredTrackingVariant)
+      ? config.preferredTrackingVariant
+      : '';
     return Object.freeze({
       id,
       name,
@@ -132,15 +156,35 @@
       warmupOptional: Boolean(config.warmupOptional),
       detail: config.detail || '',
       notes: Object.freeze(config.notes || []),
-      variants: Object.freeze(config.variants || []),
+      variants,
       defaultVariant: config.defaultVariant || '',
+      defaultSideMode,
+      preferredTrackingVariant,
       videoKey: config.videoKey || id,
       bracing: Boolean(config.bracing),
-      allowHighReps: Boolean(config.allowHighReps),
-      // Exercício executado lado a lado: a ficha prescreve as séries POR LADO,
-      // mas contabiliza o volume uma única vez.
-      unilateral: Boolean(config.unilateral)
+      allowHighReps: Boolean(config.allowHighReps)
     });
+  }
+
+  function sideModeFor(exercise, variationId) {
+    if (!exercise || exercise.type !== 'strength') return SIDE_MODES.BILATERAL;
+    const variant = Array.isArray(exercise.variants)
+      ? exercise.variants.find(item => item.id === variationId)
+      : null;
+    if (variant && Object.values(SIDE_MODES).includes(variant.sideMode)) return variant.sideMode;
+    if (Object.values(SIDE_MODES).includes(exercise.defaultSideMode)) return exercise.defaultSideMode;
+    return exercise.unilateral ? SIDE_MODES.UNILATERAL : SIDE_MODES.BILATERAL;
+  }
+
+  function preferredVariantFor(exercise, trackingEnabled) {
+    if (!exercise || !Array.isArray(exercise.variants)) return '';
+    if (trackingEnabled && exercise.preferredTrackingVariant
+      && exercise.variants.some(variant => variant.id === exercise.preferredTrackingVariant)) {
+      return exercise.preferredTrackingVariant;
+    }
+    return exercise.variants.some(variant => variant.id === exercise.defaultVariant)
+      ? exercise.defaultVariant
+      : (exercise.variants[0] ? exercise.variants[0].id : '');
   }
 
   const CATALOG = Object.freeze({
@@ -162,11 +206,12 @@
       restSeconds: 90,
       detail: 'Polias ajustadas à trajetória escolhida'
     }),
-    machine_fly: strength('machine_fly', 'Crucifixo no aparelho', 'accessory', 2, {
+    machine_fly: strength('machine_fly', 'Voador (peck deck)', 'accessory', 3, {
       restSeconds: 90,
-      detail: 'Peck deck ou aparelho equivalente'
+      detail: 'Voador com pegadores nas mãos, sem apoio nos antebraços',
+      notes: ['Modelo confirmado por foto em 2026-09-07. O vídeo de apoio deve mostrar o crucifixo com pegadores, não o peck deck com almofadas nos antebraços.']
     }),
-    shoulder_press_machine: strength('shoulder_press_machine', 'Desenvolvimento na máquina', 'upper_compound', 2, {
+    shoulder_press_machine: strength('shoulder_press_machine', 'Desenvolvimento na máquina', 'upper_compound', 3, {
       restSeconds: 120,
       bracing: true
     }),
@@ -195,7 +240,9 @@
       warmupOptional: true
     }),
     pulldown_neutral: strength('pulldown_neutral', 'Puxada frontal com pegada neutra', 'upper_compound', 3, {
-      restSeconds: 120
+      restSeconds: 120,
+      warmupSets: 2,
+      warmupOptional: true
     }),
     seated_row_triangle: strength('seated_row_triangle', 'Remada sentada com triângulo', 'upper_compound', 3, {
       restSeconds: 120,
@@ -208,11 +255,11 @@
     }),
     unilateral_row_machine: strength('unilateral_row_machine', 'Remada unilateral na máquina', 'upper_compound', 2, {
       restSeconds: 120,
-      unilateral: true,
+      defaultSideMode: SIDE_MODES.UNILATERAL,
       detail: 'Duas séries por lado; o volume planejado da ficha conta o exercício uma vez.',
       variants: [
-        {id: 'machine_left_right', label: 'Máquina — lados separados'},
-        {id: 'plate_loaded', label: 'Articulada com anilhas'}
+        {id: 'machine_left_right', label: 'Máquina — lados separados', sideMode: SIDE_MODES.UNILATERAL},
+        {id: 'plate_loaded', label: 'Articulada com anilhas', sideMode: SIDE_MODES.UNILATERAL}
       ],
       defaultVariant: 'machine_left_right'
     }),
@@ -241,9 +288,10 @@
       warmupSets: 3,
       warmupOptional: true,
       bracing: true,
+      defaultSideMode: SIDE_MODES.BILATERAL,
       variants: [
-        {id: 'free_barbell', label: 'Livre com barra', videoKey: 'squat_free_barbell'},
-        {id: 'smith', label: 'Smith', videoKey: 'squat_smith'}
+        {id: 'free_barbell', label: 'Livre com barra', videoKey: 'squat_free_barbell', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'smith', label: 'Smith', videoKey: 'squat_smith', sideMode: SIDE_MODES.BILATERAL}
       ],
       defaultVariant: 'smith'
     }),
@@ -252,29 +300,43 @@
       warmupSets: 1,
       warmupOptional: true,
       bracing: true,
-      variants: [{id: 'machine_unspecified', label: 'Máquina atual'}],
-      defaultVariant: 'machine_unspecified'
+      defaultSideMode: SIDE_MODES.BILATERAL,
+      variants: [
+        {id: 'machine_unspecified', label: 'Máquina atual — bilateral', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'machine_unilateral', label: 'Máquina atual — unilateral (se o aparelho permitir)', sideMode: SIDE_MODES.UNILATERAL, videoKey: 'leg_press_45_unilateral', requiresUnilateralSupport: true}
+      ],
+      defaultVariant: 'machine_unspecified',
+      preferredTrackingVariant: 'machine_unilateral'
     }),
-    leg_extension: strength('leg_extension', 'Cadeira extensora', 'accessory', 2, {
+    leg_extension: strength('leg_extension', 'Cadeira extensora', 'accessory', 3, {
       restSeconds: 90,
-      variants: [{id: 'machine_unspecified', label: 'Máquina atual'}],
-      defaultVariant: 'machine_unspecified'
+      defaultSideMode: SIDE_MODES.BILATERAL,
+      variants: [
+        {id: 'machine_unspecified', label: 'Máquina atual — bilateral', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'machine_unilateral', label: 'Máquina atual — unilateral (se o aparelho permitir)', sideMode: SIDE_MODES.UNILATERAL, videoKey: 'leg_extension_unilateral', requiresUnilateralSupport: true}
+      ],
+      defaultVariant: 'machine_unspecified',
+      preferredTrackingVariant: 'machine_unilateral'
     }),
     leg_curl: strength('leg_curl', 'Flexora', 'accessory', 3, {
       restSeconds: 90,
+      defaultSideMode: SIDE_MODES.BILATERAL,
       variants: [
-        {id: 'seated', label: 'Sentada', videoKey: 'leg_curl_seated'},
-        {id: 'lying', label: 'Deitada', videoKey: 'leg_curl_lying'},
-        {id: 'standing_unilateral', label: 'Em pé unilateral', videoKey: 'leg_curl_standing_unilateral'}
+        {id: 'seated', label: 'Sentada', videoKey: 'leg_curl_seated', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'lying', label: 'Deitada', videoKey: 'leg_curl_lying', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'standing_unilateral', label: 'Em pé unilateral', videoKey: 'leg_curl_standing_unilateral', sideMode: SIDE_MODES.UNILATERAL}
       ],
       defaultVariant: 'seated'
     }),
     calf_standing_or_leg_press: strength('calf_standing_or_leg_press', 'Panturrilha em pé ou no leg press', 'accessory', 3, {
       restSeconds: 90,
       allowHighReps: true,
+      defaultSideMode: SIDE_MODES.BILATERAL,
       variants: [
-        {id: 'standing_machine', label: 'Em pé na máquina', videoKey: 'calf_standing'},
-        {id: 'leg_press_45', label: 'No leg press 45°', videoKey: 'calf_leg_press'}
+        {id: 'standing_machine', label: 'Em pé na máquina — bilateral', videoKey: 'calf_standing', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'leg_press_45', label: 'No leg press 45° — bilateral', videoKey: 'calf_leg_press', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'standing_machine_unilateral', label: 'Em pé na máquina — unilateral (se o aparelho permitir)', videoKey: 'calf_standing_unilateral', sideMode: SIDE_MODES.UNILATERAL, requiresUnilateralSupport: true},
+        {id: 'leg_press_45_unilateral', label: 'No leg press 45° — unilateral (se o aparelho permitir)', videoKey: 'calf_leg_press_unilateral', sideMode: SIDE_MODES.UNILATERAL, requiresUnilateralSupport: true}
       ],
       defaultVariant: 'leg_press_45'
     }),
@@ -283,12 +345,17 @@
       warmupSets: 3,
       warmupOptional: true,
       bracing: true,
+      defaultSideMode: SIDE_MODES.BILATERAL,
       notes: ['Não buscar falha muscular. Preserve no mínimo 2 RIR na semana mais pesada.']
     }),
     calf_seated: strength('calf_seated', 'Panturrilha sentada', 'accessory', 3, {
       restSeconds: 90,
       allowHighReps: true,
-      variants: [{id: 'seated_machine', label: 'Máquina sentada'}],
+      defaultSideMode: SIDE_MODES.BILATERAL,
+      variants: [
+        {id: 'seated_machine', label: 'Máquina sentada — bilateral', sideMode: SIDE_MODES.BILATERAL},
+        {id: 'seated_machine_unilateral', label: 'Máquina sentada — unilateral (se o aparelho permitir)', videoKey: 'calf_seated_unilateral', sideMode: SIDE_MODES.UNILATERAL, requiresUnilateralSupport: true}
+      ],
       defaultVariant: 'seated_machine'
     })
   });
@@ -321,12 +388,12 @@
       id: 'push_a',
       label: 'Empurrar A',
       weekday: 1,
-      workSetTotal: 17,
+      workSetTotal: 19,
       intro: 'Peito, ombros e tríceps — maior exposição semanal.',
       exercises: Object.freeze([
         copyExercise('chest_press_machine'),
         copyExercise('incline_press_machine'),
-        copyExercise('cable_crossover'),
+        copyExercise('machine_fly'),
         copyExercise('shoulder_press_machine'),
         copyExercise('lateral_raise_dumbbell'),
         copyExercise('triceps_skull_dumbbell'),
@@ -352,7 +419,7 @@
       id: 'legs_a',
       label: 'Pernas A',
       weekday: 3,
-      workSetTotal: 14,
+      workSetTotal: 15,
       intro: 'Mobilidade original, agachamento e trabalho de pernas.',
       exercises: legsExercises(false)
     }),
@@ -360,11 +427,11 @@
       id: 'push_b',
       label: 'Empurrar B',
       weekday: 4,
-      workSetTotal: 15,
+      workSetTotal: 19,
       intro: 'Segunda exposição de empurrar com volume reduzido.',
       exercises: Object.freeze([
-        copyExercise('chest_press_machine', {workSets: 2, warmupSets: 0}),
-        copyExercise('incline_press_machine', {workSets: 2}),
+        copyExercise('chest_press_machine'),
+        copyExercise('incline_press_machine'),
         copyExercise('machine_fly'),
         copyExercise('shoulder_press_machine'),
         copyExercise('lateral_raise_dumbbell'),
@@ -376,13 +443,13 @@
       id: 'pull_b',
       label: 'Puxar B',
       weekday: 5,
-      workSetTotal: 14,
+      workSetTotal: 15,
       intro: 'Segunda exposição de puxar com pegada e remada selecionáveis.',
       exercises: Object.freeze([
         copyExercise('pulldown_neutral'),
         copyExercise('row_machine_choice'),
         copyExercise('unilateral_row_machine'),
-        copyExercise('reverse_fly_machine', {workSets: 2}),
+        copyExercise('reverse_fly_machine'),
         copyExercise('ez_bar_curl'),
         copyExercise('hammer_curl_standing')
       ])
@@ -391,7 +458,7 @@
       id: 'legs_b',
       label: 'Pernas B',
       weekday: 6,
-      workSetTotal: 14,
+      workSetTotal: 15,
       intro: 'Mobilidade original, levantamento terra e trabalho de pernas.',
       exercises: legsExercises(true)
     })
@@ -442,6 +509,15 @@
   // revisado e apontar para uma prova externa específica. Conteúdo em pt-BR é
   // uma exigência separada e continua sendo conferido em reviewedVideo().
   const VERIFIED_BR_VIDEO_PROVENANCE = Object.freeze({
+    'Q8TqfD8E7BU': Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-16'}),
+    'dTqDKC0D6P4': Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-16'}),
+    'pJM_rHhluK8': Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-16'}),
+    '2-ULaRrQa7c': Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-16'}),
+    Zss6E3VU6X0: Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-16'}),
+    'SbAykzCE-xk': Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-16'}),
+    IwWvZ0rlNXs: Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-07'}),
+    '0qkQy8V2FC0': Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-07'}),
+    FzCnfD0gOXo: Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-07'}),
     '4L5nBs8Eq7g': Object.freeze({channel: 'Laércio Refundini', country: 'BR', evidenceKind: 'official_legal_page', evidenceUrl: 'https://muscleplus.com.br/politica_de_privacidade/', verifiedAt: '2026-08-13'}),
     uDBQtlCLQ0Y: Object.freeze({channel: 'Tay Training', country: 'BR', evidenceKind: 'official_professional_record', evidenceUrl: 'https://treinos-server.taytraining.com.br/api/training-sheet/file/91', verifiedAt: '2026-08-13'}),
     waAxlYvtCcI: Object.freeze({channel: 'Treino Mestre', country: 'BR', evidenceKind: 'official_creator_page', evidenceUrl: 'https://treinomestre.com.br/sobre/', verifiedAt: '2026-08-13'}),
@@ -500,6 +576,7 @@
       availability: value.availability || 'unknown',
       embedCompatible: value.embedCompatible === true ? true : value.embedCompatible === false ? false : null,
       startSeconds: Math.max(0, Math.floor(Number(value.startSeconds) || 0)),
+      endSeconds: Math.max(0, Math.floor(Number(value.endSeconds) || 0)),
       positives: value.positives || '',
       limitations: value.limitations || '',
       decision: blockedByBrazilPolicy
@@ -509,6 +586,11 @@
   }
 
   const VIDEOS = Object.freeze({
+    leg_press_45_unilateral: reviewedVideo({exerciseId: 'leg_press_45', variationId: 'machine_unilateral', status: 'pending', limitations: 'A variação unilateral depende de suporte e autorização do fabricante do aparelho. A demonstração bilateral não serve como guia exato.', decision: 'Pendente de vídeo brasileiro em português e inspeção visual individual da execução unilateral.'}),
+    leg_extension_unilateral: reviewedVideo({exerciseId: 'leg_extension', variationId: 'machine_unilateral', status: 'pending', limitations: 'Exige aparelho compatível com uma perna e ajuste individual.', decision: 'Pendente de guia brasileiro e inspeção visual da variação unilateral.'}),
+    calf_standing_unilateral: reviewedVideo({exerciseId: 'calf_standing_or_leg_press', variationId: 'standing_machine_unilateral', status: 'pending', limitations: 'Somente em aparelho que ofereça apoio e permita uso unilateral.', decision: 'Pendente de guia brasileiro e inspeção visual da variação unilateral.'}),
+    calf_leg_press_unilateral: reviewedVideo({exerciseId: 'calf_standing_or_leg_press', variationId: 'leg_press_45_unilateral', status: 'pending', limitations: 'Somente em leg press compatível com apoio e execução unilateral.', decision: 'Pendente de guia brasileiro e inspeção visual da variação unilateral.'}),
+    calf_seated_unilateral: reviewedVideo({exerciseId: 'calf_seated', variationId: 'seated_machine_unilateral', status: 'pending', limitations: 'Somente em máquina sentada compatível com execução unilateral.', decision: 'Pendente de guia brasileiro e inspeção visual da variação unilateral.'}),
     chest_press_machine: reviewedVideo({
       exerciseId: 'chest_press_machine', status: 'pending', classification: 'pending', youtubeId: 'YVbiDGkZyx0',
       title: 'Life Fitness Signature Series Chest Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '1:28', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
@@ -525,9 +607,12 @@
       positives: 'Polias, base, arco dos braços e encontro das mãos ficam visíveis.', limitations: 'Muito curto; não cobre ajustes e erros com profundidade.', decision: 'Aprovar somente como demonstração objetiva.'
     }),
     machine_fly: reviewedVideo({
-      exerciseId: 'machine_fly', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ON8kg47QpOY', startSeconds: 48,
-      title: 'Life Fitness Optima Series Pectoral Fly Rear Delt Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:19', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Fonte do fabricante; mostra ajuste e execução do peck deck.', limitations: 'O mesmo vídeo também ensina a configuração de deltóide posterior e usa um modelo específico.', decision: 'Aprovar como guia técnico com início no trecho do peitoral.'
+      exerciseId: 'machine_fly', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'FzCnfD0gOXo', startSeconds: 85,
+      title: 'Como fazer peck deck ou crucifixo na máquina', channel: 'Leandro Twin', duration: '2:22', language: 'pt-BR', reviewedAt: '2026-09-07', availability: 'available', embedCompatible: true,
+      originEvidence: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf',
+      positives: 'Trecho de crucifixo com pegadores inspecionado: banco com encosto, mãos nos pegadores, braços abrindo e fechando bilateralmente. Origem profissional brasileira documentada e player incorporado retornou estado 1 (reproduzindo).',
+      limitations: 'O início mostra peck deck com apoio nos antebraços; abrir em 1:25 para o modelo com pegadores. Marca e regulagens não são idênticas às da foto.',
+      decision: 'Aprovar o trecho do crucifixo com pegadores, correspondente ao tipo de aparelho confirmado pelo usuário, sem converter a aula em prescrição de carga.'
     }),
     shoulder_press_machine: reviewedVideo({
       exerciseId: 'shoulder_press_machine', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ef-hOkkRuY0',
@@ -535,14 +620,14 @@
       positives: 'Mostra banco, pegadores, posição inferior e trajetória guiada.', limitations: 'A regulagem depende do modelo da academia.', decision: 'Aprovar como guia técnico para desenvolvimento na máquina.'
     }),
     lateral_raise_dumbbell: reviewedVideo({
-      exerciseId: 'lateral_raise_dumbbell', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'XPPfnSEATJA',
-      title: 'How to do a Dumbbell Lateral Raise', channel: 'NASM', duration: '0:18', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Postura frontal, halteres e amplitude até a altura dos ombros ficam claros.', limitations: 'Curto demais para explicar escolha de carga, ritmo e compensações.', decision: 'Aprovar como demonstração objetiva.'
+      exerciseId: 'lateral_raise_dumbbell', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'IwWvZ0rlNXs', endSeconds: 55,
+      title: 'Como fazer elevação lateral', channel: 'Leandro Twin', duration: '3:01', language: 'pt-BR', reviewedAt: '2026-09-07', availability: 'available', embedCompatible: true,
+      positives: 'Inspeção visual do trecho inicial: execução em pé com dois halteres, elevação lateral e posição dos cotovelos. Player incorporado confirmou estado 1.', limitations: 'Usar somente os primeiros 55 segundos; depois a aula apresenta outras posições, incluindo banco inclinado, que não substituem a ficha.', decision: 'Aprovar o recorte inicial como demonstração da elevação lateral em pé.'
     }),
     triceps_skull_dumbbell: reviewedVideo({
-      exerciseId: 'triceps_skull_dumbbell', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'jPjhQ2hsAds',
-      title: 'Dumbbell Skullcrusher', channel: 'Renaissance Periodization', duration: '0:12', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Banco, dois halteres, flexão e extensão dos cotovelos aparecem em enquadramento lateral.', limitations: 'Não há explicação de setup ou erros; a amplitude individual pode variar.', decision: 'Aprovar somente como demonstração objetiva.'
+      exerciseId: 'triceps_skull_dumbbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'SbAykzCE-xk',
+      title: 'Como fazer rosca testa halteres', channel: 'Leandro Twin', duration: '1:58', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true,
+      positives: 'Revisão visual: deitado no banco, dois halteres, flexão e extensão dos cotovelos com pegada neutra; demonstração bilateral. IFrame Player API confirmou reprodução (estado 1).', limitations: 'A amplitude e a posição dos braços precisam respeitar o conforto individual; não é orientação de carga.', decision: 'Aprovar para tríceps testa com halteres, inclusive a opção testa de Empurrar B.'
     }),
     triceps_overhead: reviewedVideo({
       availability: 'unknown', embedCompatible: null,
@@ -550,19 +635,19 @@
       limitations: 'O exercício não informa se é feito no cabo, com corda, halter ou máquina.', decision: 'Pedir a escolha do equipamento antes de associar um vídeo.'
     }),
     triceps_rope: reviewedVideo({
-      exerciseId: 'triceps_rope', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'GdQYdpo_iI0',
-      title: 'PWR Play Cable Rope Triceps Pushdown Training', channel: 'Life Fitness Training', duration: '0:18', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Polia alta, corda, cotovelos próximos ao tronco e extensão completa ficam visíveis.', limitations: 'É uma demonstração curta em equipamento específico.', decision: 'Aprovar como demonstração objetiva.'
+      exerciseId: 'triceps_rope', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'dTqDKC0D6P4', startSeconds: 72, endSeconds: 90,
+      title: 'Como fazer tríceps pulley bilateral — corda', channel: 'Leandro Twin', duration: '2:25', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true,
+      positives: 'Inspeção visual em 1:12, 1:18 e 1:23: polia alta, corda, braços junto ao tronco e extensão bilateral. Reprodução incorporada confirmou estado 1.', limitations: 'Recorte 1:12–1:30. O vídeo completo também mostra barras; no YouTube externo respeite o trecho indicado.', decision: 'Aprovar somente o trecho com corda, sem trocar o acessório prescrito.'
     }),
     pulldown_supinated: reviewedVideo({
-      exerciseId: 'pulldown_supinated', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: '6WeUXN7dQWg',
-      title: 'Underhand Lat Pulldown', channel: 'NYU Abu Dhabi Wellness', duration: '0:32', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Pegada realmente supinada, posição sentada, extensão e puxada ao alto do peito ficam claras.', limitations: 'Breve; não cobre ajuste do apoio de coxas nem erros em profundidade.', decision: 'Aprovar como demonstração objetiva.'
+      exerciseId: 'pulldown_supinated', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'pJM_rHhluK8', startSeconds: 81, endSeconds: 100,
+      title: 'Como fazer puxada vertical — pegada supinada', channel: 'Leandro Twin', duration: '2:43', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true,
+      positives: 'Revisão visual em 1:21 e 1:37: pegada supinada identificada na tela, barra à frente e execução bilateral sentada. Player incorporado confirmou estado 1.', limitations: 'Recorte 1:21–1:40. O vídeo completo também apresenta outras pegadas; no YouTube externo respeite o trecho indicado.', decision: 'Aprovar somente o recorte supinado, separado da pegada neutra.'
     }),
     pulldown_neutral: reviewedVideo({
-      exerciseId: 'pulldown_neutral', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'KgZqDuNx7rI',
-      title: 'The BEST way to Perform the Neutral Grip Lat Pulldown | Form Tutorial', channel: 'Physique Development', duration: '4:54', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Explica amplitude, setup, direção dos cotovelos e erros com pegadores neutros.', limitations: 'Usa alças neutras independentes; a largura pode diferir do acessório existente na academia.', decision: 'Aprovar como guia técnico da pegada neutra, registrando a limitação do acessório.'
+      exerciseId: 'pulldown_neutral', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'pJM_rHhluK8', startSeconds: 114, endSeconds: 140,
+      title: 'Como fazer puxada vertical — pegada neutra com triângulo', channel: 'Leandro Twin', duration: '2:43', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true,
+      positives: 'Revisão visual em 1:54 e 2:10: acessório triângulo, palmas voltadas uma para a outra e puxada bilateral sentada. Player incorporado confirmou estado 1.', limitations: 'Recorte 1:54–2:20, com triângulo fechado. Não representa pegadores neutros largos ou independentes; no YouTube externo respeite o trecho indicado.', decision: 'Aprovar o recorte com triângulo, sem usar a demonstração supinada neste cartão.'
     }),
     seated_row_triangle: reviewedVideo({
       exerciseId: 'seated_row_triangle', variationId: 'cable_triangle', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '7BkgqzC6WsM', startSeconds: 132,
@@ -579,8 +664,8 @@
       title: 'Life Fitness Optima Series Pectoral Fly Rear Delt Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:19', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Fonte do fabricante; mostra a inversão do banco, pegada e abertura para deltóide posterior.', limitations: 'Modelo específico e vídeo compartilhado com peitoral.', decision: 'Aprovar como guia técnico com início no trecho do deltóide posterior.'
     }),
-    ez_bar_curl: reviewedVideo({exerciseId: 'ez_bar_curl', status: 'pending', classification: 'pending', exactMatch: false}),
-    hammer_curl_standing: reviewedVideo({exerciseId: 'hammer_curl_standing', status: 'pending', classification: 'pending', exactMatch: false}),
+    ez_bar_curl: reviewedVideo({exerciseId: 'ez_bar_curl', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'Q8TqfD8E7BU', startSeconds: 60, endSeconds: 72, title: 'Como fazer rosca direta — barra W', channel: 'Leandro Twin', duration: '2:50', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true, positives: 'Inspeção visual em 1:01, 1:06 e 1:08: em pé, barra W visível e flexão bilateral dos cotovelos. IFrame Player API confirmou estado 1.', limitations: 'Recorte 1:00–1:12. O vídeo também apresenta barra reta e halteres; não usar as outras variantes como demonstração deste cartão.', decision: 'Aprovar o trecho específico da barra W como demonstração curta.'}),
+    hammer_curl_standing: reviewedVideo({exerciseId: 'hammer_curl_standing', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: '0qkQy8V2FC0', endSeconds: 25, title: 'Como fazer rosca martelo', channel: 'Leandro Twin', duration: '1:57', language: 'pt-BR', reviewedAt: '2026-09-07', availability: 'available', embedCompatible: true, positives: 'Trecho inicial inspecionado: em pé, dois halteres e pegada neutra. Reprodução incorporada confirmou estado 1.', limitations: 'Usar somente os primeiros 25 segundos. A parte seguinte mostra execução sentada e outras variações fora deste cartão.', decision: 'Aprovar apenas a demonstração inicial em pé, sem alterar a posição prescrita.'}),
     squat_free_barbell: reviewedVideo({
       exerciseId: 'squat', variationId: 'free_barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '4L5nBs8Eq7g',
       title: '3 Passos Para Fazer o Agachamento Livre PERFEITO (O Guia Mais Completo)', channel: 'Laércio Refundini', duration: '7:05', language: 'pt-BR', creatorCountry: 'BR', originEvidence: 'https://muscleplus.com.br/politica_de_privacidade/', reviewedAt: '2026-08-09', availability: 'external_only', embedCompatible: false,
@@ -602,14 +687,14 @@
       positives: 'Mostra encosto, eixo do joelho, rolete e extensão.', limitations: 'Eixos e regulagens variam por modelo.', decision: 'Aprovar como guia técnico.'
     }),
     leg_curl_seated: reviewedVideo({
-      exerciseId: 'leg_curl', variationId: 'seated', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'YLJJJYOfSfc',
-      title: 'Life Fitness Signature Series Seated Leg Curl Instructions', channel: 'Life Fitness / Hammer Strength', duration: '2:01', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Fonte do fabricante; mostra banco, trava de coxa, rolete e flexão.', limitations: 'Inglês e modelo específico.', decision: 'Aprovar como guia técnico.'
+      exerciseId: 'leg_curl', variationId: 'seated', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'Zss6E3VU6X0',
+      title: 'Como fazer cadeira flexora', channel: 'Leandro Twin', duration: '1:47', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true,
+      positives: 'Revisão visual: sentado, trava das coxas, apoio do rolete, pernas estendidas e flexionadas bilateralmente. IFrame Player API confirmou reprodução (estado 1).', limitations: 'Regulagens e eixo variam entre marcas. Não representa flexora em pé ou unilateral.', decision: 'Aprovar exclusivamente para a variação sentada bilateral.'
     }),
     leg_curl_lying: reviewedVideo({
-      exerciseId: 'leg_curl', variationId: 'lying', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'Dq5y4WEcqqo',
-      title: 'How to Use a Lying Leg Curl | Proper Form & Technique | NASM', channel: 'NASM', duration: '0:21', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Posição prona, rolete e trajetória até cerca de 90 graus ficam claros.', limitations: 'Curto; não detalha regulagens e erros.', decision: 'Aprovar como demonstração objetiva.'
+      exerciseId: 'leg_curl', variationId: 'lying', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: '2-ULaRrQa7c',
+      title: 'Como fazer mesa flexora', channel: 'Leandro Twin', duration: '2:09', language: 'pt-BR', reviewedAt: '2026-09-16', availability: 'available', embedCompatible: true,
+      positives: 'Revisão visual: mesa flexora, posição deitada de barriga para baixo, apoio frontal e flexão bilateral com rolete nas pernas. IFrame Player API confirmou reprodução (estado 1).', limitations: 'Modelo específico de mesa; não serve para flexora sentada nem em pé.', decision: 'Aprovar para a variação deitada bilateral.'
     }),
     leg_curl_standing_unilateral: reviewedVideo({
       exerciseId: 'leg_curl', variationId: 'standing_unilateral', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'T--10UN1jKs',
@@ -731,6 +816,8 @@
   }
 
   global.THFData = Object.freeze({
+    SIDE_MODES,
+    WORKOUT_REVISION,
     DAY_WORKOUT,
     WEEK_LABELS,
     MOBILITY_SEQUENCE,
@@ -745,6 +832,8 @@
     VERIFIED_BR_VIDEO_PROVENANCE,
     VIDEOS,
     verifiedBrazilianProvenance,
+    sideModeFor,
+    preferredVariantFor,
     prescriptionFor,
     workoutForDate,
     findExercise

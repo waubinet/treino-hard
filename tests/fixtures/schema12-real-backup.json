@@ -1,0 +1,2798 @@
+{
+  "app": "treino-hard-fofo",
+  "schemaVersion": 12,
+  "format": "treino-hard-backup",
+  "exportedAt": "2026-08-31T20:00:00.000Z",
+  "state": {
+    "schemaVersion": 12,
+    "app": "treino-hard-fofo",
+    "revision": 23,
+    "createdAt": "2026-08-01T12:00:00.000Z",
+    "updatedAt": "2026-08-31T20:00:00.000Z",
+    "settings": {
+      "mode": "sequence",
+      "sound": true,
+      "vibration": true,
+      "largeText": false,
+      "keepAwake": true,
+      "autoStartRest": false,
+      "videoMode": "inline",
+      "equipmentLoadSteps": [
+        {
+          "exerciseId": "unilateral_row_machine",
+          "variationId": "machine_left_right",
+          "machineId": "Remada fixture",
+          "step": 2.5,
+          "updatedAt": "2026-08-10T12:00:00.000Z"
+        },
+        {
+          "exerciseId": "leg_press_45",
+          "variationId": "machine_unspecified",
+          "machineId": "Leg press fixture",
+          "step": 5,
+          "updatedAt": "2026-08-12T12:00:00.000Z"
+        }
+      ],
+      "defaultWeek": 1,
+      "vacuumFrequency": 3,
+      "vacuumRepetitions": 2,
+      "vacuumDuration": 15,
+      "vacuumPosition": "lying"
+    },
+    "cycle": {
+      "id": "fixture-cycle-current",
+      "startedAt": "2026-08-01T12:00:00.000Z",
+      "currentWeek": 3,
+      "status": "active"
+    },
+    "sessions": [
+      {
+        "id": "fixture-session-pull-completed",
+        "workoutId": "pull_a",
+        "plannedDate": "2026-08-11",
+        "actualDate": "2026-08-11",
+        "week": 1,
+        "status": "completed",
+        "startedAt": "2026-08-11T12:00:00.000Z",
+        "pausedAt": "",
+        "pausedSeconds": 0,
+        "completedAt": "2026-08-11T13:00:00.000Z",
+        "durationSeconds": 3600,
+        "rescheduledFrom": "",
+        "note": "Dados fictícios congelados; pull-completed.",
+        "cardioId": "",
+        "exercises": [
+          {
+            "id": "fixture-log-pull-completed-0",
+            "exerciseId": "pulldown_supinated",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-0-0",
+                "type": "warmup",
+                "index": 0,
+                "load": "10",
+                "reps": "10",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-pull-completed-0-1",
+                "type": "warmup",
+                "index": 1,
+                "load": "10",
+                "reps": "10",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-pull-completed-0-2",
+                "type": "work",
+                "index": 2,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-completed-0-3",
+                "type": "work",
+                "index": 1,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-completed-0-4",
+                "type": "work",
+                "index": 2,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-completed-1",
+            "exerciseId": "seated_row_triangle",
+            "variationId": "cable_triangle",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-1-0",
+                "type": "work",
+                "index": 0,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-completed-1-1",
+                "type": "work",
+                "index": 1,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-completed-1-2",
+                "type": "work",
+                "index": 2,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-completed-2",
+            "exerciseId": "unilateral_row_machine",
+            "variationId": "machine_left_right",
+            "machineId": "Remada fixture",
+            "side": "left",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "good",
+            "feedback": "Esquerdo: registro independente.",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-2-0",
+                "type": "work",
+                "index": 0,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "Série esquerda antiga 0",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-completed-2-1",
+                "type": "work",
+                "index": 1,
+                "load": "27.5",
+                "reps": "14",
+                "rir": "3",
+                "status": "completed",
+                "note": "Série esquerda antiga 1",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-completed-3",
+            "exerciseId": "unilateral_row_machine",
+            "variationId": "machine_left_right",
+            "machineId": "Remada fixture",
+            "side": "right",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "awkward",
+            "feedback": "Direito: controle observado no registro antigo.",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-3-0",
+                "type": "work",
+                "index": 0,
+                "load": "17.5",
+                "reps": "12",
+                "rir": "2",
+                "status": "completed",
+                "note": "Série direita antiga 0",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-completed-3-1",
+                "type": "work",
+                "index": 1,
+                "load": "20",
+                "reps": "11",
+                "rir": "2",
+                "status": "completed",
+                "note": "Série direita antiga 1",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-completed-4",
+            "exerciseId": "reverse_fly_machine",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-4-0",
+                "type": "work",
+                "index": 0,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-completed-4-1",
+                "type": "work",
+                "index": 1,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-completed-4-2",
+                "type": "work",
+                "index": 2,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-completed-5",
+            "exerciseId": "ez_bar_curl",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-5-0",
+                "type": "work",
+                "index": 0,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-completed-5-1",
+                "type": "work",
+                "index": 1,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-completed-6",
+            "exerciseId": "hammer_curl_standing",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 3,
+              "rirMax": 3,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-completed-6-0",
+                "type": "work",
+                "index": 0,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-completed-6-1",
+                "type": "work",
+                "index": 1,
+                "load": "25",
+                "reps": "15",
+                "rir": "3",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-11T12:30:00.000Z",
+                "nextRestSeconds": 90
+              }
+            ]
+          }
+        ],
+        "createdAt": "2026-08-11T12:00:00.000Z",
+        "updatedAt": "2026-08-11T13:00:00.000Z"
+      },
+      {
+        "id": "fixture-session-legs-partial",
+        "workoutId": "legs_a",
+        "plannedDate": "2026-08-12",
+        "actualDate": "2026-08-12",
+        "week": 2,
+        "status": "partial",
+        "startedAt": "2026-08-12T12:00:00.000Z",
+        "pausedAt": "",
+        "pausedSeconds": 0,
+        "completedAt": "2026-08-12T13:00:00.000Z",
+        "durationSeconds": 3600,
+        "rescheduledFrom": "",
+        "note": "Dados fictícios congelados; legs-partial.",
+        "cardioId": "",
+        "exercises": [
+          {
+            "id": "fixture-log-legs-partial-0",
+            "exerciseId": "mob_adductor_butterfly",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "mobility",
+              "sets": 2,
+              "min": 0,
+              "max": 0,
+              "label": "20–30 segundos",
+              "rirMin": null,
+              "rirMax": null,
+              "restSeconds": 0,
+              "deload": false
+            },
+            "sets": []
+          },
+          {
+            "id": "fixture-log-legs-partial-1",
+            "exerciseId": "mob_hip_butterfly",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "mobility",
+              "sets": 2,
+              "min": 0,
+              "max": 0,
+              "label": "15 repetições",
+              "rirMin": null,
+              "rirMax": null,
+              "restSeconds": 0,
+              "deload": false
+            },
+            "sets": []
+          },
+          {
+            "id": "fixture-log-legs-partial-2",
+            "exerciseId": "mob_hamstring_seated",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "mobility",
+              "sets": 2,
+              "min": 0,
+              "max": 0,
+              "label": "20–30 segundos",
+              "rirMin": null,
+              "rirMax": null,
+              "restSeconds": 0,
+              "deload": false
+            },
+            "sets": []
+          },
+          {
+            "id": "fixture-log-legs-partial-3",
+            "exerciseId": "mob_ankle",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": true,
+                "pain": false,
+                "range_limit": true,
+                "support_difficulty": false
+              },
+              "note": "Registro fictício de mobilidade à direita."
+            },
+            "prescriptionSnapshot": {
+              "category": "mobility",
+              "sets": 2,
+              "min": 0,
+              "max": 0,
+              "label": "10 repetições",
+              "rirMin": null,
+              "rirMax": null,
+              "restSeconds": 0,
+              "deload": false
+            },
+            "sets": []
+          },
+          {
+            "id": "fixture-log-legs-partial-4",
+            "exerciseId": "squat",
+            "variationId": "smith",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "squat_press",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 150,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-legs-partial-4-0",
+                "type": "warmup",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-legs-partial-4-1",
+                "type": "warmup",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-legs-partial-4-2",
+                "type": "warmup",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-legs-partial-4-3",
+                "type": "work",
+                "index": 3,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 150
+              },
+              {
+                "id": "fixture-set-legs-partial-4-4",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 150
+              },
+              {
+                "id": "fixture-set-legs-partial-4-5",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 150
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-legs-partial-5",
+            "exerciseId": "leg_press_45",
+            "variationId": "machine_unspecified",
+            "machineId": "Leg press fixture",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "squat_press",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 150,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-legs-partial-5-0",
+                "type": "warmup",
+                "index": 0,
+                "load": "120",
+                "reps": "12",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-legs-partial-5-1",
+                "type": "work",
+                "index": 1,
+                "load": "120",
+                "reps": "11",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 150
+              },
+              {
+                "id": "fixture-set-legs-partial-5-2",
+                "type": "work",
+                "index": 1,
+                "load": "120",
+                "reps": "10",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 150
+              },
+              {
+                "id": "fixture-set-legs-partial-5-3",
+                "type": "work",
+                "index": 2,
+                "load": "120",
+                "reps": "9",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 150
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-legs-partial-6",
+            "exerciseId": "leg_extension",
+            "variationId": "machine_unspecified",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-legs-partial-6-0",
+                "type": "work",
+                "index": 0,
+                "load": "35",
+                "reps": "12",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-legs-partial-6-1",
+                "type": "work",
+                "index": 1,
+                "load": "35",
+                "reps": "11",
+                "rir": "2",
+                "status": "interrupted",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-legs-partial-7",
+            "exerciseId": "leg_curl",
+            "variationId": "standing_unilateral",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": true,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-legs-partial-7-0",
+                "type": "work",
+                "index": 0,
+                "load": "15",
+                "reps": "12",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-legs-partial-7-1",
+                "type": "work",
+                "index": 1,
+                "load": "15",
+                "reps": "11",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-legs-partial-7-2",
+                "type": "work",
+                "index": 2,
+                "load": "15",
+                "reps": "10",
+                "rir": "2",
+                "status": "completed",
+                "note": "",
+                "completedAt": "2026-08-12T12:40:00.000Z",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-legs-partial-8",
+            "exerciseId": "calf_standing_or_leg_press",
+            "variationId": "leg_press_45",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-legs-partial-8-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-legs-partial-8-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-legs-partial-8-2",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          }
+        ],
+        "createdAt": "2026-08-12T12:00:00.000Z",
+        "updatedAt": "2026-08-12T13:00:00.000Z"
+      },
+      {
+        "id": "fixture-session-pull-cancelled",
+        "workoutId": "pull_b",
+        "plannedDate": "2026-08-14",
+        "actualDate": "2026-08-14",
+        "week": 2,
+        "status": "cancelled",
+        "startedAt": "2026-08-14T12:00:00.000Z",
+        "pausedAt": "",
+        "pausedSeconds": 0,
+        "completedAt": "2026-08-14T13:00:00.000Z",
+        "durationSeconds": 3600,
+        "rescheduledFrom": "",
+        "note": "Dados fictícios congelados; pull-cancelled.",
+        "cardioId": "",
+        "exercises": [
+          {
+            "id": "fixture-log-pull-cancelled-0",
+            "exerciseId": "pulldown_neutral",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-0-0",
+                "type": "work",
+                "index": 0,
+                "load": "42.5",
+                "reps": "6",
+                "rir": "1",
+                "status": "interrupted",
+                "note": "",
+                "completedAt": "2026-08-14T12:05:00.000Z",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-cancelled-0-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-cancelled-0-2",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-cancelled-1",
+            "exerciseId": "row_machine_choice",
+            "variationId": "seated_cable_triangle",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-1-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-cancelled-1-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-cancelled-1-2",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-cancelled-2",
+            "exerciseId": "unilateral_row_machine",
+            "variationId": "machine_left_right",
+            "machineId": "",
+            "side": "left",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-2-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-cancelled-2-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-cancelled-3",
+            "exerciseId": "unilateral_row_machine",
+            "variationId": "machine_left_right",
+            "machineId": "",
+            "side": "right",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-3-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-pull-cancelled-3-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-cancelled-4",
+            "exerciseId": "reverse_fly_machine",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-4-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-cancelled-4-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-cancelled-5",
+            "exerciseId": "ez_bar_curl",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-5-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-cancelled-5-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-pull-cancelled-6",
+            "exerciseId": "hammer_curl_standing",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 12,
+              "max": 15,
+              "label": "12–15",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-pull-cancelled-6-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-pull-cancelled-6-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          }
+        ],
+        "createdAt": "2026-08-14T12:00:00.000Z",
+        "updatedAt": "2026-08-14T13:00:00.000Z"
+      },
+      {
+        "id": "fixture-session-push-planned",
+        "workoutId": "push_a",
+        "plannedDate": "2026-08-17",
+        "actualDate": "",
+        "week": 3,
+        "status": "planned",
+        "startedAt": "",
+        "pausedAt": "",
+        "pausedSeconds": 0,
+        "completedAt": "",
+        "durationSeconds": 0,
+        "rescheduledFrom": "",
+        "note": "Dados fictícios congelados; push-planned.",
+        "cardioId": "",
+        "exercises": [
+          {
+            "id": "fixture-log-push-planned-0",
+            "exerciseId": "chest_press_machine",
+            "variationId": "",
+            "machineId": "Máquina fixture sem execução",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-0-0",
+                "type": "warmup",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-push-planned-0-1",
+                "type": "warmup",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-push-planned-0-2",
+                "type": "warmup",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 0
+              },
+              {
+                "id": "fixture-set-push-planned-0-3",
+                "type": "work",
+                "index": 3,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-push-planned-0-4",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-push-planned-0-5",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-push-planned-1",
+            "exerciseId": "incline_press_machine",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 3,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-1-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-push-planned-1-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-push-planned-1-2",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-push-planned-2",
+            "exerciseId": "cable_crossover",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-2-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-push-planned-2-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-push-planned-3",
+            "exerciseId": "shoulder_press_machine",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "upper_compound",
+              "sets": 2,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 120,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-3-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              },
+              {
+                "id": "fixture-set-push-planned-3-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 120
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-push-planned-4",
+            "exerciseId": "lateral_raise_dumbbell",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 3,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-4-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-push-planned-4-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-push-planned-4-2",
+                "type": "work",
+                "index": 2,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-push-planned-5",
+            "exerciseId": "triceps_skull_dumbbell",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-5-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-push-planned-5-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          },
+          {
+            "id": "fixture-log-push-planned-6",
+            "exerciseId": "triceps_rope",
+            "variationId": "",
+            "machineId": "",
+            "side": "bilateral",
+            "highRepPreference": false,
+            "completed": false,
+            "skipped": false,
+            "feeling": "",
+            "feedback": "",
+            "mobilityFeedback": {
+              "left": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "right": {
+                "stiffness": false,
+                "pain": false,
+                "range_limit": false,
+                "support_difficulty": false
+              },
+              "note": ""
+            },
+            "prescriptionSnapshot": {
+              "category": "accessory",
+              "sets": 2,
+              "min": 10,
+              "max": 12,
+              "label": "10–12",
+              "rirMin": 2,
+              "rirMax": 2,
+              "restSeconds": 90,
+              "deload": false
+            },
+            "sets": [
+              {
+                "id": "fixture-set-push-planned-6-0",
+                "type": "work",
+                "index": 0,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              },
+              {
+                "id": "fixture-set-push-planned-6-1",
+                "type": "work",
+                "index": 1,
+                "load": "",
+                "reps": "",
+                "rir": "",
+                "status": "",
+                "note": "",
+                "completedAt": "",
+                "nextRestSeconds": 90
+              }
+            ]
+          }
+        ],
+        "createdAt": "2026-08-17T12:00:00.000Z",
+        "updatedAt": "2026-08-17T13:00:00.000Z"
+      }
+    ],
+    "cardio": [],
+    "homeRoutines": [],
+    "measurements": [
+      {
+        "id": "fixture-measurement-one",
+        "date": "2026-08-10",
+        "weight": "95.4",
+        "height": "175",
+        "thighLeft": "61.5",
+        "thighRight": "58",
+        "calfLeft": "40",
+        "calfRight": "38",
+        "quality": {
+          "derivedFields": [],
+          "directFields": [
+            "weight",
+            "height",
+            "thighLeft",
+            "thighRight",
+            "calfLeft",
+            "calfRight"
+          ],
+          "warnings": []
+        },
+        "note": "Medidas fictícias, sem interpretação clínica.",
+        "measuredAt": "2026-08-10T07:00:00.000Z",
+        "savedAt": "2026-08-10T07:05:00.000Z"
+      }
+    ],
+    "progressionDecisions": [
+      {
+        "id": "fixture-decision-right",
+        "sessionId": "fixture-session-pull-completed",
+        "exerciseId": "unilateral_row_machine",
+        "seriesKey": "unilateral_row_machine|machine_left_right|remada fixture|right|12–15",
+        "date": "2026-08-11",
+        "recommendation": "maintain",
+        "message": "Decisão fictícia preservada.",
+        "load": "17.5",
+        "result": "12 / 11",
+        "rir": "2 / 2",
+        "decision": "maintained",
+        "nextLoad": "",
+        "savedAt": "2026-08-11T13:00:00.000Z"
+      }
+    ],
+    "legacyCycles": [],
+    "archives": [
+      {
+        "id": "fixture-archive-one",
+        "archivedAt": "2026-07-26T12:00:00.000Z",
+        "cycle": {
+          "id": "fixture-cycle-archived",
+          "startedAt": "2026-06-01T12:00:00.000Z",
+          "currentWeek": 8,
+          "status": "archived"
+        },
+        "sessions": [
+          {
+            "id": "fixture-session-legs-archived",
+            "workoutId": "legs_b",
+            "plannedDate": "2026-07-25",
+            "actualDate": "2026-07-25",
+            "week": 8,
+            "status": "completed",
+            "startedAt": "2026-07-25T12:00:00.000Z",
+            "pausedAt": "",
+            "pausedSeconds": 0,
+            "completedAt": "2026-07-25T13:00:00.000Z",
+            "durationSeconds": 3600,
+            "rescheduledFrom": "",
+            "note": "Dados fictícios congelados; legs-archived.",
+            "cardioId": "",
+            "exercises": [
+              {
+                "id": "fixture-log-legs-archived-0",
+                "exerciseId": "mob_adductor_butterfly",
+                "variationId": "",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "mobility",
+                  "sets": 2,
+                  "min": 0,
+                  "max": 0,
+                  "label": "20–30 segundos",
+                  "rirMin": null,
+                  "rirMax": null,
+                  "restSeconds": 0,
+                  "deload": false
+                },
+                "sets": []
+              },
+              {
+                "id": "fixture-log-legs-archived-1",
+                "exerciseId": "mob_hip_butterfly",
+                "variationId": "",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "mobility",
+                  "sets": 2,
+                  "min": 0,
+                  "max": 0,
+                  "label": "15 repetições",
+                  "rirMin": null,
+                  "rirMax": null,
+                  "restSeconds": 0,
+                  "deload": false
+                },
+                "sets": []
+              },
+              {
+                "id": "fixture-log-legs-archived-2",
+                "exerciseId": "mob_hamstring_seated",
+                "variationId": "",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "mobility",
+                  "sets": 2,
+                  "min": 0,
+                  "max": 0,
+                  "label": "20–30 segundos",
+                  "rirMin": null,
+                  "rirMax": null,
+                  "restSeconds": 0,
+                  "deload": false
+                },
+                "sets": []
+              },
+              {
+                "id": "fixture-log-legs-archived-3",
+                "exerciseId": "mob_ankle",
+                "variationId": "",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "mobility",
+                  "sets": 2,
+                  "min": 0,
+                  "max": 0,
+                  "label": "10 repetições",
+                  "rirMin": null,
+                  "rirMax": null,
+                  "restSeconds": 0,
+                  "deload": false
+                },
+                "sets": []
+              },
+              {
+                "id": "fixture-log-legs-archived-4",
+                "exerciseId": "deadlift_barbell",
+                "variationId": "",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "deadlift",
+                  "sets": 1,
+                  "min": 6,
+                  "max": 8,
+                  "label": "6–8",
+                  "rirMin": 4,
+                  "rirMax": 5,
+                  "restSeconds": 180,
+                  "deload": true
+                },
+                "sets": [
+                  {
+                    "id": "fixture-set-legs-archived-4-0",
+                    "type": "warmup",
+                    "index": 0,
+                    "load": "10",
+                    "reps": "10",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 0
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-4-1",
+                    "type": "warmup",
+                    "index": 1,
+                    "load": "10",
+                    "reps": "10",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 0
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-4-2",
+                    "type": "warmup",
+                    "index": 2,
+                    "load": "10",
+                    "reps": "10",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 0
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-4-3",
+                    "type": "work",
+                    "index": 3,
+                    "load": "25",
+                    "reps": "8",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 180
+                  }
+                ]
+              },
+              {
+                "id": "fixture-log-legs-archived-5",
+                "exerciseId": "leg_press_45",
+                "variationId": "machine_unspecified",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "squat_press",
+                  "sets": 2,
+                  "min": 10,
+                  "max": 12,
+                  "label": "10–12",
+                  "rirMin": 4,
+                  "rirMax": 5,
+                  "restSeconds": 150,
+                  "deload": true
+                },
+                "sets": [
+                  {
+                    "id": "fixture-set-legs-archived-5-0",
+                    "type": "warmup",
+                    "index": 0,
+                    "load": "10",
+                    "reps": "10",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 0
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-5-1",
+                    "type": "work",
+                    "index": 1,
+                    "load": "25",
+                    "reps": "12",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 150
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-5-2",
+                    "type": "work",
+                    "index": 1,
+                    "load": "25",
+                    "reps": "12",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 150
+                  }
+                ]
+              },
+              {
+                "id": "fixture-log-legs-archived-6",
+                "exerciseId": "leg_curl",
+                "variationId": "lying",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "accessory",
+                  "sets": 2,
+                  "min": 10,
+                  "max": 15,
+                  "label": "10–15",
+                  "rirMin": 4,
+                  "rirMax": 5,
+                  "restSeconds": 90,
+                  "deload": true
+                },
+                "sets": [
+                  {
+                    "id": "fixture-set-legs-archived-6-0",
+                    "type": "work",
+                    "index": 0,
+                    "load": "25",
+                    "reps": "15",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 90
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-6-1",
+                    "type": "work",
+                    "index": 1,
+                    "load": "25",
+                    "reps": "15",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 90
+                  }
+                ]
+              },
+              {
+                "id": "fixture-log-legs-archived-7",
+                "exerciseId": "leg_extension",
+                "variationId": "machine_unspecified",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "accessory",
+                  "sets": 2,
+                  "min": 10,
+                  "max": 15,
+                  "label": "10–15",
+                  "rirMin": 4,
+                  "rirMax": 5,
+                  "restSeconds": 90,
+                  "deload": true
+                },
+                "sets": [
+                  {
+                    "id": "fixture-set-legs-archived-7-0",
+                    "type": "work",
+                    "index": 0,
+                    "load": "25",
+                    "reps": "15",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 90
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-7-1",
+                    "type": "work",
+                    "index": 1,
+                    "load": "25",
+                    "reps": "15",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 90
+                  }
+                ]
+              },
+              {
+                "id": "fixture-log-legs-archived-8",
+                "exerciseId": "calf_seated",
+                "variationId": "seated_machine",
+                "machineId": "",
+                "side": "bilateral",
+                "highRepPreference": false,
+                "completed": true,
+                "skipped": false,
+                "feeling": "",
+                "feedback": "",
+                "mobilityFeedback": {
+                  "left": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "right": {
+                    "stiffness": false,
+                    "pain": false,
+                    "range_limit": false,
+                    "support_difficulty": false
+                  },
+                  "note": ""
+                },
+                "prescriptionSnapshot": {
+                  "category": "accessory",
+                  "sets": 2,
+                  "min": 10,
+                  "max": 15,
+                  "label": "10–15",
+                  "rirMin": 4,
+                  "rirMax": 5,
+                  "restSeconds": 90,
+                  "deload": true
+                },
+                "sets": [
+                  {
+                    "id": "fixture-set-legs-archived-8-0",
+                    "type": "work",
+                    "index": 0,
+                    "load": "25",
+                    "reps": "15",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 90
+                  },
+                  {
+                    "id": "fixture-set-legs-archived-8-1",
+                    "type": "work",
+                    "index": 1,
+                    "load": "25",
+                    "reps": "15",
+                    "rir": "3",
+                    "status": "completed",
+                    "note": "",
+                    "completedAt": "2026-07-25T12:30:00.000Z",
+                    "nextRestSeconds": 90
+                  }
+                ]
+              }
+            ],
+            "createdAt": "2026-07-25T12:00:00.000Z",
+            "updatedAt": "2026-07-25T13:00:00.000Z"
+          }
+        ]
+      }
+    ],
+    "migrationLog": [],
+    "quarantine": []
+  }
+}

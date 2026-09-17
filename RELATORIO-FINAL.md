@@ -1,4 +1,16 @@
-# Relatório final — Treino Hard (Fofo) 3.5.1
+# Relatório de entrega — Treino Hard (Fofo)
+
+## Rodada 3.6.0 — gate local aprovado, 2026-09-17
+
+Implementados registro por lado, modo por variante, retrato histórico por sessão, migração 12 → 13 preservando sessões/arquivos, feedback de execução, relato após pernas, comparações descritivas de medidas e mobilidade. Corrigidas perdas de configuração de faixa/descanso e recuperação de staging antigo.
+
+Também foi corrigido o plano futuro preso à ficha antiga: sessões planejadas e completamente vazias são reconstruídas pela revisão atual, preservando IDs e preferências, enquanto qualquer sessão já executada permanece intocada. Os primeiros aparelhos mantêm seu aquecimento e os exercícios bilaterais em máquina usam três séries efetivas; unilaterais continuam com duas por lado e o deload com duas.
+
+Inventário de vídeos atual: 46 entradas, 20 aprovadas e 26 pendentes. Entradas sem correspondência visual rigorosa continuam sinalizadas como pendentes. A pesquisa científica não muda automaticamente a prescrição nem define diagnóstico ou limiar universal de assimetria.
+
+Evidências locais: 124/124 testes de lógica/dados e 60/60 cenários em Chrome aprovados, além da revisão visual das telas desktop e móvel, sem erro de página/console. Resultado consolidado em `TESTES.md`; o estado público só será declarado depois da confirmação do GitHub Pages.
+
+## Publicação anterior — 3.5.1
 
 ## Estado
 

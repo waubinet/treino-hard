@@ -2,11 +2,12 @@
   'use strict';
 
   const Data = global.THFData;
+  const LEGACY_WORKOUTS = global.THFSchema12Workouts;
   const APP_ID = 'treino-hard-fofo';
   // Versão do aplicativo: muda a cada publicação funcional.
   // O esquema persistido só muda quando o formato gravado realmente muda.
-  const APP_VERSION = '3.5.1';
-  const SCHEMA_VERSION = 12;
+  const APP_VERSION = '3.6.0';
+  const SCHEMA_VERSION = 13;
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const MAX_SESSIONS = 5000;
   const MAX_SERIES_PER_EXERCISE = 64;
@@ -27,6 +28,10 @@
   const SET_STATUSES = new Set(['completed', 'interrupted', 'not_done', 'pain', 'bad_technique', 'excessive_load', 'equipment_unavailable']);
   const VALID_RIR = new Set(['', '0', '1', '2', '3', '4', '5+']);
   const VALID_FEELINGS = new Set(['', 'good', 'awkward', 'pain', 'replace']);
+  const SIDE_MODES = new Set(['bilateral', 'unilateral']);
+  const EXECUTION_FEEDBACK_FLAGS = Object.freeze(['rangeBelowUsual', 'compensation', 'controlDifficulty', 'unusualStiffness']);
+  const POST_LEG_CHECK_FLAGS = Object.freeze(['rightCalfPain', 'kneePain', 'anklePain', 'gaitChange', 'unusualStiffness', 'controlDrop']);
+  const LEGACY_SCHEMA_12_UNILATERAL = new Set(['unilateral_row_machine']);
   const TOP_LEVEL_STATE_FIELDS = new Set([
     'schemaVersion', 'app', 'revision', 'createdAt', 'updatedAt', 'settings', 'cycle', 'sessions',
     'cardio', 'homeRoutines', 'measurements', 'progressionDecisions', 'legacyCycles', 'archives',
@@ -147,16 +152,28 @@
     ].join('|');
   }
 
-  function normalizeEquipmentLoadSteps(raw) {
+  function configurationDefinitions(extraDefinitions) {
+    return Object.values(Data.CATALOG).concat(Array.isArray(LEGACY_WORKOUTS) ? LEGACY_WORKOUTS.flatMap(workout => workout.exercises) : [], Array.isArray(extraDefinitions) ? extraDefinitions : []);
+  }
+
+  function isKnownEquipment(exerciseId, variationId, definitions) {
+    return configurationDefinitions(definitions).some(exercise => exercise.id === exerciseId && exercise.type === 'strength'
+      && (!variationId || (Array.isArray(exercise.variants) && exercise.variants.some(variant => variant.id === variationId))));
+  }
+
+  function snapshotDefinitions(state) {
+    const sessions = (Array.isArray(state.sessions) ? state.sessions : []).concat(Array.isArray(state.archives) ? state.archives.flatMap(archive => Array.isArray(archive && archive.sessions) ? archive.sessions : []) : []);
+    return sessions.flatMap(session => session && session.workoutSnapshot && Array.isArray(session.workoutSnapshot.exercises) ? session.workoutSnapshot.exercises : []);
+  }
+
+  function normalizeEquipmentLoadSteps(raw, definitions) {
     const entries = Array.isArray(raw) ? raw.slice(0, MAX_EQUIPMENT_LOAD_STEPS) : [];
     const normalized = new Map();
     entries.forEach(item => {
       if (!isRecord(item)) return;
       const exerciseId = cleanId(item.exerciseId, '');
-      const exercise = Data.CATALOG[exerciseId];
-      if (!exercise || exercise.type !== 'strength') return;
       const variationId = cleanId(item.variationId, '');
-      if (variationId && !exercise.variants.some(variant => variant.id === variationId)) return;
+      if (!isKnownEquipment(exerciseId, variationId, definitions)) return;
       const machineId = cleanText(item.machineId, 80);
       const stepText = numericString(item.step, {max: 1000, decimals: 2});
       if (!stepText || Number(stepText) <= 0) return;
@@ -172,12 +189,13 @@
     return [...normalized.values()];
   }
 
-  function normalizeSettings(raw) {
+  function normalizeSettings(raw, schemaVersion, definitions) {
     const value = isRecord(raw) ? raw : {};
+    const targetSchema = Number(schemaVersion) || SCHEMA_VERSION;
     const vacuumFrequency = Math.max(1, Math.min(7, Number(value.vacuumFrequency) || 3));
     const vacuumRepetitions = Math.max(1, Math.min(10, Number(value.vacuumRepetitions) || 2));
     const vacuumDuration = Math.max(5, Math.min(120, Number(value.vacuumDuration) || 15));
-    return {
+    const normalized = {
       mode: value.mode === 'sequence' ? 'sequence' : 'calendar',
       sound: value.sound !== false,
       vibration: value.vibration !== false,
@@ -185,13 +203,21 @@
       keepAwake: value.keepAwake !== false,
       autoStartRest: value.autoStartRest === true,
       videoMode: ['external', 'inline', 'ask'].includes(value.videoMode) ? value.videoMode : 'external',
-      equipmentLoadSteps: normalizeEquipmentLoadSteps(value.equipmentLoadSteps),
       defaultWeek: Math.max(1, Math.min(8, Number(value.defaultWeek) || 1)),
       vacuumFrequency,
       vacuumRepetitions,
       vacuumDuration,
       vacuumPosition: ['lying', 'all_fours', 'seated', 'standing'].includes(value.vacuumPosition) ? value.vacuumPosition : 'lying'
     };
+    if (targetSchema >= 12) normalized.equipmentLoadSteps = normalizeEquipmentLoadSteps(value.equipmentLoadSteps, definitions);
+    if (targetSchema >= 13) {
+      const tracking = isRecord(value.sideTracking) ? value.sideTracking : {};
+      normalized.sideTracking = {
+        enabled: tracking.enabled !== false,
+        affectedSide: ['right', 'left', 'unspecified'].includes(tracking.affectedSide) ? tracking.affectedSide : 'right'
+      };
+    }
+    return normalized;
   }
 
   function defaultState(now) {
@@ -271,6 +297,7 @@
   }
 
   function assertCurrentCollectionIntegrity(value) {
+    const snapshotSchema = Number(value.schemaVersion) >= 13;
     const fail = message => { throw new Error(`O documento local contém ${message}; nenhum registro foi descartado.`); };
     const hasOwn = (item, key) => Object.prototype.hasOwnProperty.call(item, key);
     const requireRecord = (item, label) => {
@@ -380,12 +407,80 @@
       });
       requireText(feedback, 'note', label, 300, false);
     };
+    const validateFlags = (feedback, flags, label, postLeg) => {
+      requireRecord(feedback, label);
+      knownKeys(feedback, flags.concat(postLeg ? ['noRelevantChange', 'note', 'savedAt'] : ['note']), label);
+      flags.forEach(key => requireBoolean(feedback, key, label));
+      requireText(feedback, 'note', label, postLeg ? 500 : 300, false);
+      if (postLeg) {
+        requireBoolean(feedback, 'noRelevantChange', label);
+        requireIso(feedback, 'savedAt', label, false);
+        if (feedback.noRelevantChange && flags.some(key => feedback[key])) fail(`${label} contraditório`);
+      }
+    };
+    const validateWorkoutSnapshot = (snapshot, session, label) => {
+      requireRecord(snapshot, label);
+      knownKeys(snapshot, ['revision', 'id', 'label', 'intro', 'weekday', 'workSetTotal', 'exercises'], label);
+      requireId(snapshot, 'id', label, true);
+      requireText(snapshot, 'revision', label, 40, false);
+      requireText(snapshot, 'label', label, 120, false);
+      requireText(snapshot, 'intro', label, 1000, false);
+      requireNumber(snapshot, 'weekday', label, 0, 6, true, false);
+      requireNumber(snapshot, 'workSetTotal', label, 0, 1000, true, false);
+      if (snapshot.id !== session.workoutId || !snapshot.revision || !snapshot.label) fail(`${label} sem identidade válida`);
+      if (!Array.isArray(snapshot.exercises) || !snapshot.exercises.length || snapshot.exercises.length > 100) fail(`${label} com ficha inválida`);
+      requireUniqueIds(snapshot.exercises, label);
+      snapshot.exercises.forEach((definition, index) => {
+        const itemLabel = `${label}, definição ${index + 1}`;
+        requireRecord(definition, itemLabel);
+        knownKeys(definition, ['id', 'name', 'type', 'category', 'workSets', 'loadStep', 'muscles', 'restSeconds', 'warmupSets', 'warmupOptional', 'detail', 'notes', 'variants', 'defaultVariant', 'defaultSideMode', 'preferredTrackingVariant', 'videoKey', 'bracing', 'allowHighReps', 'unilateral', 'sets', 'target', 'effort', 'sideFeedback', 'prompts', 'sideModeSnapshot'], itemLabel);
+        requireId(definition, 'id', itemLabel, true);
+        requireText(definition, 'name', itemLabel, 200, false);
+        if (!definition.name || !['strength', 'mobility'].includes(definition.type) || !SIDE_MODES.has(definition.sideModeSnapshot)) fail(`${itemLabel} incompleta`);
+        ['warmupOptional', 'bracing', 'allowHighReps', 'unilateral', 'sideFeedback'].forEach(key => requireBoolean(definition, key, itemLabel));
+        ['workSets', 'sets', 'warmupSets'].forEach(key => requireNumber(definition, key, itemLabel, 0, 64, true, false));
+        requireNumber(definition, 'loadStep', itemLabel, 0.01, 1000, false, false);
+        requireNumber(definition, 'restSeconds', itemLabel, 0, 1800, false, false);
+        requireEnum(definition, 'category', ['upper_compound', 'squat_press', 'accessory', 'deadlift'], itemLabel, false);
+        requireEnum(definition, 'defaultSideMode', [...SIDE_MODES], itemLabel, false);
+        ['defaultVariant', 'preferredTrackingVariant', 'videoKey'].forEach(key => requireId(definition, key, itemLabel, false));
+        ['detail', 'target', 'effort'].forEach(key => requireText(definition, key, itemLabel, 1000, false));
+        ['notes', 'prompts'].forEach(key => {
+          if (definition[key] == null) return;
+          if (!Array.isArray(definition[key]) || definition[key].length > 20 || definition[key].some(text => typeof text !== 'string' || cleanText(text, 2000) !== text)) fail(`${itemLabel}.${key} inválido`);
+        });
+        if (definition.type === 'strength') {
+          if (!Number.isInteger(definition.workSets) || definition.workSets < 1
+            || !['upper_compound', 'squat_press', 'accessory', 'deadlift'].includes(definition.category)
+            || !Number.isFinite(definition.restSeconds) || definition.restSeconds < 0
+            || !Number.isInteger(definition.warmupSets) || definition.warmupSets < 0) fail(`${itemLabel} sem prescrição de força completa`);
+          if (!Array.isArray(definition.variants) || definition.variants.length > 30) fail(`${itemLabel} com variantes inválidas`);
+          requireUniqueIds(definition.variants, itemLabel);
+          definition.variants.forEach(variant => {
+            requireRecord(variant, itemLabel);
+            knownKeys(variant, ['id', 'label', 'videoKey', 'sideMode', 'requiresUnilateralSupport'], itemLabel);
+            requireId(variant, 'id', itemLabel, true);
+            requireText(variant, 'label', itemLabel, 200, false);
+            requireId(variant, 'videoKey', itemLabel, false);
+            requireEnum(variant, 'sideMode', [...SIDE_MODES], itemLabel, false);
+            requireBoolean(variant, 'requiresUnilateralSupport', itemLabel);
+          });
+          if (definition.defaultVariant && !definition.variants.some(variant => variant.id === definition.defaultVariant)) fail(`${itemLabel} com variante padrão inexistente`);
+          requireRecord(definition.muscles, itemLabel);
+          knownKeys(definition.muscles, ['primary', 'secondary'], itemLabel);
+          ['primary', 'secondary'].forEach(key => {
+            if (!Array.isArray(definition.muscles[key]) || definition.muscles[key].length > 20 || definition.muscles[key].some(id => typeof id !== 'string' || cleanId(id, '') !== id)) fail(`${itemLabel} com grupos musculares inválidos`);
+          });
+        } else if (definition.sideModeSnapshot !== 'bilateral' || !Number.isInteger(definition.sets) || definition.sets < 1 || !definition.target) fail(`${itemLabel} com prescrição de mobilidade inválida`);
+      });
+      return snapshot;
+    };
     const validateSession = (session, label) => {
       requireRecord(session, label);
-      knownKeys(session, ['id', 'workoutId', 'plannedDate', 'actualDate', 'week', 'status', 'startedAt', 'pausedAt', 'pausedSeconds', 'completedAt', 'durationSeconds', 'rescheduledFrom', 'note', 'cardioId', 'exercises', 'createdAt', 'updatedAt'], label);
+      knownKeys(session, ['id', 'workoutId', 'plannedDate', 'actualDate', 'week', 'status', 'startedAt', 'pausedAt', 'pausedSeconds', 'completedAt', 'durationSeconds', 'rescheduledFrom', 'note', 'cardioId', 'exercises', 'createdAt', 'updatedAt'].concat(snapshotSchema ? ['workoutSnapshot', 'postLegCheck'] : []), label);
       requireId(session, 'id', label, true);
       requireId(session, 'workoutId', label, true);
-      if (!Data.WORKOUT_BY_ID[session.workoutId] || !validDate(session.plannedDate)) fail(`${label} inválida`);
+      if ((!snapshotSchema && !legacyWorkout(session.workoutId)) || !validDate(session.plannedDate)) fail(`${label} inválida`);
       requireDate(session, 'plannedDate', label, true);
       requireDate(session, 'actualDate', label, false);
       requireNumber(session, 'week', label, 1, 8, true, false);
@@ -403,8 +498,9 @@
       if (!Array.isArray(session.exercises)) fail(`${label} sem lista válida de exercícios`);
       if (session.exercises.length > 100) fail(`${label} com mais de 100 registros de exercício`);
       requireUniqueIds(session.exercises, `${label}, exercícios`);
-      const workout = Data.WORKOUT_BY_ID[session.workoutId];
-      const expectedLogs = workout.exercises.flatMap(exercise => exercise.unilateral
+      const workout = snapshotSchema ? validateWorkoutSnapshot(session.workoutSnapshot, session, `${label}, retrato da ficha`) : legacyWorkout(session.workoutId);
+      if (snapshotSchema && session.postLegCheck != null) validateFlags(session.postLegCheck, POST_LEG_CHECK_FLAGS, `${label}, relato após pernas`, true);
+      const expectedLogs = workout.exercises.flatMap(exercise => (snapshotSchema ? exercise.sideModeSnapshot === 'unilateral' : exercise.unilateral)
         ? [`${exercise.id}|left`, `${exercise.id}|right`]
         : [`${exercise.id}|bilateral`]).sort();
       const actualLogs = session.exercises.map(exercise => `${exercise.exerciseId}|${exercise.side}`).sort();
@@ -414,11 +510,11 @@
       session.exercises.forEach((exercise, exerciseIndex) => {
         const exerciseLabel = `${label}, exercício ${exerciseIndex + 1}`;
         requireRecord(exercise, exerciseLabel);
-        knownKeys(exercise, ['id', 'exerciseId', 'variationId', 'machineId', 'side', 'highRepPreference', 'completed', 'skipped', 'feeling', 'feedback', 'mobilityFeedback', 'prescriptionSnapshot', 'sets'], exerciseLabel);
+        knownKeys(exercise, ['id', 'exerciseId', 'variationId', 'machineId', 'side', 'highRepPreference', 'completed', 'skipped', 'feeling', 'feedback', 'mobilityFeedback', 'prescriptionSnapshot', 'sets'].concat(snapshotSchema ? ['sideModeSnapshot', 'executionFeedback'] : []), exerciseLabel);
         requireId(exercise, 'id', exerciseLabel, true);
         requireId(exercise, 'exerciseId', exerciseLabel, true);
         requireId(exercise, 'variationId', exerciseLabel, false);
-        const definition = Data.findExercise(session.workoutId, exercise.exerciseId);
+        const definition = workout.exercises.find(item => item.id === exercise.exerciseId);
         if (!definition) fail(`${exerciseLabel} não pertence ao treino ${workout.label}`);
         const variants = Array.isArray(definition.variants) ? definition.variants : [];
         if (exercise.variationId && !variants.some(variant => variant.id === exercise.variationId)) {
@@ -426,6 +522,10 @@
         }
         requireText(exercise, 'machineId', exerciseLabel, 80, false);
         requireEnum(exercise, 'side', ['left', 'right', 'bilateral'], exerciseLabel, false);
+        if (snapshotSchema) {
+          if (exercise.sideModeSnapshot !== definition.sideModeSnapshot) fail(`${exerciseLabel} com modo diferente do retrato da sessão`);
+          if (exercise.executionFeedback != null) validateFlags(exercise.executionFeedback, EXECUTION_FEEDBACK_FLAGS, `${exerciseLabel}, execução`, false);
+        }
         ['highRepPreference', 'completed', 'skipped'].forEach(key => requireBoolean(exercise, key, exerciseLabel));
         requireEnum(exercise, 'feeling', [...VALID_FEELINGS], exerciseLabel, true);
         requireText(exercise, 'feedback', exerciseLabel, 300, false);
@@ -439,7 +539,14 @@
 
     const settingsKeys = ['mode', 'sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest', 'videoMode', 'defaultWeek', 'vacuumFrequency', 'vacuumRepetitions', 'vacuumDuration', 'vacuumPosition'];
     if (Number(value.schemaVersion) >= 12) settingsKeys.push('equipmentLoadSteps');
+    if (snapshotSchema) settingsKeys.push('sideTracking');
     knownKeys(value.settings, settingsKeys, 'configurações');
+    if (snapshotSchema) {
+      requireRecord(value.settings.sideTracking, 'acompanhamento dos lados');
+      knownKeys(value.settings.sideTracking, ['enabled', 'affectedSide'], 'acompanhamento dos lados');
+      requireBoolean(value.settings.sideTracking, 'enabled', 'acompanhamento dos lados');
+      requireEnum(value.settings.sideTracking, 'affectedSide', ['right', 'left', 'unspecified'], 'acompanhamento dos lados', false);
+    }
     requireEnum(value.settings, 'mode', ['calendar', 'sequence'], 'configurações', false);
     ['sound', 'vibration', 'largeText', 'keepAwake', 'autoStartRest'].forEach(key => requireBoolean(value.settings, key, 'configurações'));
     requireEnum(value.settings, 'videoMode', ['external', 'inline', 'ask'], 'configurações', false);
@@ -457,10 +564,8 @@
         requireRecord(item, label);
         knownKeys(item, ['exerciseId', 'variationId', 'machineId', 'step', 'updatedAt'], label);
         requireId(item, 'exerciseId', label, true);
-        const exercise = Data.CATALOG[item.exerciseId];
-        if (!exercise || exercise.type !== 'strength') fail(`${label}.exerciseId desconhecido`);
         requireId(item, 'variationId', label, false);
-        if (item.variationId && !exercise.variants.some(variant => variant.id === item.variationId)) fail(`${label}.variationId não pertence ao exercício`);
+        if (!isKnownEquipment(item.exerciseId, item.variationId, snapshotDefinitions(value))) fail(`${label}.exerciseId ou variationId não pertence a uma ficha conhecida`);
         requireText(item, 'machineId', label, 80, false);
         requireNumber(item, 'step', label, 0.01, 1000, false, false);
         if (Number(numericString(item.step, {max: 1000, decimals: 2})) !== Number(item.step)) fail(`${label}.step precisa ter no máximo duas casas decimais`);
@@ -550,7 +655,12 @@
     value.progressionDecisions.forEach((item, index) => {
       const label = `decisão de progressão ${index + 1}`;
       requireRecord(item, label);
-      knownKeys(item, ['id', 'sessionId', 'exerciseId', 'seriesKey', 'date', 'recommendation', 'message', 'load', 'result', 'rir', 'decision', 'nextLoad', 'savedAt'], label);
+      knownKeys(item, ['id', 'sessionId', 'exerciseId', 'seriesKey', 'date', 'recommendation', 'message', 'load', 'result', 'rir', 'decision', 'nextLoad', 'savedAt'].concat(snapshotSchema ? ['side', 'variationId', 'machineId'] : []), label);
+      if (snapshotSchema) {
+        requireEnum(item, 'side', ['left', 'right', 'bilateral'], label, true);
+        requireId(item, 'variationId', label, false);
+        requireText(item, 'machineId', label, 80, false);
+      }
       requireId(item, 'id', label, true);
       requireId(item, 'sessionId', label, false);
       requireId(item, 'exerciseId', label, false);
@@ -673,6 +783,33 @@
     return output;
   }
 
+  function normalizeExecutionFeedback(raw) {
+    if (raw == null) return null;
+    const value = isRecord(raw) ? raw : {};
+    const output = Object.fromEntries(EXECUTION_FEEDBACK_FLAGS.map(key => [key, value[key] === true]));
+    output.note = cleanText(value.note, 300);
+    return output;
+  }
+
+  function normalizePostLegCheck(raw) {
+    if (raw == null) return null;
+    const value = isRecord(raw) ? raw : {};
+    const output = Object.fromEntries(POST_LEG_CHECK_FLAGS.map(key => [key, value[key] === true]));
+    const hasAdverseFlag = POST_LEG_CHECK_FLAGS.some(key => output[key]);
+    output.noRelevantChange = value.noRelevantChange === true && !hasAdverseFlag;
+    output.note = cleanText(value.note, 500);
+    output.savedAt = validIso(value.savedAt);
+    return output;
+  }
+
+  function orderedSides(settings) {
+    const tracking = settings && isRecord(settings.sideTracking) ? settings.sideTracking : {};
+    if (tracking.enabled !== false && ['right', 'left'].includes(tracking.affectedSide)) {
+      return tracking.affectedSide === 'right' ? ['right', 'left'] : ['left', 'right'];
+    }
+    return ['right', 'left'];
+  }
+
   function normalizePrescriptionSnapshot(raw) {
     const value = isRecord(raw) ? raw : {};
     const categories = ['upper_compound', 'squat_press', 'accessory', 'deadlift', 'mobility'];
@@ -693,11 +830,11 @@
     };
   }
 
-  function normalizeExerciseLog(raw, index) {
+  function normalizeExerciseLog(raw, index, schemaVersion = SCHEMA_VERSION) {
     const value = isRecord(raw) ? raw : {};
     const exerciseId = cleanId(value.exerciseId, `unknown-${index + 1}`);
     const feeling = VALID_FEELINGS.has(value.feeling) ? value.feeling : '';
-    return {
+    const output = {
       id: cleanId(value.id, uid('exercise')),
       exerciseId,
       variationId: cleanId(value.variationId, ''),
@@ -712,15 +849,21 @@
       prescriptionSnapshot: normalizePrescriptionSnapshot(value.prescriptionSnapshot),
       sets: Array.isArray(value.sets) ? value.sets.slice(0, MAX_SERIES_PER_EXERCISE).map(normalizeSet) : []
     };
+    if (schemaVersion >= 13) {
+      output.sideModeSnapshot = SIDE_MODES.has(value.sideModeSnapshot) ? value.sideModeSnapshot : (['left', 'right'].includes(output.side) ? 'unilateral' : 'bilateral');
+      output.executionFeedback = normalizeExecutionFeedback(value.executionFeedback);
+    }
+    return output;
   }
 
-  function normalizeSession(raw, index) {
+  function normalizeSession(raw, index, schemaVersion = SCHEMA_VERSION) {
     const value = isRecord(raw) ? raw : {};
-    const workoutId = Data.WORKOUT_BY_ID[value.workoutId] ? value.workoutId : '';
+    const workoutId = schemaVersion >= 13 && isRecord(value.workoutSnapshot) && value.workoutSnapshot.id === value.workoutId
+      ? cleanId(value.workoutId, '') : (Data.WORKOUT_BY_ID[value.workoutId] ? value.workoutId : '');
     const status = SESSION_STATUSES.has(value.status) ? value.status : 'planned';
     const plannedDate = validDate(value.plannedDate);
     if (!workoutId || !plannedDate) return null;
-    return {
+    const output = {
       id: cleanId(value.id, uid('session')),
       workoutId,
       plannedDate,
@@ -735,10 +878,15 @@
       rescheduledFrom: validDate(value.rescheduledFrom),
       note: cleanText(value.note, 500),
       cardioId: cleanId(value.cardioId, ''),
-      exercises: Array.isArray(value.exercises) ? value.exercises.slice(0, 100).map(normalizeExerciseLog) : [],
+      exercises: Array.isArray(value.exercises) ? value.exercises.slice(0, 100).map((log, position) => normalizeExerciseLog(log, position, schemaVersion)) : [],
       createdAt: validIso(value.createdAt) || new Date().toISOString(),
       updatedAt: validIso(value.updatedAt) || new Date().toISOString()
     };
+    if (schemaVersion >= 13) {
+      output.workoutSnapshot = isRecord(value.workoutSnapshot) ? deepClone(value.workoutSnapshot) : null;
+      output.postLegCheck = normalizePostLegCheck(value.postLegCheck);
+    }
+    return output;
   }
 
   function normalizeCardio(raw, index) {
@@ -829,9 +977,9 @@
     return output;
   }
 
-  function normalizeProgressionDecision(raw, index) {
+  function normalizeProgressionDecision(raw, index, schemaVersion = SCHEMA_VERSION) {
     const value = isRecord(raw) ? raw : {};
-    return {
+    const output = {
       id: cleanId(value.id, `progression-${index + 1}`),
       sessionId: cleanId(value.sessionId, ''),
       exerciseId: cleanId(value.exerciseId, ''),
@@ -846,6 +994,12 @@
       nextLoad: numericString(value.nextLoad, {max: 5000, decimals: 2}),
       savedAt: validIso(value.savedAt) || new Date().toISOString()
     };
+    if (schemaVersion >= 13) {
+      output.side = ['left', 'right', 'bilateral'].includes(value.side) ? value.side : '';
+      output.variationId = cleanId(value.variationId, '');
+      output.machineId = cleanText(value.machineId, 80);
+    }
+    return output;
   }
 
   function normalizeLegacyCycle(raw, index) {
@@ -900,35 +1054,35 @@
     };
   }
 
-  function normalizeState(raw) {
+  function normalizeState(raw, schemaVersion = SCHEMA_VERSION) {
     const value = isRecord(raw) ? raw : {};
     assertStateLimits(value);
     const fallback = defaultState(value.createdAt);
-    const sessions = Array.isArray(value.sessions) ? value.sessions.slice(0, MAX_SESSIONS).map(normalizeSession).filter(Boolean) : [];
+    const sessions = Array.isArray(value.sessions) ? value.sessions.slice(0, MAX_SESSIONS).map((session, index) => normalizeSession(session, index, schemaVersion)).filter(Boolean) : [];
     const measurements = [];
     (Array.isArray(value.measurements) ? value.measurements : []).slice(0, 2000).forEach((item, index) => {
       const normalized = normalizeMeasurement(item, index);
       if (normalized) measurements.push(normalized);
     });
     return {
-      schemaVersion: SCHEMA_VERSION,
+      schemaVersion,
       app: APP_ID,
       revision: Math.max(0, Number(value.revision) || 0),
       createdAt: validIso(value.createdAt) || fallback.createdAt,
       updatedAt: validIso(value.updatedAt) || fallback.updatedAt,
-      settings: normalizeSettings(value.settings),
+      settings: normalizeSettings(value.settings, schemaVersion, snapshotDefinitions(value)),
       cycle: normalizeCycle(value.cycle),
       sessions,
       cardio: (Array.isArray(value.cardio) ? value.cardio : []).slice(0, 5000).map(normalizeCardio).filter(Boolean),
       homeRoutines: (Array.isArray(value.homeRoutines) ? value.homeRoutines : []).slice(0, 5000).map(normalizeHomeRoutine).filter(Boolean),
       measurements: measurements.sort((a, b) => a.date.localeCompare(b.date) || String(a.measuredAt || a.savedAt || a.id).localeCompare(String(b.measuredAt || b.savedAt || b.id))),
-      progressionDecisions: (Array.isArray(value.progressionDecisions) ? value.progressionDecisions : []).slice(0, 10000).map(normalizeProgressionDecision),
+      progressionDecisions: (Array.isArray(value.progressionDecisions) ? value.progressionDecisions : []).slice(0, 10000).map((decision, index) => normalizeProgressionDecision(decision, index, schemaVersion)),
       legacyCycles: (Array.isArray(value.legacyCycles) ? value.legacyCycles : []).slice(0, 100).map(normalizeLegacyCycle),
       archives: Array.isArray(value.archives) ? value.archives.slice(0, 100).map(item => ({
         id: cleanId(item && item.id, uid('archive')),
         archivedAt: validIso(item && item.archivedAt) || new Date().toISOString(),
         cycle: normalizeCycle(item && item.cycle),
-        sessions: Array.isArray(item && item.sessions) ? item.sessions.slice(0, MAX_SESSIONS).map(normalizeSession).filter(Boolean) : []
+        sessions: Array.isArray(item && item.sessions) ? item.sessions.slice(0, MAX_SESSIONS).map((session, index) => normalizeSession(session, index, schemaVersion)).filter(Boolean) : []
       })) : [],
       migrationLog: Array.isArray(value.migrationLog) ? value.migrationLog.slice(-200).map(item => ({
         at: validIso(item && item.at) || new Date().toISOString(),
@@ -957,6 +1111,7 @@
         throw new Error('O estado interno do backup não corresponde ao aplicativo ou esquema declarado.');
       }
       if (!isRecord(source.settings) || !isRecord(source.cycle)) throw new Error('O backup tem configurações ou ciclo em formato inválido.');
+      if (!Number.isInteger(source.revision) || source.revision < 0 || !validIso(source.createdAt) || !validIso(source.updatedAt)) throw new Error('O backup tem revisão ou datas inválidas.');
       Object.keys(STATE_LIMITS).forEach(field => {
         if (!Array.isArray(source[field])) throw new Error(`O backup tem o campo ${field} em formato inválido.`);
       });
@@ -1055,8 +1210,7 @@
       state.legacyCycles.push(archivedLegacy);
     });
     state.measurements = (Array.isArray(payload.measurements) ? payload.measurements : []).map(normalizeMeasurement).filter(Boolean);
-    state.settings = normalizeSettings(payload.settings);
-    delete state.settings.equipmentLoadSteps;
+    state.settings = normalizeSettings(payload.settings, 10);
     state.migrationLog.push({at: new Date().toISOString(), from: Number(payload.schemaVersion) || 9, to: 10, summary: `${legacy.records.length} registros ABC preservados como ciclo legado.`});
     return Object.assign(state, {schemaVersion: 10});
   }
@@ -1073,10 +1227,7 @@
         summary: 'Adicionados histórico de progressão, quarentena e chaves explícitas de equipamento.'
       })
     });
-    const normalized = normalizeState(migrated);
-    normalized.schemaVersion = 11;
-    delete normalized.settings.equipmentLoadSteps;
-    return normalized;
+    return normalizeState(migrated, 11);
   }
 
   function migrate11To12(state11) {
@@ -1090,20 +1241,80 @@
         summary: 'Adicionados degraus de carga configuráveis por exercício, variação e aparelho.'
       })
     });
-    return normalizeState(migrated);
+    return normalizeState(migrated, 12);
+  }
+
+  function legacyWorkout(workoutId) {
+    if (!Array.isArray(LEGACY_WORKOUTS)) throw new Error('A ficha histórica necessária à migração não foi carregada. Nenhum dado foi alterado.');
+    return LEGACY_WORKOUTS.find(workout => workout.id === workoutId) || null;
+  }
+
+  function workoutSnapshot(workout, logs, revision) {
+    const snapshot = deepClone(workout);
+    snapshot.revision = revision || Data.WORKOUT_REVISION;
+    snapshot.exercises.forEach(exercise => {
+      const recorded = logs.filter(log => log.exerciseId === exercise.id);
+      exercise.sideModeSnapshot = recorded.some(log => ['left', 'right'].includes(log.side)) ? 'unilateral' : 'bilateral';
+    });
+    return snapshot;
+  }
+
+  function sessionWorkout(session) {
+    return session && isRecord(session.workoutSnapshot) ? session.workoutSnapshot : null;
+  }
+
+  function sessionExercise(session, exerciseId) {
+    const workout = sessionWorkout(session);
+    return workout && workout.exercises.find(exercise => exercise.id === exerciseId) || null;
+  }
+
+  function migrate12To13(state12) {
+    // Validate against the frozen v12 catalog before adding anything. In
+    // particular, a standing curl recorded bilaterally stays ONE historical log.
+    validateNewStateEnvelope(state12);
+    const migrated = deepClone(state12);
+    const sessions = migrated.sessions.concat(migrated.archives.flatMap(archive => archive.sessions));
+    sessions.forEach(session => {
+      session.workoutSnapshot = workoutSnapshot(legacyWorkout(session.workoutId), session.exercises, '3.5.1');
+      session.postLegCheck = null;
+      session.exercises.forEach(log => {
+        log.sideModeSnapshot = ['left', 'right'].includes(log.side) ? 'unilateral' : 'bilateral';
+        log.executionFeedback = null;
+      });
+    });
+    migrated.progressionDecisions.forEach(decision => {
+      const session = sessions.find(item => item.id === decision.sessionId);
+      const candidates = session ? session.exercises.filter(log => log.exerciseId === decision.exerciseId
+        && [log.prescriptionSnapshot && log.prescriptionSnapshot.label, log.prescriptionSnapshot && `${log.prescriptionSnapshot.min}-${log.prescriptionSnapshot.max}`]
+          .some(range => comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, range) === decision.seriesKey)) : [];
+      const log = candidates.length === 1 ? candidates[0] : null;
+      decision.side = log ? log.side : '';
+      decision.variationId = log ? log.variationId : '';
+      decision.machineId = log ? log.machineId : '';
+    });
+    migrated.schemaVersion = 13;
+    migrated.settings.sideTracking = {enabled: true, affectedSide: 'right'};
+    migrated.migrationLog.push({at: new Date().toISOString(), from: 12, to: 13, summary: 'Ficha e modo de execução preservados por sessão; acompanhamento e feedback independentes por lado adicionados sem dividir registros antigos.'});
+    const normalized = normalizeState(migrated);
+    assertCurrentStateStructure(normalized);
+    return normalized;
   }
 
   function migratePayload(payload) {
     assertSafeParsed(payload);
     if (payload.app && payload.app !== APP_ID) throw new Error('Este arquivo não pertence ao Treino Hard.');
-    const version = Math.max(1, Number(payload.schemaVersion) || 1);
+    const declared = Object.prototype.hasOwnProperty.call(payload, 'schemaVersion');
+    const version = declared ? Number(payload.schemaVersion) : 1;
+    if (!Number.isInteger(version) || version < 1) throw new Error('O documento declara um esquema inválido; nada foi migrado.');
     if (version > SCHEMA_VERSION) throw new Error('O backup foi criado por uma versão mais nova do aplicativo.');
-    if (version >= 12) return normalizeState(validateNewStateEnvelope(payload));
-    if (version === 11) return migrate11To12(validateNewStateEnvelope(payload));
+    if (version < 10 && (Object.prototype.hasOwnProperty.call(payload, 'sessions') || Object.prototype.hasOwnProperty.call(payload, 'state'))) throw new Error('O formato de sessões não corresponde ao esquema declarado; nada foi migrado.');
+    if (version === 13) return normalizeState(validateNewStateEnvelope(payload));
+    if (version === 12) return migrate12To13(validateNewStateEnvelope(payload));
+    if (version === 11) return migrate12To13(migrate11To12(validateNewStateEnvelope(payload)));
     if (version === 10 && (isRecord(payload.state) || Array.isArray(payload.sessions))) {
-      return migrate11To12(migrate10To11(isRecord(payload.state) ? payload.state : payload));
+      return migrate12To13(migrate11To12(migrate10To11(isRecord(payload.state) ? payload.state : payload)));
     }
-    return migrate11To12(migrate10To11(migrate9To10(payload)));
+    return migrate12To13(migrate11To12(migrate10To11(migrate9To10(payload))));
   }
 
   function importPreview(payload) {
@@ -1124,21 +1335,23 @@
     };
   }
 
-  // Exercícios unilaterais viram dois registros — esquerdo e direito — usando o
-  // campo `side` que o esquema 11 já possui. O volume da ficha continua contando
-  // o exercício uma única vez.
-  function createExerciseLogs(exercise, week) {
-    if (exercise.type === 'strength' && exercise.unilateral) {
-      return ['left', 'right'].map(side => {
-        const log = createExerciseLog(exercise, week);
+  // The selected variant determines cardinality for NEW execution. Historical
+  // logs are never reconstructed through this helper during migration.
+  function createExerciseLogs(exercise, week, options = {}) {
+    const settings = normalizeSettings(options.settings);
+    const variationId = options.variationId == null ? Data.preferredVariantFor(exercise, settings.sideTracking.enabled) : options.variationId;
+    const mode = SIDE_MODES.has(options.sideMode) ? options.sideMode : Data.sideModeFor(exercise, variationId);
+    if (exercise.type === 'strength' && mode === 'unilateral') {
+      return orderedSides(settings).map(side => {
+        const log = createExerciseLog(exercise, week, {variationId, sideMode: mode});
         log.side = side;
         return log;
       });
     }
-    return [createExerciseLog(exercise, week)];
+    return [createExerciseLog(exercise, week, {variationId, sideMode: 'bilateral'})];
   }
 
-  function createExerciseLog(exercise, week) {
+  function createExerciseLog(exercise, week, options = {}) {
     if (exercise.type === 'mobility') {
       return normalizeExerciseLog({
         id: uid('exercise'),
@@ -1161,7 +1374,7 @@
     return normalizeExerciseLog({
       id: uid('exercise'),
       exerciseId: exercise.id,
-      variationId: exercise.defaultVariant || '',
+      variationId: options.variationId == null ? (exercise.defaultVariant || '') : options.variationId,
       side: 'bilateral',
       prescriptionSnapshot: {
         category: exercise.category,
@@ -1174,25 +1387,144 @@
         restSeconds: exercise.restSeconds,
         deload: prescription.deload
       },
-      sets
+      sets,
+      sideModeSnapshot: options.sideMode || Data.sideModeFor(exercise, options.variationId || exercise.defaultVariant)
     }, 0);
   }
 
-  function createSession(workoutId, plannedDate, week) {
+  function createSession(workoutId, plannedDate, week, settings) {
     const workout = Data.WORKOUT_BY_ID[workoutId];
     const date = validDate(plannedDate);
     if (!workout || !date) throw new Error('Treino ou data inválidos.');
     const timestamp = new Date().toISOString();
+    const logs = workout.exercises.flatMap(exercise => createExerciseLogs(exercise, week, {settings}));
     return normalizeSession({
       id: uid('session'),
       workoutId,
       plannedDate: date,
       week: Math.max(1, Math.min(8, Number(week) || 1)),
       status: 'planned',
-      exercises: workout.exercises.flatMap(exercise => createExerciseLogs(exercise, week)),
+      exercises: logs,
+      workoutSnapshot: workoutSnapshot(workout, logs),
       createdAt: timestamp,
       updatedAt: timestamp
     }, 0);
+  }
+
+  function hasExerciseExecutionData(log) {
+    if (!log) return false;
+    const flags = log.executionFeedback;
+    const mobility = log.mobilityFeedback;
+    return Boolean(log.completed || log.skipped || log.feeling || log.feedback
+      || (flags && (flags.note || EXECUTION_FEEDBACK_FLAGS.some(key => flags[key])))
+      || (mobility && (mobility.note || ['left', 'right'].some(side => mobility[side] && Object.values(mobility[side]).some(Boolean))))
+      || (Array.isArray(log.sets) && log.sets.some(set => set.load || set.reps || set.rir || set.status || set.note || set.completedAt)));
+  }
+
+  function changeExerciseVariant(session, logId, variantId, settings, options = {}) {
+    const log = session.exercises.find(item => item.id === logId);
+    const exercise = log && sessionExercise(session, log.exerciseId);
+    if (!exercise || !Array.isArray(exercise.variants)) return {changed: false, blocked: true, message: 'Exercício não encontrado na ficha desta sessão.'};
+    if (['completed', 'partial', 'cancelled', 'skipped', 'rescheduled'].includes(session.status)) return {changed: false, blocked: true, message: 'Reabra a sessão antes de alterar sua execução.'};
+    const variant = exercise.variants.find(item => item.id === variantId);
+    if (!variant) return {changed: false, blocked: true, message: 'Esta variação não pertence à ficha da sessão.'};
+    if (log.variationId === variantId) return {changed: false};
+    const mode = Data.sideModeFor(exercise, variantId);
+    const group = session.exercises.filter(item => item.exerciseId === log.exerciseId);
+    const structural = mode !== log.sideModeSnapshot;
+    if (structural && group.some(hasExerciseExecutionData)) return {changed: false, blocked: true, message: 'Já existem registros neste exercício. Não é possível transformar um registro bilateral em dois lados, ou juntar os lados. Use a nova variação em outra sessão.'};
+    // A same-mode change concerns only the selected log: distinct machines on
+    // right/left remain valid, just as in historical unilateral row sessions.
+    if (!structural) {
+      if (hasExerciseExecutionData(log) && !options.confirmed) return {changed: false, requiresConfirmation: true, message: 'Há dados registrados. Confirme se pertencem à nova variação; cargas de variações diferentes não são equivalentes.'};
+      log.variationId = variantId;
+      return {changed: true};
+    }
+    const machines = new Set(group.map(item => item.machineId));
+    const preferences = new Set(group.map(item => item.highRepPreference));
+    if (mode === 'bilateral' && (machines.size > 1 || preferences.size > 1)) return {changed: false, blocked: true, message: 'Os lados têm configurações diferentes. Iguale o aparelho e a preferência de faixa antes de juntar registros vazios.'};
+    const replacements = createExerciseLogs(exercise, session.week, {variationId: variantId, sideMode: mode, settings});
+    replacements.forEach(replacement => {
+      replacement.machineId = log.machineId;
+      replacement.highRepPreference = log.highRepPreference;
+      if (replacement.highRepPreference) replacement.prescriptionSnapshot = normalizePrescriptionSnapshot(Object.assign({}, replacement.prescriptionSnapshot, Data.prescriptionFor(exercise, session.week, true)));
+    });
+    const index = session.exercises.findIndex(item => item.exerciseId === log.exerciseId);
+    session.exercises = session.exercises.filter(item => item.exerciseId !== log.exerciseId);
+    session.exercises.splice(index, 0, ...replacements);
+    exercise.sideModeSnapshot = mode;
+    return {changed: true};
+  }
+
+  function replaceSessionPrescription(session, week, settings) {
+    if (!sessionWorkout(session) || session.status !== 'planned' || session.exercises.some(hasExerciseExecutionData)) return false;
+    const nextWeek = Math.max(1, Math.min(8, Number(week) || 1));
+    session.exercises = session.exercises.map(previous => {
+      const exercise = sessionExercise(session, previous.exerciseId);
+      const next = createExerciseLog(exercise, nextWeek, {variationId: previous.variationId, sideMode: previous.sideModeSnapshot});
+      next.id = previous.id;
+      next.side = previous.side;
+      next.machineId = previous.machineId;
+      next.highRepPreference = previous.highRepPreference;
+      if (exercise.type === 'strength' && next.highRepPreference) next.prescriptionSnapshot = normalizePrescriptionSnapshot(Object.assign({}, next.prescriptionSnapshot, Data.prescriptionFor(exercise, nextWeek, true)));
+      return next;
+    });
+    session.week = nextWeek;
+    return true;
+  }
+
+  // Sessões planejadas guardam um retrato da ficha para proteger o histórico.
+  // Quando esse retrato ainda está totalmente vazio, porém, ele não deve prender
+  // a semana futura a uma ficha antiga (por exemplo, sem o aquecimento recém
+  // corrigido). Só atualizamos o que ainda não foi executado.
+  function refreshEmptyPlannedSession(session, settings) {
+    const currentWorkout = session && Data.WORKOUT_BY_ID[session.workoutId];
+    if (!currentWorkout || session.status !== 'planned' || session.exercises.some(hasExerciseExecutionData)) return false;
+    const currentRevision = session.workoutSnapshot && session.workoutSnapshot.revision;
+    if (currentRevision === Data.WORKOUT_REVISION) return false;
+    const previousLogs = session.exercises.slice();
+    const refreshed = createSession(session.workoutId, session.plannedDate, session.week, settings);
+    refreshed.exercises = currentWorkout.exercises.flatMap(exercise => {
+      const previous = previousLogs.filter(log => log.exerciseId === exercise.id);
+      const previousVariation = previous[0] && previous[0].variationId;
+      const variationId = Array.isArray(exercise.variants) && exercise.variants.some(variant => variant.id === previousVariation)
+        ? previousVariation
+        : undefined;
+      const logs = createExerciseLogs(exercise, session.week, {settings, variationId});
+      logs.forEach(log => {
+        const old = previous.find(item => item.side === log.side) || previous[0];
+        if (!old) return;
+        log.id = old.id;
+        log.machineId = old.machineId;
+        log.highRepPreference = old.highRepPreference;
+        if (log.highRepPreference && exercise.type === 'strength') {
+          log.prescriptionSnapshot = normalizePrescriptionSnapshot(Object.assign({}, log.prescriptionSnapshot, Data.prescriptionFor(exercise, session.week, true)));
+        }
+      });
+      return logs;
+    });
+    refreshed.workoutSnapshot = workoutSnapshot(currentWorkout, refreshed.exercises);
+    Object.assign(session, refreshed, {
+      id: session.id,
+      createdAt: session.createdAt,
+      updatedAt: new Date().toISOString()
+    });
+    return true;
+  }
+
+  function createRescheduledSession(session, plannedDate, week, settings) {
+    const date = validDate(plannedDate);
+    if (!date || !sessionWorkout(session)) throw new Error('Data ou ficha da sessão inválida.');
+    const copy = deepClone(session);
+    const timestamp = new Date().toISOString();
+    Object.assign(copy, {id: uid('session'), plannedDate: date, actualDate: '', status: 'planned', startedAt: '', pausedAt: '', pausedSeconds: 0, completedAt: '', durationSeconds: 0, rescheduledFrom: session.plannedDate, note: '', cardioId: '', postLegCheck: null, createdAt: timestamp, updatedAt: timestamp});
+    copy.exercises = session.exercises.map(log => {
+      const next = createExerciseLog(sessionExercise(session, log.exerciseId), week, {variationId: log.variationId, sideMode: log.sideModeSnapshot});
+      Object.assign(next, {side: log.side, machineId: log.machineId, highRepPreference: log.highRepPreference});
+      return next;
+    });
+    replaceSessionPrescription(copy, week, settings);
+    return copy;
   }
 
   // Identidade da carga: mesmo exercício, mesma variação, mesma máquina, mesmo
@@ -1281,11 +1613,11 @@
           grouped.get(log.exerciseId).push(log);
         });
         grouped.forEach((logs, exerciseId) => {
-          const exercise = Data.findExercise(session.workoutId, exerciseId);
+          const exercise = sessionExercise(session, exerciseId);
           if (!exercise || exercise.type !== 'strength') return;
           const counts = logs.map(log => (Array.isArray(log.sets) ? log.sets : [])
             .filter(set => set.type === 'work' && set.status === 'completed' && isSetConfirmed(set)).length);
-          const equivalentSets = exercise.unilateral
+          const equivalentSets = exercise.sideModeSnapshot === 'unilateral'
             ? counts.reduce((sum, count) => sum + count, 0) / Math.max(1, counts.length)
             : (counts[0] || 0);
           addMuscleSets(rows, exercise, equivalentSets);
@@ -1332,6 +1664,10 @@
       ? stored
       : Data.prescriptionFor(exercise, week, exerciseLog.highRepPreference);
     if (prescription.deload) return {code: 'none', message: 'Semana de deload: não sugerimos aumento de carga.'};
+    if (['pain', 'awkward', 'replace'].includes(exerciseLog.feeling)
+      || (exerciseLog.executionFeedback && EXECUTION_FEEDBACK_FLAGS.some(key => exerciseLog.executionFeedback[key]))) {
+      return {code: 'review', message: 'Há relato de desconforto, dificuldade de execução ou pedido de substituição neste registro. Revise antes de considerar aumento.'};
+    }
     const workSets = exerciseLog.sets.filter(set => set.type === 'work').slice(0, prescription.sets);
     if (workSets.length < prescription.sets) return {code: 'review', message: 'Faltam séries de trabalho para uma recomendação comparável.'};
     if (workSets.some(set => ['pain', 'bad_technique', 'excessive_load', 'interrupted'].includes(set.status))) {
@@ -1368,6 +1704,21 @@
 
   function workoutVolume(workout) {
     return workout.exercises.filter(exercise => exercise.type === 'strength').reduce((sum, exercise) => sum + exercise.workSets, 0);
+  }
+
+  function sessionProgressionRecommendation(exercise, log, session, settings, allSessions, cardio) {
+    const base = doubleProgressionRecommendation(exercise, log, session.week, configuredLoadStep(settings, exercise, log));
+    if (!exercise || exercise.type !== 'strength' || !session.workoutId.startsWith('legs_') || base.code === 'none') return base;
+    const check = session.postLegCheck;
+    const adverseCheck = check && POST_LEG_CHECK_FLAGS.some(key => check[key]);
+    // Never use the other side's execution or unrelated dates as a proxy.
+    // A session-level gait/pain report instead qualifies all leg suggestions
+    // from that session; its attribution is shown explicitly in the UI.
+    const relatedCardio = (Array.isArray(cardio) ? cardio : []).filter(item => item.relatedSessionId === session.id);
+    const adverseCardio = relatedCardio.some(item => item.status === 'not_pain' || item.discomfort
+      || (item.legDayFlags && ['rightCalfPain', 'gaitChange', 'kneePain', 'anklePain', 'performanceDrop'].some(key => item.legDayFlags[key])));
+    if (adverseCheck || adverseCardio) return {code: 'review', message: 'O relato após este treino de pernas ou a caminhada vinculada indicou desconforto ou mudança de controle. Revise a situação antes de considerar aumento; isso não é um diagnóstico.'};
+    return base;
   }
 
   function csvCell(value) {
@@ -1528,7 +1879,7 @@
     if (!Number.isInteger(document.formatVersion) || document.formatVersion !== ENCRYPTED_FORMAT_VERSION) {
       throw new Error('A versão do formato criptografado não é suportada por este aplicativo.');
     }
-    if (!Number.isInteger(document.schemaVersion) || document.schemaVersion !== SCHEMA_VERSION) {
+    if (!Number.isInteger(document.schemaVersion) || document.schemaVersion < 11 || document.schemaVersion > SCHEMA_VERSION) {
       throw new Error('O esquema externo do backup criptografado não é suportado por este aplicativo.');
     }
     if (document.kdf.name !== 'PBKDF2' || document.kdf.hash !== 'SHA-256') throw new Error('Derivação de chave não suportada.');
@@ -1565,7 +1916,9 @@
     } catch (error) {
       throw new Error('O conteúdo interno do backup criptografado não é JSON válido.');
     }
-    return assertSafeParsed(parsed);
+    assertSafeParsed(parsed);
+    if (parsed.app !== document.app || parsed.schemaVersion !== document.schemaVersion) throw new Error('O conteúdo interno não corresponde ao esquema autenticado do backup.');
+    return parsed;
   }
 
   global.THFCore = Object.freeze({
@@ -1580,6 +1933,8 @@
     SESSION_STATUSES,
     SET_STATUSES,
     VALID_RIR,
+    EXECUTION_FEEDBACK_FLAGS,
+    POST_LEG_CHECK_FLAGS,
     MEASUREMENT_FIELDS,
     isRecord,
     hasForbiddenKey,
@@ -1603,6 +1958,9 @@
     assertStateLimits,
     assertCurrentStateStructure,
     normalizeExerciseLog,
+    normalizeExecutionFeedback,
+    normalizePostLegCheck,
+    orderedSides,
     normalizePrescriptionSnapshot,
     normalizeSession,
     normalizeCardio,
@@ -1614,11 +1972,19 @@
     migrate9To10,
     migrate10To11,
     migrate11To12,
+    migrate12To13,
     migratePayload,
     importPreview,
     createExerciseLog,
     createExerciseLogs,
     createSession,
+    sessionWorkout,
+    sessionExercise,
+    hasExerciseExecutionData,
+    changeExerciseVariant,
+    replaceSessionPrescription,
+    refreshEmptyPlannedSession,
+    createRescheduledSession,
     comparableSeriesKey,
     loadHistoryKey,
     equipmentLoadStepKey,
@@ -1628,6 +1994,7 @@
     formatLoad,
     rirNumber,
     doubleProgressionRecommendation,
+    sessionProgressionRecommendation,
     plannedMuscleVolume,
     recordedMuscleVolume,
     workoutVolume,
