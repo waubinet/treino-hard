@@ -1,5 +1,9 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.1 / esquema 13 — 2026-09-17
+
+Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados. A rodada comprovou 20 séries em Empurrar A/B, 16 em Puxar A/B, três séries na corda e três séries por lado na remada unilateral, além da reconstrução dos planos de teste ainda não iniciados. Revisão visual local, cache `treino-hard-v3.6.1`, migração, backup e recarga offline passaram sem erros.
+
 ## Rodada 3.6.0 / esquema 13 — 2026-09-17
 
 Gate local e publicação pública concluídos.
@@ -7,7 +11,7 @@ Gate local e publicação pública concluídos.
 - Núcleo, medidas e lateralidade: **124/124 aprovados**.
 - Chrome/Playwright: **60/60 aprovados** em uma única execução final, 0 falhas, em 367.705,480 ms.
 - Cobertura dirigida da correção atual: planos futuros vazios recebem a revisão atual da ficha, com aquecimento e séries corrigidos, sem remodelar sessão iniciada, parcial, concluída ou qualquer exercício com execução.
-- Ficha atual: exercícios bilaterais de força em máquina usam três séries efetivas; unilaterais mantêm duas séries por lado e o deload limita a duas.
+- Ficha validada naquela rodada: exercícios bilaterais de força em máquina usavam três séries efetivas; a remada unilateral ainda mantinha duas séries por lado e o deload limitava a duas.
 - Revisão visual automatizada e inspeção das quatro capturas: desktop de medidas, leg press móvel, medidas móveis e mobilidade, sem erro de página/console.
 - Migração física 12 → 13: documento, recuperação e backup preservados após recargas; apenas o plano futuro completamente vazio é atualizado para `3.6.0-r2`.
 - Núcleo: `node --test tests/app.test.cjs tests/measurements-sides.test.cjs tests/laterality.test.cjs`.

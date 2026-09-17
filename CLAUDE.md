@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Estado público de partida: **3.5.1**, esquema **12**. Rodada local **3.6.0**, esquema **13**, cache `treino-hard-v3.6.0`, em revisão (consultar `TESTES.md`).
+- Estado atual: **3.6.1**, esquema **13**, cache `treino-hard-v3.6.1` (consultar `TESTES.md`).
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Arquitetura
@@ -82,11 +82,11 @@ A ficha é **congelada** e vive em três lugares, nesta ordem de autoridade:
 a tabela desses testes junto com o código.
 
 ```
-Segunda  Empurrar A  19 séries
-Terça    Puxar A     15 séries
+Segunda  Empurrar A  20 séries
+Terça    Puxar A     16 séries
 Quarta   Pernas A    15 séries
-Quinta   Empurrar B  19 séries
-Sexta    Puxar B     15 séries
+Quinta   Empurrar B  20 séries
+Sexta    Puxar B     16 séries
 Sábado   Pernas B    15 séries
 Domingo  descanso completo, sem meta obrigatória
 ```

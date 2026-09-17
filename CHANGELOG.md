@@ -1,11 +1,18 @@
 # Changelog
 
+## [3.6.1] — correção das séries nos treinos A/B — 2026-09-17
+
+- Tríceps na polia com corda passou de duas para três séries nos dois treinos de empurrar.
+- Remada unilateral na máquina passou de duas para três séries por lado nos dois treinos de puxar.
+- Totais fora do deload: Empurrar A/B 20 séries, Puxar A/B 16 e Pernas A/B 15.
+- Sessões ainda planejadas são reconstruídas quando a revisão da ficha muda, mesmo que contenham preenchimentos usados nos testes. Sessões iniciadas ou terminais permanecem protegidas.
+
 ### Correção final da ficha planejada — 2026-09-17
 
 - Sessões futuras completamente vazias deixam de ficar presas ao retrato antigo da ficha e recebem a revisão atual, incluindo o aquecimento do primeiro aparelho; IDs, máquina e preferência de faixa alta são preservados.
 - Sessões iniciadas, parciais, concluídas, canceladas ou com qualquer dado de execução continuam imutáveis.
 - Exercícios bilaterais de força em máquina passam a três séries efetivas. Exercícios unilaterais permanecem com duas por lado; a semana de deload permanece limitada a duas.
-- Totais fora do deload: Empurrar A/B 19 séries, Puxar A/B 15 e Pernas A/B 15.
+- Totais daquela revisão: Empurrar A/B 19 séries, Puxar A/B 15 e Pernas A/B 15.
 - Gate local: 124/124 testes de núcleo/medidas/lateralidade e 60/60 cenários em Chrome, além de inspeção visual desktop/móvel.
 
 ### Pedido adicional em revisão — 2026-09-07

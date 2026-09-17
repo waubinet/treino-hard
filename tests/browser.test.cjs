@@ -488,7 +488,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   await waitStatus(page, 'Pausado');
   await completeMobilityItems(page);
   const filled = await fillWorkSets(page, 14, {waitForPersistence: true});
-  assert.equal(filled, 19, 'Empurrar A deve expor 19 séries de trabalho');
+  assert.equal(filled, 20, 'Empurrar A deve expor 20 séries de trabalho');
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await page.waitForTimeout(500);
   await fecharResumo(page);
@@ -501,7 +501,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   const finishedSession = finished.sessions.find(session => session.id === trackedId);
   assert.equal(finishedSession.status, 'completed');
   assert.ok(Number.isFinite(finishedSession.durationSeconds));
-  assert.equal(finishedSession.exercises.flatMap(exercise => exercise.sets).filter(set => set.type === 'work' && set.status).length, 19);
+  assert.equal(finishedSession.exercises.flatMap(exercise => exercise.sets).filter(set => set.type === 'work' && set.status).length, 20);
   assert.equal(finished.sessions.length, 6, 'nenhuma sessão pode ser criada ou removida pelo ciclo de vida');
 
   assert.deepEqual(errors, []);
@@ -636,7 +636,7 @@ test('status escolhido só conta depois da confirmação explícita da série', 
   await openTab(page, 'Empurrar A');
   row = page.locator('.set-row:not(.is-warmup)').first();
   assert.doesNotMatch(await row.getAttribute('class'), /is-complete/);
-  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^0 de 19 itens · 0%$/);
+  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^0 de 20 itens · 0%$/);
 
   await page.getByRole('button', {name: 'Finalizar treino', exact: true}).click();
   await page.locator('#app-modal').waitFor({state: 'visible'});
@@ -653,7 +653,7 @@ test('status escolhido só conta depois da confirmação explícita da série', 
   set = exercise.sets.find(item => item.type === 'work');
   assert.match(set.completedAt, /^2026-08-10T/);
   assert.match(await page.locator('.set-row:not(.is-warmup)').first().getAttribute('class'), /is-complete/);
-  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^1 de 19 itens · 5%$/);
+  assert.match(await page.locator('#panel-push_a .progtxt').first().innerText(), /^1 de 20 itens · 5%$/);
 
   assert.deepEqual(errors, []);
 });
@@ -2482,12 +2482,12 @@ test('falha de cache do service worker é avisada em vez de silenciada', {timeou
 
 // Ficha canônica conferida na interface real, e não apenas no catálogo.
 const FICHA_NA_TELA = Object.freeze({
-  'Empurrar A': {total: 19, linhas: 19, itens: [
+  'Empurrar A': {total: 20, linhas: 20, itens: [
     '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Voador (peck deck)',
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa com halteres', '7. Tríceps na polia com corda'
   ]},
-  'Puxar A': {total: 15, linhas: 15, itens: [
+  'Puxar A': {total: 16, linhas: 16, itens: [
     '1. Puxada frontal com pegada supinada', '2. Remada sentada com triângulo',
     '3. Remada unilateral na máquina',
     '4. Crucifixo invertido no aparelho', '5. Rosca direta com barra W', '6. Rosca martelo em pé'
@@ -2498,12 +2498,12 @@ const FICHA_NA_TELA = Object.freeze({
     '5. Agachamento', '6. Leg press 45°', '7. Cadeira extensora', '8. Flexora',
     '9. Panturrilha em pé ou no leg press'
   ]},
-  'Empurrar B': {total: 19, linhas: 19, itens: [
+  'Empurrar B': {total: 20, linhas: 20, itens: [
     '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Voador (peck deck)',
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa ou extensão acima da cabeça', '7. Tríceps na polia com corda'
   ]},
-  'Puxar B': {total: 15, linhas: 15, itens: [
+  'Puxar B': {total: 16, linhas: 16, itens: [
     '1. Puxada frontal com pegada neutra', '2. Remada sentada ou articulada',
     '3. Remada unilateral na máquina',
     '4. Crucifixo invertido no aparelho', '5. Rosca direta com barra W', '6. Rosca martelo em pé'
@@ -2530,18 +2530,18 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
     assert.doesNotMatch(texto, /stiff|romen/i, `exercício proibido visível em ${aba}`);
   }
 
-  // Remada unilateral: um único cartão com chips de lado e duas séries por lado.
+  // Remada unilateral: um único cartão com chips de lado e três séries por lado.
   await openTab(page, 'Puxar A');
   const unilateral = page.locator('#panels article.section-card').filter({hasText: 'Remada unilateral na máquina'});
   assert.equal(await unilateral.count(), 1, 'o exercício unilateral não pode duplicar o cartão');
   const chipsLado = unilateral.locator('button[data-action="side-pick"]');
   assert.deepEqual(
     (await chipsLado.allInnerTexts()).map(item => item.trim()),
-    ['Direito 0/2', 'Esquerdo 0/2'],
+    ['Direito 0/3', 'Esquerdo 0/3'],
     'os chips mostram o progresso de cada lado'
   );
   assert.equal(await chipsLado.nth(0).getAttribute('aria-pressed'), 'true', 'o lado direito abre selecionado');
-  assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 2, 'duas séries por lado');
+  assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 3, 'três séries por lado');
 
   // Cada lado guarda a própria máquina e as cargas não se misturam.
   await unilateral.getByText('Detalhes do exercício', {exact: true}).click();
@@ -2550,7 +2550,7 @@ test('ficha canônica aparece na interface dos seis treinos', {timeout: 180000},
   await chipsLado.nth(1).click();
   await page.waitForTimeout(300);
   assert.equal(await chipsLado.nth(1).getAttribute('aria-pressed'), 'true');
-  assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 2);
+  assert.equal(await unilateral.locator('.set-row:not(.is-warmup)').count(), 3);
   await unilateral.getByText('Detalhes do exercício', {exact: true}).click();
   assert.equal(await unilateral.locator('input[data-field="machineId"]').inputValue(), '', 'o lado esquerdo tem registro próprio');
   await unilateral.locator('input[data-field="machineId"]').fill('articulada esquerda');
@@ -3017,7 +3017,7 @@ test('atualização física 12 para 13 preserva registros reais, recuperação e
       && !log.feedback && !log.note
     );
     if (refreshablePlan) {
-      assert.equal(target.workoutSnapshot.revision, '3.6.0-r2', 'somente o plano futuro vazio recebe a ficha atual');
+      assert.equal(target.workoutSnapshot.revision, '3.6.1', 'o plano futuro recebe a ficha atual');
       assert.equal(target.id, source.id);
       assert.equal(target.status, 'planned');
       continue;

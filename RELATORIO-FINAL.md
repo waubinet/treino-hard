@@ -1,5 +1,9 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.1 — gate local aprovado, 2026-09-17
+
+Corrigidas as prescrições que ainda apareciam com duas séries nos treinos A/B: tríceps na corda agora tem três séries, e remada unilateral na máquina tem três por lado. Totais atuais: Empurrar A/B 20, Puxar A/B 16 e Pernas A/B 15. Planos ainda não iniciados descartam preenchimentos de teste ao receber a nova revisão; sessões iniciadas ou terminais continuam protegidas. Gate local: 124/124 testes de lógica e 60/60 cenários em Chrome, com revisão visual e offline aprovados.
+
 ## Rodada 3.6.0 — gate local aprovado, 2026-09-17
 
 Implementados registro por lado, modo por variante, retrato histórico por sessão, migração 12 → 13 preservando sessões/arquivos, feedback de execução, relato após pernas, comparações descritivas de medidas e mobilidade. Corrigidas perdas de configuração de faixa/descanso e recuperação de staging antigo.

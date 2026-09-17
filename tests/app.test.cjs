@@ -213,11 +213,11 @@ test('catálogo contém seis treinos com os volumes declarados', () => {
     calculated: app.Core.workoutVolume(workout)
   })));
   assert.deepEqual(summary, [
-    {id: 'push_a', weekday: 1, declared: 19, calculated: 19},
-    {id: 'pull_a', weekday: 2, declared: 15, calculated: 15},
+    {id: 'push_a', weekday: 1, declared: 20, calculated: 20},
+    {id: 'pull_a', weekday: 2, declared: 16, calculated: 16},
     {id: 'legs_a', weekday: 3, declared: 15, calculated: 15},
-    {id: 'push_b', weekday: 4, declared: 19, calculated: 19},
-    {id: 'pull_b', weekday: 5, declared: 15, calculated: 15},
+    {id: 'push_b', weekday: 4, declared: 20, calculated: 20},
+    {id: 'pull_b', weekday: 5, declared: 16, calculated: 16},
     {id: 'legs_b', weekday: 6, declared: 15, calculated: 15}
   ]);
   assert.equal(new Set(summary.map(item => item.id)).size, 6);
@@ -1411,7 +1411,7 @@ const MOBILIDADE_CANONICA = Object.freeze([
 // [id, nome, séries, categoria, descanso em segundos, modo padrão unilateral]
 const FICHA_CANONICA = Object.freeze({
   push_a: {
-    label: 'Empurrar A', weekday: 1, total: 19, mobilidade: [],
+    label: 'Empurrar A', weekday: 1, total: 20, mobilidade: [],
     exercicios: [
       ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
       ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
@@ -1419,15 +1419,15 @@ const FICHA_CANONICA = Object.freeze({
       ['shoulder_press_machine', 'Desenvolvimento na máquina', 3, 'upper_compound', 120, false],
       ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
       ['triceps_skull_dumbbell', 'Tríceps testa com halteres', 2, 'accessory', 90, false],
-      ['triceps_rope', 'Tríceps na polia com corda', 2, 'accessory', 90, false]
+      ['triceps_rope', 'Tríceps na polia com corda', 3, 'accessory', 90, false]
     ]
   },
   pull_a: {
-    label: 'Puxar A', weekday: 2, total: 15, mobilidade: [],
+    label: 'Puxar A', weekday: 2, total: 16, mobilidade: [],
     exercicios: [
       ['pulldown_supinated', 'Puxada frontal com pegada supinada', 3, 'upper_compound', 120, false],
       ['seated_row_triangle', 'Remada sentada com triângulo', 3, 'upper_compound', 120, false],
-      ['unilateral_row_machine', 'Remada unilateral na máquina', 2, 'upper_compound', 120, true],
+      ['unilateral_row_machine', 'Remada unilateral na máquina', 3, 'upper_compound', 120, true],
       ['reverse_fly_machine', 'Crucifixo invertido no aparelho', 3, 'accessory', 90, false],
       ['ez_bar_curl', 'Rosca direta com barra W', 2, 'accessory', 90, false],
       ['hammer_curl_standing', 'Rosca martelo em pé', 2, 'accessory', 90, false]
@@ -1444,7 +1444,7 @@ const FICHA_CANONICA = Object.freeze({
     ]
   },
   push_b: {
-    label: 'Empurrar B', weekday: 4, total: 19, mobilidade: [],
+    label: 'Empurrar B', weekday: 4, total: 20, mobilidade: [],
     exercicios: [
       ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
       ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
@@ -1452,15 +1452,15 @@ const FICHA_CANONICA = Object.freeze({
       ['shoulder_press_machine', 'Desenvolvimento na máquina', 3, 'upper_compound', 120, false],
       ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
       ['triceps_overhead', 'Tríceps testa ou extensão acima da cabeça', 2, 'accessory', 90, false],
-      ['triceps_rope', 'Tríceps na polia com corda', 2, 'accessory', 90, false]
+      ['triceps_rope', 'Tríceps na polia com corda', 3, 'accessory', 90, false]
     ]
   },
   pull_b: {
-    label: 'Puxar B', weekday: 5, total: 15, mobilidade: [],
+    label: 'Puxar B', weekday: 5, total: 16, mobilidade: [],
     exercicios: [
       ['pulldown_neutral', 'Puxada frontal com pegada neutra', 3, 'upper_compound', 120, false],
       ['row_machine_choice', 'Remada sentada ou articulada', 3, 'upper_compound', 120, false],
-      ['unilateral_row_machine', 'Remada unilateral na máquina', 2, 'upper_compound', 120, true],
+      ['unilateral_row_machine', 'Remada unilateral na máquina', 3, 'upper_compound', 120, true],
       ['reverse_fly_machine', 'Crucifixo invertido no aparelho', 3, 'accessory', 90, false],
       ['ez_bar_curl', 'Rosca direta com barra W', 2, 'accessory', 90, false],
       ['hammer_curl_standing', 'Rosca martelo em pé', 2, 'accessory', 90, false]
@@ -1518,8 +1518,8 @@ test('conformidade: cada treino traz exatamente os exercícios, a ordem e as sé
 
 test('conformidade: aparelhos bilaterais usam três séries e os totais refletem a ficha', () => {
   const app = boot();
-  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => workout.workSetTotal)), [19, 15, 15, 19, 15, 15]);
-  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => app.Core.workoutVolume(workout))), [19, 15, 15, 19, 15, 15]);
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => workout.workSetTotal)), [20, 16, 15, 20, 16, 15]);
+  assert.deepEqual(plain(app.Data.WORKOUTS.map(workout => app.Core.workoutVolume(workout))), [20, 16, 15, 20, 16, 15]);
 });
 
 test('conformidade: periodização das oito semanas por categoria', () => {
@@ -1610,7 +1610,7 @@ test('conformidade: aquecimentos previstos aparecem como séries que não contam
   assert.equal(supino.sets.filter(set => set.type === 'warmup').every(set => set.nextRestSeconds === 0), true);
 });
 
-test('sessão futura vazia recebe a ficha atual, mas qualquer execução preserva o retrato antigo', () => {
+test('sessão planejada recebe a ficha atual e descarta somente registros de teste ainda não iniciados', () => {
   const app = boot();
   const empty = app.Core.createSession('push_b', '2026-09-17', 1);
   empty.workoutSnapshot.revision = '3.5.1';
@@ -1625,9 +1625,16 @@ test('sessão futura vazia recebe a ficha atual, mas qualquer execução preserv
   assert.equal(refreshed.id, id, 'identidade do registro vazio é preservada');
   assert.equal(refreshed.machineId, 'Supino da academia', 'identificação da máquina é preservada');
 
-  const started = app.Core.createSession('push_b', '2026-09-18', 1);
+  const testPlan = app.Core.createSession('push_b', '2026-09-18', 1);
+  testPlan.workoutSnapshot.revision = '3.5.1';
+  testPlan.exercises[0].sets[0].load = '20';
+  assert.equal(app.Core.refreshEmptyPlannedSession(testPlan, {}), true);
+  assert.equal(testPlan.workoutSnapshot.revision, app.Data.WORKOUT_REVISION);
+  assert.equal(testPlan.exercises[0].sets.every(set => set.load === ''), true, 'campos de teste do plano são descartados');
+
+  const started = app.Core.createSession('push_b', '2026-09-19', 1);
+  started.status = 'started';
   started.workoutSnapshot.revision = '3.5.1';
-  started.exercises[0].sets[0].load = '20';
   assert.equal(app.Core.refreshEmptyPlannedSession(started, {}), false);
   assert.equal(started.workoutSnapshot.revision, '3.5.1');
 });
@@ -1640,7 +1647,7 @@ test('conformidade: remada unilateral gera registro separado para cada lado', ()
     assert.equal(lados.length, 2, `${workoutId} precisa registrar os dois lados`);
     assert.deepEqual(plain(lados.map(log => log.side).sort()), ['left', 'right']);
     lados.forEach(log => {
-      assert.equal(log.sets.filter(set => set.type === 'work').length, 2, 'duas séries por lado');
+      assert.equal(log.sets.filter(set => set.type === 'work').length, 3, 'três séries por lado');
     });
     // As chaves comparáveis dos dois lados nunca coincidem.
     const chaves = lados.map(log => app.Core.comparableSeriesKey(log.exerciseId, log.variationId, log.machineId, log.side, '12-15'));
@@ -2167,9 +2174,9 @@ test('volume muscular separa séries diretas e participação secundária', () =
   const planned = plain(app.run('THFCore.plannedMuscleVolume(1)'));
   const byId = Object.fromEntries(planned.map(item => [item.id, item]));
   assert.equal(byId.chest.direct, 18);
-  assert.equal(byId.back.direct, 18);
+  assert.equal(byId.back.direct, 20);
   assert.equal(byId.shoulders.direct, 18);
-  assert.equal(byId.triceps.direct, 8);
+  assert.equal(byId.triceps.direct, 10);
   assert.equal(byId.biceps.direct, 8);
   assert.equal(byId.quadriceps.direct, 15);
   assert.equal(byId.hamstrings.direct, 9);
@@ -2188,10 +2195,10 @@ test('volume muscular separa séries diretas e participação secundária', () =
     return THFCore.recordedMuscleVolume([session], 1);
   })()`));
   const recordedById = Object.fromEntries(recorded.map(item => [item.id, item]));
-  assert.equal(recordedById.back.direct, 7.5, 'um lado ausente equivale a meia série do exercício unilateral, não a uma série corporal completa');
+  assert.equal(recordedById.back.direct, 8.5, 'um lado ausente equivale a meia série do exercício unilateral, não a uma série corporal completa');
   assert.equal(recordedById.biceps.direct, 4);
   assert.equal(recordedById.shoulders.direct, 3);
-  assert.equal(recordedById.biceps.secondary, 7.5);
+  assert.equal(recordedById.biceps.secondary, 8.5);
 });
 
 test('comparabilidade: a carga pertence ao aparelho, a série comparável inclui a faixa', () => {

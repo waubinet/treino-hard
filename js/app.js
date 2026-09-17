@@ -557,7 +557,7 @@
         showNotice(storage.lastError, 'error');
       } else {
         const plannedSaved = (!planned && !refreshed) || await persist(refreshed
-          ? 'Sessões futuras vazias atualizadas para a ficha atual.'
+          ? 'Sessões planejadas de teste atualizadas para a ficha atual.'
           : 'Sessões desta semana planejadas.', true);
         if (plannedSaved) {
           const backedUp = await storage.automaticBackup(state, false);

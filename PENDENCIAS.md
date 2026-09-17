@@ -1,16 +1,20 @@
 # Pendências reais
 
+## Ajuste 3.6.1 validado localmente — 2026-09-17
+
+- Corda e remada unilateral foram corrigidas para três séries; os planos de teste ainda não iniciados passam a receber a ficha nova mesmo se houver campos preenchidos. Gate local: 124/124 de lógica e 60/60 em Chrome.
+
 ## Verificação de 2026-09-16
 
 ### Ajuste de 2026-09-17 — aquecimento e séries em aparelhos
 
-- A ficha local passou a usar 3 séries de trabalho nos aparelhos bilaterais. Totais: Empurrar A 19, Puxar A 15, Pernas A 15, Empurrar B 19, Puxar B 15 e Pernas B 15.
-- A remada unilateral permanece com 2 séries por lado (4 execuções); terra e acessórios com peso livre mantêm suas prescrições próprias. Na semana 8/deload, a redução temporária para até 2 séries continua intencional.
+- Na revisão 3.6.0, os aparelhos bilaterais passaram a três séries, mas corda e remada unilateral ainda tinham duas; isso motivou a correção 3.6.1 descrita acima.
+- Terra e acessórios com peso livre mantêm suas prescrições próprias. Na semana 8/deload, a redução temporária para até duas séries continua intencional.
 - Os primeiros exercícios mantêm aquecimento: 3 no supino reto, 2 nas puxadas, 3 no agachamento e 3 no terra. O leg press conserva 1 aquecimento adicional.
-- Sessões futuras ainda vazias com retrato antigo agora recebem automaticamente a ficha atual. Sessões iniciadas, parciais, concluídas ou com qualquer carga/repetição anotada não são reescritas.
+- Na 3.6.1, qualquer sessão ainda planejada recebe a ficha atual; preenchimentos de teste ainda não iniciados são descartados. Sessões iniciadas ou terminais continuam protegidas.
 - Validação de lógica após a mudança: 124/124 testes passaram. Suíte completa de navegador e publicação ainda precisam terminar antes de declarar a versão pública atualizada.
 
-- URL pública ainda entrega `APP_VERSION = '3.5.1'`, conferida diretamente em `js/core.js`. Alterações locais 3.6.0 não foram publicadas.
+- A versão 3.6.0 foi publicada e validada; a 3.6.1 permanece bloqueada até concluir a nova rodada de testes.
 - Corrigido localmente o primeiro exercício de Empurrar B (3 registros de aquecimento) e Puxar B (2 registros opcionais), espelhando a exposição A. Não aumentam as séries de trabalho nem o volume principal. Retratos históricos não foram alterados.
 - Vídeos locais: 20 aprovados e 26 pendentes. Além das três aprovações de 2026-09-07, a revisão individual aprovou mesa flexora, cadeira flexora, tríceps testa com halteres, puxadas supinada/neutra em recortes distintos, tríceps corda e rosca direta com barra W. Reprodução incorporada confirmou estado 1 no IFrame Player API. Não confundir aprovação local com disponibilidade pública.
 - Ainda necessário validar recortes no app, concluir curadoria restante, oferecer atualização segura de sessões futuras vazias e concluir a suíte completa antes da publicação.

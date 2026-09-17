@@ -6,7 +6,7 @@
   const APP_ID = 'treino-hard-fofo';
   // Versão do aplicativo: muda a cada publicação funcional.
   // O esquema persistido só muda quando o formato gravado realmente muda.
-  const APP_VERSION = '3.6.0';
+  const APP_VERSION = '3.6.1';
   const SCHEMA_VERSION = 13;
   const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
   const MAX_SESSIONS = 5000;
@@ -1474,12 +1474,13 @@
   }
 
   // Sessões planejadas guardam um retrato da ficha para proteger o histórico.
-  // Quando esse retrato ainda está totalmente vazio, porém, ele não deve prender
-  // a semana futura a uma ficha antiga (por exemplo, sem o aquecimento recém
-  // corrigido). Só atualizamos o que ainda não foi executado.
+  // Uma sessão ainda planejada não deve prender a semana futura a uma ficha
+  // antiga. Durante a fase de testes autorizada pelo usuário, até campos já
+  // preenchidos nesses planos são descartados ao mudar a revisão da ficha.
+  // Sessões iniciadas ou terminais continuam protegidas.
   function refreshEmptyPlannedSession(session, settings) {
     const currentWorkout = session && Data.WORKOUT_BY_ID[session.workoutId];
-    if (!currentWorkout || session.status !== 'planned' || session.exercises.some(hasExerciseExecutionData)) return false;
+    if (!currentWorkout || session.status !== 'planned') return false;
     const currentRevision = session.workoutSnapshot && session.workoutSnapshot.revision;
     if (currentRevision === Data.WORKOUT_REVISION) return false;
     const previousLogs = session.exercises.slice();

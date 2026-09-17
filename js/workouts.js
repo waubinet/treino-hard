@@ -20,7 +20,7 @@
   // Identifica a ficha que originou o retrato persistido de uma sessão. A
   // versão fica separada do esquema de armazenamento porque a ficha pode
   // evoluir sem exigir, por si só, uma migração de todos os documentos.
-  const WORKOUT_REVISION = '3.6.0-r2';
+  const WORKOUT_REVISION = '3.6.1';
 
   const MOBILITY_SEQUENCE = Object.freeze([
     {
@@ -231,7 +231,7 @@
       ],
       defaultVariant: 'overhead'
     }),
-    triceps_rope: strength('triceps_rope', 'Tríceps na polia com corda', 'accessory', 2, {
+    triceps_rope: strength('triceps_rope', 'Tríceps na polia com corda', 'accessory', 3, {
       restSeconds: 90
     }),
     pulldown_supinated: strength('pulldown_supinated', 'Puxada frontal com pegada supinada', 'upper_compound', 3, {
@@ -253,10 +253,10 @@
       ],
       defaultVariant: 'cable_triangle'
     }),
-    unilateral_row_machine: strength('unilateral_row_machine', 'Remada unilateral na máquina', 'upper_compound', 2, {
+    unilateral_row_machine: strength('unilateral_row_machine', 'Remada unilateral na máquina', 'upper_compound', 3, {
       restSeconds: 120,
       defaultSideMode: SIDE_MODES.UNILATERAL,
-      detail: 'Duas séries por lado; o volume planejado da ficha conta o exercício uma vez.',
+      detail: 'Três séries por lado; o volume planejado da ficha conta o exercício uma vez.',
       variants: [
         {id: 'machine_left_right', label: 'Máquina — lados separados', sideMode: SIDE_MODES.UNILATERAL},
         {id: 'plate_loaded', label: 'Articulada com anilhas', sideMode: SIDE_MODES.UNILATERAL}
@@ -388,7 +388,7 @@
       id: 'push_a',
       label: 'Empurrar A',
       weekday: 1,
-      workSetTotal: 19,
+      workSetTotal: 20,
       intro: 'Peito, ombros e tríceps — maior exposição semanal.',
       exercises: Object.freeze([
         copyExercise('chest_press_machine'),
@@ -404,7 +404,7 @@
       id: 'pull_a',
       label: 'Puxar A',
       weekday: 2,
-      workSetTotal: 15,
+      workSetTotal: 16,
       intro: 'Costas, deltoide posterior e bíceps.',
       exercises: Object.freeze([
         copyExercise('pulldown_supinated'),
@@ -427,7 +427,7 @@
       id: 'push_b',
       label: 'Empurrar B',
       weekday: 4,
-      workSetTotal: 19,
+      workSetTotal: 20,
       intro: 'Segunda exposição de empurrar com volume reduzido.',
       exercises: Object.freeze([
         copyExercise('chest_press_machine'),
@@ -443,7 +443,7 @@
       id: 'pull_b',
       label: 'Puxar B',
       weekday: 5,
-      workSetTotal: 15,
+      workSetTotal: 16,
       intro: 'Segunda exposição de puxar com pegada e remada selecionáveis.',
       exercises: Object.freeze([
         copyExercise('pulldown_neutral'),
