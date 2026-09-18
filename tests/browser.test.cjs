@@ -3150,6 +3150,7 @@ test('vídeos revisados mostram o recorte e limitam o player à variante correta
   for (const [tab, key, start, end, label] of [
     ['Empurrar A', 'lateral_raise_dumbbell', 0, 55, '0:00–0:55'],
     ['Empurrar A', 'triceps_rope', 72, 90, '1:12–1:30'],
+    ['Empurrar B', 'triceps_overhead', 16, 46, '0:16–0:46'],
     ['Puxar A', 'pulldown_supinated', 81, 100, '1:21–1:40'],
     ['Puxar B', 'pulldown_neutral', 114, 140, '1:54–2:20']
   ]) {

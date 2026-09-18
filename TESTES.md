@@ -1,5 +1,9 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.2 / esquema 13 — 2026-09-17
+
+Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados, além da revisão visual automatizada com quatro capturas, cache `treino-hard-v3.6.2`, recarga offline e zero erros de página/console. O teste real do IFrame Player API confirmou estado 1 para `YJ4kGE3eemY` e `QyvIEdEHzHc`; `yj3CnWaoIRI` respondeu erro 150 e foi corretamente classificado como `external_only`. Inventário atual: 46 entradas, 24 aprovadas e 22 pendentes.
+
 ## Rodada 3.6.1 / esquema 13 — 2026-09-17
 
 Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados. A rodada comprovou 20 séries em Empurrar A/B, 16 em Puxar A/B, três séries na corda e três séries por lado na remada unilateral, além da reconstrução dos planos de teste ainda não iniciados. Revisão visual local, cache `treino-hard-v3.6.1`, migração, backup e recarga offline passaram sem erros.

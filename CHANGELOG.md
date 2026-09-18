@@ -469,3 +469,8 @@ permanece **11**: nenhuma mudança de formato persistido foi necessária.
 - A versão 3.0 **ainda não foi publicada**; a URL pública e o fluxo de atualização após publicação não foram verificados.
 
 Consulte `TESTES.md` e `PENDENCIAS.md`. A aprovação local não equivale a publicação ou a curadoria dos vídeos.
+# 3.6.2 — 2026-09-17
+
+- Adicionados vídeos brasileiros revisados para supino reto na máquina, extensão acima da cabeça com halter e duas variantes de remada com apoio.
+- Mantida a barreira central que impede a reprodução de candidatos estrangeiros ou sem proveniência brasileira comprovada.
+- Os recortes distinguem explicação, regulagem e execução; nenhuma série, ordem ou regra da periodização foi alterada.

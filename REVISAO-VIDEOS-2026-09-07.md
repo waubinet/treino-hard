@@ -1,5 +1,13 @@
 # Revisão de vídeos — 2026-09-07
 
+## Implementações verificadas em 2026-09-17
+
+- Supino reto na máquina: `yj3CnWaoIRI`, Laércio Refundini, trecho a partir de 2:05.
+- Extensão acima da cabeça com halter: `YJ4kGE3eemY`, Leandro Twin, recorte 0:16–0:46.
+- Remada sentada em máquina com apoio: `QyvIEdEHzHc`, Leandro Twin, recorte 0:18–0:52.
+- Remada articulada com apoio: o mesmo vídeo `QyvIEdEHzHc`, recorte distinto 1:18–1:41, onde a execução bilateral aparece de frente.
+- Cada trecho foi assistido individualmente. As fontes de origem são a página oficial da Muscle Plus/Laércio e a lista profissional publicada pelo próprio Leandro Twin. As variantes sem correspondência exata continuam pendentes.
+
 ## Implementações verificadas em 2026-09-16/17
 
 - Puxadas supinada e neutra usam trechos distintos de `pJM_rHhluK8` (1:21–1:40 e 1:54–2:20).

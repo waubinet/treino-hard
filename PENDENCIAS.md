@@ -1,5 +1,11 @@
 # Pendências reais
 
+## Curadoria 3.6.2 — 2026-09-17
+
+- Quatro entradas adicionais foram aprovadas após inspeção visual individual: supino reto na máquina, extensão acima da cabeça com halter, remada sentada em máquina com apoio e remada articulada com apoio.
+- Os vídeos são de Laércio Refundini ou Leandro Twin, em português do Brasil, com origem documentada nas páginas oficiais dos criadores. O inventário local passa a 24 aprovados e 22 pendentes.
+- Supino inclinado na máquina, remada unilateral e remada articulada sem apoio continuam pendentes: os candidatos encontrados ainda não satisfazem simultaneamente correspondência visual, proveniência brasileira documentada e teste de incorporação.
+
 ## Ajuste 3.6.1 validado localmente — 2026-09-17
 
 - Corda e remada unilateral foram corrigidas para três séries; os planos de teste ainda não iniciados passam a receber a ficha nova mesmo se houver campos preenchidos. Gate local: 124/124 de lógica e 60/60 em Chrome.
@@ -14,7 +20,7 @@
 - Na 3.6.1, qualquer sessão ainda planejada recebe a ficha atual; preenchimentos de teste ainda não iniciados são descartados. Sessões iniciadas ou terminais continuam protegidas.
 - Validação de lógica após a mudança: 124/124 testes passaram. Suíte completa de navegador e publicação ainda precisam terminar antes de declarar a versão pública atualizada.
 
-- A versão 3.6.0 foi publicada e validada; a 3.6.1 permanece bloqueada até concluir a nova rodada de testes.
+- A versão 3.6.1 concluiu o gate local e foi publicada; a rodada 3.6.2 mantém as mesmas regras de ficha e acrescenta somente a curadoria descrita acima.
 - Corrigido localmente o primeiro exercício de Empurrar B (3 registros de aquecimento) e Puxar B (2 registros opcionais), espelhando a exposição A. Não aumentam as séries de trabalho nem o volume principal. Retratos históricos não foram alterados.
 - Vídeos locais: 20 aprovados e 26 pendentes. Além das três aprovações de 2026-09-07, a revisão individual aprovou mesa flexora, cadeira flexora, tríceps testa com halteres, puxadas supinada/neutra em recortes distintos, tríceps corda e rosca direta com barra W. Reprodução incorporada confirmou estado 1 no IFrame Player API. Não confundir aprovação local com disponibilidade pública.
 - Ainda necessário validar recortes no app, concluir curadoria restante, oferecer atualização segura de sessões futuras vazias e concluir a suíte completa antes da publicação.

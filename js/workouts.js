@@ -527,7 +527,10 @@
     '3otpFrCvjLw': Object.freeze({channel: 'Comer, Treinar e Amar', country: 'BR', evidenceKind: 'independent_brazilian_source', evidenceUrl: 'https://www.ativo.com/fitness/noticias-fitness/9-canais-de-fitness-para-seguir-no-youtube/', verifiedAt: '2026-08-13'}),
     zHJE3HPEP84: Object.freeze({channel: 'Mariana Sardelli', country: 'BR', evidenceKind: 'professional_profile', evidenceUrl: 'https://www.treinar.me/mariana-sardelli', verifiedAt: '2026-08-13'}),
     imijpudAW7s: Object.freeze({channel: 'Matheus Morgavi', country: 'BR', evidenceKind: 'brazilian_federation', evidenceUrl: 'https://www.powerlifting-ipf.com.br/paginas/atletas.php', verifiedAt: '2026-08-13'}),
-    '3pprN9t_P1o': Object.freeze({channel: 'Descomplicando a Musculação - NS Personal', country: 'BR', channelHandle: '@personal.natanscarton', evidenceKind: 'official_professional_registry', evidenceUrl: 'https://www.crefrs.org.br/wp-content/uploads/2026/07/NOMINATA-2024.pdf', verifiedAt: '2026-08-13'})
+    '3pprN9t_P1o': Object.freeze({channel: 'Descomplicando a Musculação - NS Personal', country: 'BR', channelHandle: '@personal.natanscarton', evidenceKind: 'official_professional_registry', evidenceUrl: 'https://www.crefrs.org.br/wp-content/uploads/2026/07/NOMINATA-2024.pdf', verifiedAt: '2026-08-13'}),
+    yj3CnWaoIRI: Object.freeze({channel: 'Laércio Refundini', country: 'BR', channelHandle: '@laerciorefundini', evidenceKind: 'official_creator_page', evidenceUrl: 'https://muscleplus.com.br/', verifiedAt: '2026-09-17'}),
+    YJ4kGE3eemY: Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-17'}),
+    QyvIEdEHzHc: Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-09-17'})
   });
 
   function verifiedBrazilianProvenance(value) {
@@ -592,9 +595,9 @@
     calf_leg_press_unilateral: reviewedVideo({exerciseId: 'calf_standing_or_leg_press', variationId: 'leg_press_45_unilateral', status: 'pending', limitations: 'Somente em leg press compatível com apoio e execução unilateral.', decision: 'Pendente de guia brasileiro e inspeção visual da variação unilateral.'}),
     calf_seated_unilateral: reviewedVideo({exerciseId: 'calf_seated', variationId: 'seated_machine_unilateral', status: 'pending', limitations: 'Somente em máquina sentada compatível com execução unilateral.', decision: 'Pendente de guia brasileiro e inspeção visual da variação unilateral.'}),
     chest_press_machine: reviewedVideo({
-      exerciseId: 'chest_press_machine', status: 'pending', classification: 'pending', youtubeId: 'YVbiDGkZyx0',
-      title: 'Life Fitness Signature Series Chest Press Instructions', channel: 'Life Fitness / Hammer Strength', duration: '1:28', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
-      positives: 'Mostra ajuste, posição inicial e trajetória da máquina horizontal.', limitations: 'Não representa todas as máquinas convergentes aceitas pelo cartão.', decision: 'Manter pendente até a máquina executada ser identificada.'
+      exerciseId: 'chest_press_machine', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'yj3CnWaoIRI', startSeconds: 125,
+      title: 'TÉCNICA PESADA: SUPINO MÁQUINA', channel: 'Laércio Refundini', duration: '5:44', language: 'pt-BR', reviewedAt: '2026-09-17', availability: 'external_only', embedCompatible: false,
+      positives: 'Inspeção visual no trecho a partir de 2:05: execução bilateral sentada, encosto, pegadores na altura do peito e trajetória horizontal em máquina seletorizada. Canal brasileiro oficial confirmado.', limitations: 'A marca e a regulagem do banco podem diferir do aparelho da academia; o vídeo também discute técnica de intensidade, que não altera a periodização do app. O proprietário bloqueia incorporação (erro 150).', decision: 'Aprovar como guia do supino reto na máquina e abrir no YouTube, no trecho da demonstração técnica.'
     }),
     incline_press_machine: reviewedVideo({
       exerciseId: 'incline_press_machine', status: 'pending', classification: 'pending', youtubeId: 'xwK8Wd5F0Hk',
@@ -630,9 +633,9 @@
       positives: 'Revisão visual: deitado no banco, dois halteres, flexão e extensão dos cotovelos com pegada neutra; demonstração bilateral. IFrame Player API confirmou reprodução (estado 1).', limitations: 'A amplitude e a posição dos braços precisam respeitar o conforto individual; não é orientação de carga.', decision: 'Aprovar para tríceps testa com halteres, inclusive a opção testa de Empurrar B.'
     }),
     triceps_overhead: reviewedVideo({
-      availability: 'unknown', embedCompatible: null,
-      exerciseId: 'triceps_overhead', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09',
-      limitations: 'O exercício não informa se é feito no cabo, com corda, halter ou máquina.', decision: 'Pedir a escolha do equipamento antes de associar um vídeo.'
+      exerciseId: 'triceps_overhead', variationId: 'overhead', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'YJ4kGE3eemY', startSeconds: 16, endSeconds: 46,
+      title: 'Como fazer rosca francesa', channel: 'Leandro Twin', duration: '3:06', language: 'pt-BR', reviewedAt: '2026-09-17', availability: 'available', embedCompatible: true,
+      positives: 'Inspeção visual em 0:16–0:46: sentado, um halter segurado com as duas mãos acima da cabeça e flexão/extensão dos cotovelos. O trecho identifica e demonstra a rosca francesa.', limitations: 'Este vídeo representa a opção com halter; se o usuário escolher cabo, corda ou máquina, a geometria e as regulagens não são equivalentes.', decision: 'Aprovar exclusivamente para a variação “extensão acima da cabeça” com halter; o testa continua com vídeo próprio.'
     }),
     triceps_rope: reviewedVideo({
       exerciseId: 'triceps_rope', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'dTqDKC0D6P4', startSeconds: 72, endSeconds: 90,
@@ -654,10 +657,10 @@
       title: 'How to PROPERLY Seated Cable Row (DO THIS NOW)', channel: 'Colossus Fitness', duration: '5:06', language: 'en', reviewedAt: '2026-08-09', availability: 'available', embedCompatible: true,
       positives: 'Mostra triângulo, posição inicial, remada e explicação de erros.', limitations: 'O vídeo é longo e contém divulgação; o trecho relevante começa perto de 2:12.', decision: 'Aprovar como guia técnico para a variante no cabo com triângulo.'
     }),
-    seated_row_supported: reviewedVideo({exerciseId: 'seated_row_triangle', variationId: 'machine_supported', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09', decision: 'Aguardando vídeo exato da máquina com apoio.'}),
+    seated_row_supported: reviewedVideo({exerciseId: 'seated_row_triangle', variationId: 'machine_supported', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'QyvIEdEHzHc', startSeconds: 18, endSeconds: 52, title: 'Como fazer remada máquina', channel: 'Leandro Twin', duration: '1:51', language: 'pt-BR', reviewedAt: '2026-09-17', availability: 'available', embedCompatible: true, positives: 'Inspeção visual em 0:18–0:52: banco, apoio peitoral, regulagem do ponto inicial e pegadas da remada bilateral aparecem com clareza.', limitations: 'O trecho usa máquina articulada com apoio no peito; regulagem, pegadores e curva de resistência variam entre modelos.', decision: 'Aprovar para a alternativa de remada sentada em máquina com apoio, sem usar como guia da versão no cabo.'}),
     unilateral_row_machine: reviewedVideo({exerciseId: 'unilateral_row_machine', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09', decision: 'As duas variantes exigem demonstrações próprias.'}),
     row_machine_choice: reviewedVideo({exerciseId: 'row_machine_choice', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09', decision: 'A chave genérica foi substituída por chaves específicas de cada variante.'}),
-    row_articulated_supported: reviewedVideo({exerciseId: 'row_machine_choice', variationId: 'articulated_supported', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09'}),
+    row_articulated_supported: reviewedVideo({exerciseId: 'row_machine_choice', variationId: 'articulated_supported', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'QyvIEdEHzHc', startSeconds: 78, endSeconds: 101, title: 'Como fazer remada máquina', channel: 'Leandro Twin', duration: '1:51', language: 'pt-BR', reviewedAt: '2026-09-17', availability: 'available', embedCompatible: true, positives: 'Inspeção visual em 1:18–1:41: execução bilateral na remada articulada, peito apoiado e trajetória dos cotovelos visíveis de frente.', limitations: 'Recorte específico da execução com apoio. Não representa a remada articulada sem apoio nem a execução unilateral.', decision: 'Aprovar o recorte para a opção articulada com apoio; manter as demais variantes pendentes.'}),
     row_articulated_unsupported: reviewedVideo({exerciseId: 'row_machine_choice', variationId: 'articulated_unsupported', status: 'pending', classification: 'pending', exactMatch: false, reviewedAt: '2026-08-09'}),
     reverse_fly_machine: reviewedVideo({
       exerciseId: 'reverse_fly_machine', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ON8kg47QpOY', startSeconds: 97,

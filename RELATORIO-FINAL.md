@@ -1,5 +1,11 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.2 — vídeos brasileiros revisados, 2026-09-17
+
+Adicionados guias revisados para supino reto na máquina, extensão acima da cabeça com halter, remada sentada em máquina com apoio e remada articulada com apoio. Todos são de criadores brasileiros, em português do Brasil, com fonte pública de origem e inspeção visual individual. O supino abre no YouTube porque o proprietário bloqueia incorporação; tríceps e remadas reproduzem dentro do app. Inventário: 46 entradas, 24 aprovadas e 22 pendentes.
+
+Evidências locais: 124/124 testes de lógica/dados, 60/60 cenários em Chrome, revisão visual com cache 3.6.2 e funcionamento offline. Nenhum exercício, série, ordem, volume ou regra da periodização foi alterado nesta rodada.
+
 ## Rodada 3.6.1 — gate local aprovado, 2026-09-17
 
 Corrigidas as prescrições que ainda apareciam com duas séries nos treinos A/B: tríceps na corda agora tem três séries, e remada unilateral na máquina tem três por lado. Totais atuais: Empurrar A/B 20, Puxar A/B 16 e Pernas A/B 15. Planos ainda não iniciados descartam preenchimentos de teste ao receber a nova revisão; sessões iniciadas ou terminais continuam protegidas. Gate local: 124/124 testes de lógica e 60/60 cenários em Chrome, com revisão visual e offline aprovados.
@@ -10,7 +16,7 @@ Implementados registro por lado, modo por variante, retrato histórico por sess�
 
 Também foi corrigido o plano futuro preso à ficha antiga: sessões planejadas e completamente vazias são reconstruídas pela revisão atual, preservando IDs e preferências, enquanto qualquer sessão já executada permanece intocada. Os primeiros aparelhos mantêm seu aquecimento e os exercícios bilaterais em máquina usam três séries efetivas; unilaterais continuam com duas por lado e o deload com duas.
 
-Inventário de vídeos atual: 46 entradas, 20 aprovadas e 26 pendentes. Entradas sem correspondência visual rigorosa continuam sinalizadas como pendentes. A pesquisa científica não muda automaticamente a prescrição nem define diagnóstico ou limiar universal de assimetria.
+Inventário daquela rodada: 46 entradas, 20 aprovadas e 26 pendentes. O estado atual está consolidado na seção 3.6.2 acima.
 
 Evidências: 124/124 testes de lógica/dados e 60/60 cenários em Chrome aprovados, além da revisão visual das telas desktop e móvel, sem erro de página/console. O GitHub Pages publicou o commit `99a5c67d4629b3e72ce2d898bef30a3ce812bc08`; o smoke público confirmou versão 3.6.0, esquema 13, cache correto, migração, backup e funcionamento offline. Resultado consolidado em `TESTES.md`.
 

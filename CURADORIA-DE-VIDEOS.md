@@ -1,7 +1,10 @@
 # Curadoria de vídeos
 
-Gerado a partir de `js/workouts.js` em 2026-08-09. **Não edite a tabela à mão**:
-ela é derivada do catálogo e travada pelos testes de inventário.
+O inventário executável e atual vive em `js/workouts.js` e é travado pelos testes
+de inventário. Em 2026-09-17 ele contém **46 entradas: 24 aprovadas e 22
+pendentes**. A tabela extensa abaixo é o retrato histórico de 2026-08-09; as
+aprovações posteriores, seus recortes e suas provas estão registradas em
+`REVISAO-VIDEOS-2026-09-07.md` e no próprio catálogo.
 
 ## Como ler
 

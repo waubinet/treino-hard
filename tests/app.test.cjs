@@ -368,7 +368,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
 
   // A política brasileira é uma barreira de publicação: a revisão anterior
   // continua registrada; novas revisões exigem prova individual e data explícita.
-  assert.equal(accepted.length, 20, 'somente vídeos brasileiros comprovados podem permanecer aprovados');
+  assert.equal(accepted.length, 24, 'somente vídeos brasileiros comprovados podem permanecer aprovados');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.equal(video.exactMatch, true, `${key}: correspondência exata`);
@@ -380,7 +380,8 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     assert.match(video.originEvidence, /^https:\/\//, `${key}: evidência pública da origem`);
     const recentReview = ['machine_fly', 'lateral_raise_dumbbell', 'hammer_curl_standing'].includes(key);
     const september16 = ['leg_curl_lying', 'leg_curl_seated', 'triceps_skull_dumbbell', 'pulldown_supinated', 'pulldown_neutral', 'triceps_rope', 'ez_bar_curl'].includes(key);
-    assert.equal(video.reviewedAt, september16 ? '2026-09-16' : recentReview ? '2026-09-07' : '2026-08-09', `${key}: data da revisão visual`);
+    const september17 = ['chest_press_machine', 'triceps_overhead', 'seated_row_supported', 'row_articulated_supported'].includes(key);
+    assert.equal(video.reviewedAt, september17 ? '2026-09-17' : september16 ? '2026-09-16' : recentReview ? '2026-09-07' : '2026-08-09', `${key}: data da revisão visual`);
     // A incorporação foi verificada com o IFrame Player API em 2026-08-09:
     // erro 101/150 vira external_only, erro 100 viraria removed_or_private.
     assert.ok(['available', 'external_only'].includes(video.availability), `${key}: disponibilidade verificada`);
@@ -399,7 +400,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     ['articulated_supported', 'row_articulated_supported'],
     ['articulated_unsupported', 'row_articulated_unsupported']
   ]);
-  assert.equal(videos.triceps_overhead.status, 'pending', 'equipamento não definido não pode receber vídeo genérico');
+  assert.equal(videos.triceps_overhead.status, 'accepted', 'a opção acima da cabeça com halter precisa do guia específico revisado');
   assert.equal(videos.vacuum.status, 'pending', 'vacuum genérico não representa as quatro posições');
 });
 
@@ -1796,9 +1797,9 @@ test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
     return total;
   }, {});
   assert.equal(chaves.length, 46, 'total de entradas do catálogo');
-  assert.deepEqual(contagem, {pending: 26, accepted: 20}, 'distribuição por estado');
-  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 34, 'entradas com identificador do YouTube');
-  assert.equal(chaves.filter(chave => videos[chave].url).length, 34, 'entradas com URL');
+  assert.deepEqual(contagem, {pending: 22, accepted: 24}, 'distribuição por estado');
+  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 37, 'entradas com identificador do YouTube');
+  assert.equal(chaves.filter(chave => videos[chave].url).length, 37, 'entradas com URL');
 });
 
 test('inventário de vídeos: estados e classificações usam o enum do código', () => {
@@ -1844,7 +1845,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 19, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 22, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);
