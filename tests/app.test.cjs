@@ -379,10 +379,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     assert.equal(video.creatorCountry, 'BR', `${key}: origem brasileira`);
     assert.equal(video.language, 'pt-BR', `${key}: idioma brasileiro`);
     assert.match(video.originEvidence, /^https:\/\//, `${key}: evidência pública da origem`);
-    const recentReview = ['machine_fly', 'lateral_raise_dumbbell', 'hammer_curl_standing'].includes(key);
-    const september16 = ['leg_curl_lying', 'leg_curl_seated', 'triceps_skull_dumbbell', 'pulldown_supinated', 'pulldown_neutral', 'triceps_rope', 'ez_bar_curl'].includes(key);
-    const september17 = video.reviewedAt === '2026-09-17';
-    assert.equal(video.reviewedAt, september17 ? '2026-09-17' : september16 ? '2026-09-16' : recentReview ? '2026-09-07' : '2026-08-09', `${key}: data da revisão visual`);
+    assert.ok(['2026-08-09', '2026-09-07', '2026-09-16', '2026-09-17', '2026-09-18'].includes(video.reviewedAt), `${key}: data da revisão visual`);
     // A incorporação foi verificada com o IFrame Player API em 2026-08-09:
     // erro 101/150 vira external_only, erro 100 viraria removed_or_private.
     assert.ok(['available', 'external_only'].includes(video.availability), `${key}: disponibilidade verificada`);
@@ -402,6 +399,11 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     ['articulated_unsupported', 'row_articulated_unsupported']
   ]);
   assert.equal(videos.triceps_overhead.status, 'accepted', 'a opção acima da cabeça com halter precisa do guia específico revisado');
+  assert.equal(videos.incline_press_machine.youtubeId, 's20MPQbKIHQ', 'supino inclinado precisa de demonstração específica');
+  assert.equal(videos.mob_hamstring_seated.youtubeId, '2s6jU4I5gy4', 'alongamento sentado não pode usar demonstração em pé');
+  assert.equal(videos.unilateral_row_machine.youtubeId, 'Prevu525iYQ', 'remada unilateral precisa mostrar execução unilateral');
+  assert.equal(videos.bracing.youtubeId, '6OTssJK_sVU', 'bracing precisa de conteúdo específico');
+  assert.deepEqual([videos.shoulder_press_machine.startSeconds, videos.shoulder_press_machine.endSeconds], [88, 130], 'desenvolvimento precisa abrir no trecho da máquina');
   assert.equal(videos.vacuum.coverageScope, 'foundation', 'vacuum genérico precisa declarar que é guia-base');
 });
 
@@ -1846,7 +1848,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 29, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 33, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);

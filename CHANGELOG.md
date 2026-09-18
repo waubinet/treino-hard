@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.4] — correção da curadoria e navegação móvel — 2026-09-18
+
+- Corrigidas associações inexatas: supino inclinado agora usa demonstração específica da máquina; remada unilateral mostra execução unilateral; alongamento posterior sentado deixou de apontar para uma execução em pé; bracing usa uma explicação dedicada.
+- Corrigidos título, duração e/ou recorte de desenvolvimento na máquina, remada sentada, crossover e voador inverso. O desenvolvimento abre diretamente em 1:28–2:10, sem apresentar as versões com barra como se fossem a máquina.
+- A proveniência brasileira dos quatro novos vídeos foi registrada por canal oficial. Quando a incorporação não pôde ser comprovada, o cartão abre no YouTube em vez de prometer reprodução interna.
+- Cartões alcançados por atalho passam a respeitar a altura da navegação fixa no celular, evitando que o início do exercício fique encoberto.
+- Nenhum exercício, ordem, série, aquecimento, descanso, periodização, histórico ou esquema persistido foi alterado. Versão e cache elevados para 3.6.4; esquema continua 13.
+
 ## [3.6.3] — vídeo brasileiro em todos os exercícios — 2026-09-17
 
 - As 46 entradas do catálogo agora têm vídeo de apoio em português de criador ou canal brasileiro com proveniência documentada; nenhum candidato estrangeiro permanece publicado.

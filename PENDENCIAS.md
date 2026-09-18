@@ -1,5 +1,13 @@
 # Pendências reais
 
+## Auditoria 3.6.4 — 2026-09-18
+
+- O catálogo atual permanece com 46/46 entradas aprovadas em português por criadores/canais brasileiros. Supino inclinado, remada unilateral, posterior sentado e bracing deixaram de depender de demonstrações apenas aproximadas.
+- Metadados públicos e recortes foram corrigidos para desenvolvimento na máquina, remada sentada, crossover e voador inverso.
+- Novos vídeos cuja incorporação não foi confirmada são classificados de modo conservador como `external_only`: continuam acessíveis pelo botão do YouTube, sem prévia interna enganosa.
+- A tabela numérica mais abaixo e as seções 3.6.0–3.6.2 são registros históricos, não descrevem o catálogo atual.
+- Limites manuais restantes: testar em iPhone físico, leitor de tela real e instalação nativa em perfil limpo. Nenhum deles autoriza limpar dados locais.
+
 ## Curadoria 3.6.2 — 2026-09-17
 
 - Quatro entradas adicionais foram aprovadas após inspeção visual individual: supino reto na máquina, extensão acima da cabeça com halter, remada sentada em máquina com apoio e remada articulada com apoio.

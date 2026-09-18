@@ -1,5 +1,13 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.4 — auditoria corretiva, 2026-09-18
+
+Corrigidas quatro associações que eram apenas aproximadas: supino inclinado, remada unilateral, alongamento posterior sentado e bracing agora usam demonstrações específicas. Título, duração ou recorte também foram corrigidos em desenvolvimento na máquina, remada sentada, crossover e voador inverso. As novas fontes têm proveniência brasileira registrada; quando a incorporação não foi comprovada, o cartão abre no YouTube sem oferecer prévia interna.
+
+A navegação móvel recebeu margem de rolagem para que cartões abertos por atalho não fiquem escondidos sob as abas fixas. A ficha, as séries, os aquecimentos, a periodização, o esquema 13 e todos os registros históricos permaneceram inalterados.
+
+Evidências locais: 124/124 testes de lógica/dados, 60/60 cenários em Chrome, sintaxe e manifesto aprovados, quatro capturas inspecionadas, cache `treino-hard-v3.6.4`, recarga offline e zero erros de página/console.
+
 ## Rodada 3.6.2 — vídeos brasileiros revisados, 2026-09-17
 
 Adicionados guias revisados para supino reto na máquina, extensão acima da cabeça com halter, remada sentada em máquina com apoio e remada articulada com apoio. Todos são de criadores brasileiros, em português do Brasil, com fonte pública de origem e inspeção visual individual. O supino abre no YouTube porque o proprietário bloqueia incorporação; tríceps e remadas reproduzem dentro do app. Inventário: 46 entradas, 24 aprovadas e 22 pendentes.
