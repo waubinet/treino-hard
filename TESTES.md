@@ -1,5 +1,9 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.3 / esquema 13 — 2026-09-17
+
+Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados. O inventário tem 46 entradas e **46 aprovadas**, todas em pt-BR, com origem brasileira verificada e chave resolvida para cada execução possível da ficha. Reutilizações não exatas são identificadas por `coverageScope: foundation` e aparecem na interface como **Guia do movimento-base**, junto da limitação específica. A revisão visual automatizada confirmou versão 3.6.3, cache `treino-hard-v3.6.3`, quatro capturas, recarga offline e zero erros.
+
 ## Rodada 3.6.2 / esquema 13 — 2026-09-17
 
 Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados, além da revisão visual automatizada com quatro capturas, cache `treino-hard-v3.6.2`, recarga offline e zero erros de página/console. O teste real do IFrame Player API confirmou estado 1 para `YJ4kGE3eemY` e `QyvIEdEHzHc`; `yj3CnWaoIRI` respondeu erro 150 e foi corretamente classificado como `external_only`. Inventário atual: 46 entradas, 24 aprovadas e 22 pendentes.

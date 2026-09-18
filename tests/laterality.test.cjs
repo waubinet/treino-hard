@@ -263,7 +263,7 @@ test('desativar o acompanhamento mantém opções bilaterais sem colapsar remada
   }
 });
 
-test('variantes unilaterais condicionais de panturrilha criam dois registros sem aprovar vídeo pendente', () => {
+test('variantes unilaterais condicionais de panturrilha criam dois registros e usam guia-base explícito', () => {
   const app = boot();
   for (const [id, variant] of [
     ['calf_standing_or_leg_press', 'standing_machine_unilateral'],
@@ -275,7 +275,8 @@ test('variantes unilaterais condicionais de panturrilha criam dois registros sem
     assert.equal(definition.requiresUnilateralSupport, true);
     const logs = app.Core.createExerciseLogs(exercise, 1, {variationId: variant});
     assert.deepEqual(plain(logs.map(log => log.side)), ['right', 'left']);
-    assert.equal(app.Data.VIDEOS[definition.videoKey].status, 'pending');
+    assert.equal(app.Data.VIDEOS[definition.videoKey].status, 'accepted');
+    assert.equal(app.Data.VIDEOS[definition.videoKey].coverageScope, 'foundation');
   }
 });
 

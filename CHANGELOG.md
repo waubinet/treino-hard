@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.3] — vídeo brasileiro em todos os exercícios — 2026-09-17
+
+- As 46 entradas do catálogo agora têm vídeo de apoio em português de criador ou canal brasileiro com proveniência documentada; nenhum candidato estrangeiro permanece publicado.
+- Crossover, desenvolvimento na máquina, remada sentada no cabo, panturrilha em pé, crucifixo invertido, mobilidade posterior e vacuum receberam substituições brasileiras revisadas.
+- Variações sem demonstração brasileira exatamente equivalente usam a classificação visível **Guia do movimento-base**, com a diferença descrita no próprio cartão. Isso cobre versões unilaterais, supino inclinado, remadas alternativas, bracing e posições de vacuum sem fingir correspondência exata.
+- Nenhum exercício, ordem, série, aquecimento, descanso, progressão, histórico ou esquema persistido foi alterado. Versão do app e cache elevados para 3.6.3; esquema continua 13 e a revisão da ficha continua 3.6.1.
+- Gate local: 124/124 testes de núcleo/medidas/lateralidade e 60/60 cenários em Chrome, além de revisão visual desktop/móvel, atualização da PWA, recarga offline e zero erros de página/console.
+
 ## [3.6.1] — correção das séries nos treinos A/B — 2026-09-17
 
 - Tríceps na polia com corda passou de duas para três séries nos dois treinos de empurrar.

@@ -2789,7 +2789,9 @@ test('leg press e extensora trocam cardinalidade somente antes de qualquer regis
     logs = stored.sessions.find(item => item.workoutId === 'legs_a').exercises.filter(item => item.exerciseId === exerciseId);
     assert.deepEqual(logs.map(item => item.side).sort(), ['left', 'right']);
     assert.equal(logs.every(item => item.sideModeSnapshot === 'unilateral'), true);
-    assert.match(await card.innerText(), /curadoria|pendente|revisão/i, 'o modo novo não deve herdar o vídeo bilateral como aprovado');
+    const videoText = await card.innerText();
+    assert.match(videoText, /GUIA DO MOVIMENTO-BASE/i, 'a variação unilateral precisa identificar o vídeo bilateral como guia-base');
+    assert.match(videoText, /Atenção:.*bilateral/is, 'a diferença da demonstração bilateral precisa ficar explícita');
     const input = card.locator('.set-row:not(.is-warmup) .set-field-load input').first();
     before = stored;
     await input.fill('20');
@@ -3271,19 +3273,17 @@ test('vídeo bloqueado para incorporação abre no YouTube sem prévia interna',
   assert.deepEqual(errors, []);
 });
 
-test('vídeo pendente e vídeo em revisão nunca se apresentam como recomendação', {timeout: 120000}, async t => {
+test('todos os exercícios visíveis oferecem vídeo brasileiro revisado', {timeout: 120000}, async t => {
   const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
   await openTab(page, 'Puxar A');
   await page.waitForTimeout(250);
   const pendentes = page.locator('#panel-pull_a p.video-pending');
   const quantidade = await pendentes.count();
-  assert.ok(quantidade > 0, 'Puxar A precisa mostrar a curadoria pendente sem oferecer candidato estrangeiro');
-  const textos = (await pendentes.allInnerTexts()).map(item => item.trim());
-  textos.forEach(texto => assert.match(texto, /Vídeo(?: brasileiro)? em (?:revisão|curadoria)|não está mais disponível/, texto));
-  textos.forEach(texto => assert.doesNotMatch(texto, /Ver demonstração|Abrir no YouTube/, texto));
+  assert.equal(quantidade, 0, 'Puxar A não deve ter lacunas de vídeo');
   const botoesPendentes = await page.locator('#panel-pull_a button[data-action="open-video"]').evaluateAll(nodes =>
     nodes.map(node => node.dataset.videoKey).filter(key => window.THFData.VIDEOS[key].status !== 'accepted'));
   assert.deepEqual(botoesPendentes, [], 'um candidato pendente nunca vira botão clicável de vídeo');
+  assert.ok(await page.locator('#panel-pull_a button[data-action="open-video"]').count() > 0, 'Puxar A precisa oferecer vídeos');
 
   // E o caminho positivo também é fiscalizado na interface: cada botão visível
   // precisa apontar para uma entrada que cumpra integralmente a política.

@@ -1,5 +1,9 @@
 # Curadoria de vídeos
 
+## Estado publicado em 3.6.3
+
+O catálogo contém 46 entradas e todas têm vídeo brasileiro em português aprovado. `coverageScope: exact` significa que a demonstração corresponde à execução do cartão; `coverageScope: foundation` significa que o vídeo ensina o padrão-base, mas difere em lado, apoio, inclinação ou posição. O segundo caso é rotulado na interface como **Guia do movimento-base** e exige `limitations` e `decision` explícitos. Essa distinção impede que uma demonstração bilateral seja apresentada como se fosse unilateral.
+
 O inventário executável e atual vive em `js/workouts.js` e é travado pelos testes
 de inventário. Em 2026-09-17 ele contém **46 entradas: 24 aprovadas e 22
 pendentes**. A tabela extensa abaixo é o retrato histórico de 2026-08-09; as

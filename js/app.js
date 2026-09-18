@@ -808,6 +808,7 @@
   }
 
   function videoClassificationLabel(video) {
+    if (video && video.coverageScope === 'foundation') return 'Guia do movimento-base';
     return {
       technical_guide: 'Guia técnico',
       objective_demo: 'Demonstração objetiva',
@@ -855,6 +856,9 @@
     const cobertura = externo
       ? ['Reprodução externa', video.duration].filter(Boolean).join(' · ')
       : ['Cobre: ' + resumirCobertura(video.positives || ''), video.duration].filter(Boolean).join(' · ');
+    const ressalva = video.coverageScope === 'foundation'
+      ? `Atenção: ${video.limitations}`
+      : '';
     return element('button', {
       className: `vbtn${externo ? ' is-external' : ''}`,
       attrs: {type: 'button'},
@@ -866,6 +870,7 @@
         element('span', {className: 'vs', text: `Canal brasileiro: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
         element('span', {className: 'vquality', text: videoClassificationLabel(video).toUpperCase()}),
         cobertura ? element('span', {className: 'vreason', text: cobertura}) : null,
+        ressalva ? element('span', {className: 'vclip', text: ressalva}) : null,
         recorte ? element('span', {className: 'vclip', text: recorte}) : null
       ]),
       element('span', {className: 'ext', text: '▸'})
