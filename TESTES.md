@@ -4,6 +4,8 @@
 
 Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados. A rodada corrige quatro associações aproximadas, metadados/recortes de quatro vídeos e o deslocamento de cartões sob a navegação fixa móvel, sem alterar a ficha ou os registros persistidos. O catálogo continua com 46/46 entradas aprovadas e proveniência brasileira fechada. A revisão visual automatizada confirmou versão 3.6.4, cache `treino-hard-v3.6.4`, quatro capturas, recarga offline e zero erros.
 
+Publicação funcional: commit `879e9b992f475b382d29e9ef397ff31fb533b1d1`, confirmado como `built` pelo GitHub Pages. O smoke público com cache-busting confirmou versão 3.6.4, esquema 13, cache correto, migração, backup, funcionamento offline e zero erros de página/console.
+
 ## Rodada 3.6.3 / esquema 13 — 2026-09-17
 
 Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados. O inventário tem 46 entradas e **46 aprovadas**, todas em pt-BR, com origem brasileira verificada e chave resolvida para cada execução possível da ficha. Reutilizações não exatas são identificadas por `coverageScope: foundation` e aparecem na interface como **Guia do movimento-base**, junto da limitação específica. A revisão visual automatizada confirmou versão 3.6.3, cache `treino-hard-v3.6.3`, quatro capturas, recarga offline e zero erros.

@@ -8,6 +8,8 @@ A navegação móvel recebeu margem de rolagem para que cartões abertos por ata
 
 Evidências locais: 124/124 testes de lógica/dados, 60/60 cenários em Chrome, sintaxe e manifesto aprovados, quatro capturas inspecionadas, cache `treino-hard-v3.6.4`, recarga offline e zero erros de página/console.
 
+O GitHub Pages publicou o commit funcional `879e9b992f475b382d29e9ef397ff31fb533b1d1`. O smoke na URL pública, em contexto limpo e com cache-busting, confirmou a versão 3.6.4, esquema 13, migração física, backup, cache correto, recarga offline e zero erros.
+
 ## Rodada 3.6.2 — vídeos brasileiros revisados, 2026-09-17
 
 Adicionados guias revisados para supino reto na máquina, extensão acima da cabeça com halter, remada sentada em máquina com apoio e remada articulada com apoio. Todos são de criadores brasileiros, em português do Brasil, com fonte pública de origem e inspeção visual individual. O supino abre no YouTube porque o proprietário bloqueia incorporação; tríceps e remadas reproduzem dentro do app. Inventário: 46 entradas, 24 aprovadas e 22 pendentes.
