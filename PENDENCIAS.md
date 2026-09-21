@@ -2,7 +2,7 @@
 
 ## Estado da rodada 3.6.5 — 2026-09-21
 
-- Correções validadas localmente: autosave de campos ainda focados, indicador de gravação consistente com a edição mais recente e tratamento separado de falha de rede/cache. Gate: 154/154 testes de lógica/dados/cache e 64/64 em Chrome, além de revisão visual e offline. Consultar `TESTES.md` para confirmação da publicação.
+- Correções publicadas e verificadas: autosave de campos ainda focados, indicador de gravação consistente com a edição mais recente e tratamento separado de falha de rede/cache. Gate: 154/154 testes de lógica/dados/cache e 64/64 em Chrome, além de revisão visual e offline. Pages confirmou o commit funcional `a04d99a`; smoke público passou, incluindo autosave sem blur. Evidências em `TESTES.md`.
 - Supino inclinado (`s20MPQbKIHQ`), remada unilateral (`Prevu525iYQ`) e bracing (`6OTssJK_sVU`) reproduziram via IFrame Player API em 2026-09-21, estado 1; deixam de ser classificados como incorporação bloqueada.
 - Curadoria adicional: 46 associações para 32 vídeos únicos, com 33 correspondências exatas e 13 guias de movimento-base. Buscar demonstrações mais específicas para as 13 aproximações continua sendo uma melhoria pendente, e não uma correção já entregue.
 - Validação manual pendente: iPhone físico, leitor de tela real, instalação pelo prompt nativo e importação de backup pessoal autorizado. Os testes usam dados fictícios.

@@ -13,7 +13,7 @@ Gate local concluído: **154/154** testes de lógica/dados/cache e **64/64** cen
 - Comandos: `node --test tests/app.test.cjs tests/measurements-sides.test.cjs tests/laterality.test.cjs tests/service-worker.test.cjs`; `node --test --test-concurrency=1 --test-reporter=tap tests/browser.test.cjs`; `node tests/visual-review.cjs`.
 - Limites: iPhone físico, leitor de tela real e instalação nativa ainda não verificados. As 13 associações classificadas como movimento-base continuam aproximações explícitas. Nenhum dado pessoal foi usado nos testes.
 
-Publicação: aguardando confirmação do Pages e smoke público desta versão; o gate local não é evidência de publicação.
+Publicação funcional: commit `a04d99ade864537cdd562d1c0d9a42aee0e24b1d`, confirmado como `built` pelo GitHub Pages em 2026-09-21. O smoke em `https://waubinet.github.io/treino-hard/?v=a04d99a` confirmou versão 3.6.5, esquema 13, cache `treino-hard-v3.6.5`, quatro sessões fictícias preservadas pela migração, backup, carga 37 mantida após reload sem blur, funcionamento offline e zero erros de página/console. Nenhum dado do perfil pessoal do navegador foi acessado.
 
 ## Rodada 3.6.4 / esquema 13 — 2026-09-18
 

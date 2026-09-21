@@ -6,7 +6,7 @@ Corrigida a perda de carga digitada quando a página era recarregada sem sair do
 
 O service worker agora preserva a resposta válida da internet mesmo se a cópia offline não puder ser atualizada. Falha de cache deixa de provocar falso fallback de rede. Três vídeos cuja incorporação não havia sido confirmada agora respeitam a preferência de reprodução interna, após teste real do player.
 
-Gate local: 154/154 testes de lógica/dados/cache e 64/64 cenários no navegador; revisão de quatro capturas, migração, backup, autosave sem blur e recarga offline, sem erros de página/console. Publicação e evidências consolidadas em `TESTES.md`.
+Gate local: 154/154 testes de lógica/dados/cache e 64/64 cenários no navegador; revisão de quatro capturas, migração, backup, autosave sem blur e recarga offline, sem erros de página/console. O Pages confirmou `a04d99ade864537cdd562d1c0d9a42aee0e24b1d` como `built`; os mesmos smoke checks de versão, migração, backup, autosave e offline passaram na URL pública. Evidências consolidadas em `TESTES.md`.
 
 A ficha e a periodização não mudaram; esquema 13 preservado. Não há garantia de ausência absoluta de defeitos: testes em iPhone físico, leitor de tela e instalação nativa seguem pendentes, assim como tornar mais específicas as 13 associações de vídeo classificadas como movimento-base.
 
