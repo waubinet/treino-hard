@@ -1,12 +1,13 @@
 # Curadoria de vídeos
 
-## Estado revisado em 3.6.4
+## Estado revisado em 3.6.5
 
 O catálogo contém 46 entradas e todas têm vídeo brasileiro em português aprovado. `coverageScope: exact` significa que a demonstração corresponde à execução do cartão; `coverageScope: foundation` significa que o vídeo ensina o padrão-base, mas difere em lado, apoio, inclinação ou posição. O segundo caso é rotulado na interface como **Guia do movimento-base** e exige `limitations` e `decision` explícitos. Essa distinção impede que uma demonstração bilateral seja apresentada como se fosse unilateral.
 
 O inventário executável e atual vive em `js/workouts.js` e é travado pelos testes
-de inventário. Em 2026-09-18 ele contém **46 entradas: 46 aprovadas e nenhuma
-pendente**. A tabela extensa abaixo é o retrato histórico de 2026-08-09; as
+de inventário. Em 2026-09-21 ele contém **46 associações aprovadas para 32 vídeos
+únicos: 33 correspondências exatas e 13 guias de movimento-base**. Não significa
+46 demonstrações exatas nem 46 vídeos diferentes. A tabela extensa abaixo é o retrato histórico de 2026-08-09; as
 aprovações posteriores, seus recortes e suas provas estão registradas em
 `REVISAO-VIDEOS-2026-09-07.md` e no próprio catálogo.
 
@@ -15,6 +16,17 @@ posterior sentado e bracing foram substituídos por conteúdo específico. Tamb�
 foram corrigidos metadados e recortes de desenvolvimento, crossover, remada no
 cabo e voador inverso. A política permanece conservadora: sem confirmação de
 incorporação, o vídeo abre externamente no YouTube.
+
+Em 2026-09-21, a IFrame Player API confirmou reprodução real (estado 1) para
+`s20MPQbKIHQ` (supino inclinado), `Prevu525iYQ` (remada unilateral) e
+`6OTssJK_sVU` (bracing), em Chrome isolado, via youtube-nocookie.com. A versão
+3.6.4 os classificava como `external_only` sem confirmar bloqueio; agora são
+`available` com `embedCompatible: true`. A inspeção visual original continua
+datada de 2026-09-18. Os testes de interface que simulam o YouTube não foram
+usados como prova de reprodução real.
+
+Links externos preservam o instante inicial; o fim do trecho é apenas indicado
+ao usuário. O encerramento automático no limite só é solicitado ao player interno.
 
 ## Como ler
 

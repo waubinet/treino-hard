@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Estado atual: **3.6.2**, esquema **13**, cache `treino-hard-v3.6.2` (consultar `TESTES.md`).
+- Versão validada localmente: **3.6.5**, esquema **13**, cache `treino-hard-v3.6.5` (consultar `TESTES.md` para publicação e evidências).
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Arquitetura
@@ -42,11 +42,11 @@ ficha impressa, planilha, tabela horizontal ou formulário administrativo.
 ## Invariantes
 
 - Aplicação local, estática, sem conta e sem servidor.
-- `SCHEMA_VERSION = 12`. Só muda quando o formato gravado muda de verdade.
+- `SCHEMA_VERSION = 13`. Só muda quando o formato gravado muda de verdade.
 - `APP_VERSION`, `SCHEMA_VERSION` e o nome do cache são coisas distintas e visíveis
   em Ajustes → "Sobre esta versão".
 - IndexedDB preferencial, `localStorage` como fallback, memória como último recurso.
-- Migração 9 → 10 → 11 → 12 preserva ciclos legados; IDs ambíguos (`a_remada_smith`,
+- Migração 9 → 10 → 11 → 12 → 13 preserva ciclos legados; IDs ambíguos (`a_remada_smith`,
   `a_remada_unilateral`, `c_flexor_sentado`) **continuam ambíguos** e nunca viram
   exercício atual.
 - Falha de gravação nunca aparece como sucesso.
@@ -92,10 +92,10 @@ Domingo  descanso completo, sem meta obrigatória
 ```
 
 - Supino reto e inclinado **na máquina**, nas duas exposições de peito.
-- Exercícios em máquina usam 3 séries de trabalho. A remada unilateral mantém 2 por lado (4 execuções corporais); na semana de deload a redução temporária para até 2 séries continua intencional.
-- Alteração autorizada em 2026-09-07: Empurrar A usa **Voador (peck deck)** no lugar do crossover, mantendo 2 séries e 90 s; Empurrar B usa o mesmo nome para `machine_fly`. Não converter registros históricos de crossover em voador. Sessões já existentes conservam seu retrato histórico.
+- Exercícios em máquina seguem o catálogo atual; a remada unilateral usa 3 séries por lado. Na semana de deload a redução temporária para até 2 séries continua intencional.
+- Empurrar A usa **Voador (peck deck)** no lugar do crossover; a revisão atual usa 3 séries e 90 s nas duas exposições. Não converter registros históricos de crossover em voador. Sessões já existentes conservam seu retrato histórico.
 - Sem stiff e sem terra romeno. Terra com barra só em Pernas B, com periodização própria.
-- Remada unilateral: 2 séries **por lado**; dois registros (`side` esquerdo/direito),
+- Remada unilateral: 3 séries **por lado**; dois registros (`side` esquerdo/direito),
   volume contado uma vez.
 - Tríceps de Empurrar B: escolha entre extensão acima da cabeça e testa com halteres.
 - Faixa alta opcional (elevação lateral, crucifixo invertido, panturrilhas): **12–20**.
@@ -112,7 +112,8 @@ node --check js\measurements.js
 node --check js\app.js
 node --check sw.js
 node --test tests\app.test.cjs
-$env:NODE_PATH = 'C:\Users\waubi\AppData\Local\npm-cache\_npx\e41f203b7505f1fb\node_modules'
+$env:NODE_PATH = 'C:\Users\waubi\.cache\codex-runtimes\codex-primary-runtime\dependencies\node\node_modules'
+node --test tests\service-worker.test.cjs
 node --test tests\browser.test.cjs
 ```
 
@@ -127,7 +128,7 @@ Chrome e os cenários de concorrência falham por timeout.
 
 - CSP sem `unsafe-inline` e sem `unsafe-eval`; `frame-src` só `youtube-nocookie.com`.
 - Chaves `__proto__`, `prototype` e `constructor` são recusadas na importação, junto
-  com profundidade acima de 20 e campos inesperados do esquema 12.
+  com profundidade acima de 20 e campos inesperados do esquema 13.
 - Fórmulas do CSV são neutralizadas com apóstrofo.
 - Vídeos: estado `accepted` / `pending` / `rejected` descreve o **conteúdo**;
   `availability` (`available`, `external_only`, `removed_or_private`, `unknown`)
@@ -155,6 +156,8 @@ Um push não é uma publicação. Confirme o build do Pages e a versão exibida 
 
 ## Pendências atuais
 
-Ver `PENDENCIAS.md`. Em resumo: parte do catálogo de vídeos segue `pending`, falta
-teste com leitor de tela real e a instalação pelo prompt do sistema não foi
-exercitada.
+Ver `PENDENCIAS.md`. O catálogo tem 46 associações aprovadas para 32 vídeos:
+33 correspondências exatas e 13 guias de movimento-base, com ressalvas visíveis.
+Faltam testes em iPhone físico, com leitor de tela real e da instalação pelo
+prompt do sistema. Os testes de interface de vídeo não substituem a verificação
+real de reprodução no YouTube.

@@ -51,6 +51,110 @@ function registerBrowserCleanup(t, browser, server) {
 // Segunda-feira usada nos cenários que dependem de existir treino no dia.
 const SEGUNDA_FIXA = new Date(2026, 7, 10, 8, 0, 0);
 
+test('autosave: carga digitada permanece após reload sem sair do campo ou confirmar série', async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  const load = page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup) .set-field-load input').first();
+  await load.fill('37');
+  assert.match(await page.locator('#save-state').innerText(), /não salvas|Salvando/);
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  assert.equal(await load.evaluate(el => document.activeElement === el), true, 'não depender de blur');
+  const stored = await readStoredDocument(page);
+  const set = stored.sessions.find(s => s.workoutId === 'push_a').exercises.find(e => e.exerciseId === 'chest_press_machine').sets.find(s => s.type === 'work');
+  assert.equal(set.load, '37');
+  assert.equal(set.completedAt, '', 'gravar não significa concluir uma série');
+  await reloadApp(page);
+  await openTab(page, 'Empurrar A');
+  assert.equal(await load.inputValue(), '37');
+  assert.deepEqual(errors, []);
+});
+
+test('autosave: uma gravação lenta não confirma nem apaga uma digitação mais recente', async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.evaluate(() => {
+    window.auditWrites = [];
+    window.auditFinished = 0;
+    const write = THFStorage.AppStorage.prototype.writeDocument;
+    THFStorage.AppStorage.prototype.writeDocument = async function (...args) {
+      await new Promise(resolve => window.auditWrites.push(resolve));
+      const result = await write.apply(this, args);
+      window.auditFinished++;
+      return result;
+    };
+  });
+  const load = page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup) .set-field-load input').first();
+  await load.fill('3');
+  await page.waitForFunction(() => window.auditWrites.length === 1);
+  await load.fill('37');
+  await page.evaluate(() => window.auditWrites[0]());
+  await page.waitForFunction(() => window.auditFinished === 1);
+  assert.doesNotMatch(await page.locator('#save-state').innerText(), /^Salvo neste aparelho$/);
+  assert.equal(await load.inputValue(), '37');
+  await page.waitForFunction(() => window.auditWrites.length === 2);
+  await page.evaluate(() => window.auditWrites[1]());
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  const stored = await readStoredDocument(page);
+  assert.equal(stored.sessions.find(s => s.workoutId === 'push_a').exercises.find(e => e.exerciseId === 'chest_press_machine').sets.find(s => s.type === 'work').load, '37');
+  assert.equal(await load.evaluate(el => document.activeElement === el), true);
+  assert.deepEqual(errors, []);
+});
+
+test('autosave: falha conserva o campo e permite nova tentativa sem falso sucesso', async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.evaluate(() => {
+    window.auditRejectWrite = true;
+    const write = THFStorage.AppStorage.prototype.writeDocument;
+    THFStorage.AppStorage.prototype.writeDocument = function (...args) {
+      if (window.auditRejectWrite) return Promise.reject(new Error('Sem espaço no teste de autosave.'));
+      return write.apply(this, args);
+    };
+  });
+  const load = page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup) .set-field-load input').first();
+  await load.fill('37');
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Falha ao salvar');
+  assert.equal(await load.inputValue(), '37');
+  const saved = await readStoredDocument(page);
+  assert.equal(saved.sessions.find(s => s.workoutId === 'push_a').exercises.find(e => e.exerciseId === 'chest_press_machine').sets.find(s => s.type === 'work').load, '');
+  assert.equal(await page.evaluate(() => {
+    const event = new Event('beforeunload', {cancelable: true});
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }), true, 'proteger saída com edição não salva');
+  await page.evaluate(() => { window.auditRejectWrite = false; });
+  await page.getByRole('button', {name: 'Tentar salvar novamente', exact: true}).click();
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  await reloadApp(page);
+  await openTab(page, 'Empurrar A');
+  assert.equal(await load.inputValue(), '37');
+  assert.deepEqual(errors, []);
+});
+
+test('autosave: ocultar a página antecipa gravação de observação e saída salva não é bloqueada', async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  const card = page.locator('#exercicio-chest_press_machine');
+  await card.getByText('Como me senti', {exact: true}).click();
+  const note = card.locator('textarea[data-field="feedback"]');
+  await note.fill('Ajustar banco na próxima sessão');
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', {configurable: true, get: () => 'hidden'});
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  assert.equal(await note.evaluate(el => document.activeElement === el), true);
+  assert.equal(await page.evaluate(() => {
+    const event = new Event('beforeunload', {cancelable: true});
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }), false);
+  await reloadApp(page);
+  await openTab(page, 'Empurrar A');
+  assert.equal(await note.inputValue(), 'Ajustar banco na próxima sessão');
+  assert.deepEqual(errors, []);
+});
+
 async function waitAppReady(page) {
   await page.locator('#save-state').waitFor({state: 'visible'});
   await page.waitForFunction(() => /Salvo|Somente leitura|Importação concluída|Snapshot restaurado|Dados recarregados|Falha/

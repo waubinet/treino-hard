@@ -1,5 +1,20 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.5 / esquema 13 — 2026-09-21
+
+Gate local concluído: **154/154** testes de lógica/dados/cache e **64/64** cenários em Chrome (443.283 ms), nenhuma falha, cancelamento ou teste ignorado.
+
+- Sintaxe dos JavaScripts e testes, JSON do manifesto e `git diff --check`: aprovados.
+- Quatro regressões novas de navegador: carga 37 salva sem blur e mantida após reload; gravação lenta não confirma edição posterior; falha conserva texto e permite tentar novamente; ocultar a página antecipa salvamento de observação.
+- Trinta testes do service worker: resposta HTTP válida preservada quando cache falha por quota/indisponibilidade; fallback da versão atual; erros HTTP mantidos sem cache; instalação incompleta rejeitada; remoção apenas dos caches antigos do app.
+- Suíte completa: persistência, concorrência, backups, importações hostis, migrações físicas 11/12 → 13, histórico, lados, progressão, acessibilidade automatizada, vídeos, atualização e offline.
+- `tests/visual-review.cjs`: quatro capturas desktop/móvel inspecionadas; larguras 320/390/1280 sem overflow global; migração preservou quatro sessões fictícias e backup; autosave sem blur confirmado; cache `treino-hard-v3.6.5`; reload offline; zero erros de página/console.
+- Reprodução real: `s20MPQbKIHQ`, `Prevu525iYQ` e `6OTssJK_sVU` chegaram ao estado 1 no IFrame Player API em Chrome isolado, em 2026-09-21. Isso corrige sua disponibilidade incorporada, não constitui nova revisão visual integral de todo o catálogo.
+- Comandos: `node --test tests/app.test.cjs tests/measurements-sides.test.cjs tests/laterality.test.cjs tests/service-worker.test.cjs`; `node --test --test-concurrency=1 --test-reporter=tap tests/browser.test.cjs`; `node tests/visual-review.cjs`.
+- Limites: iPhone físico, leitor de tela real e instalação nativa ainda não verificados. As 13 associações classificadas como movimento-base continuam aproximações explícitas. Nenhum dado pessoal foi usado nos testes.
+
+Publicação: aguardando confirmação do Pages e smoke público desta versão; o gate local não é evidência de publicação.
+
 ## Rodada 3.6.4 / esquema 13 — 2026-09-18
 
 Gate local concluído: **124/124** testes de lógica/dados e **60/60** cenários em Chrome aprovados. A rodada corrige quatro associações aproximadas, metadados/recortes de quatro vídeos e o deslocamento de cartões sob a navegação fixa móvel, sem alterar a ficha ou os registros persistidos. O catálogo continua com 46/46 entradas aprovadas e proveniência brasileira fechada. A revisão visual automatizada confirmou versão 3.6.4, cache `treino-hard-v3.6.4`, quatro capturas, recarga offline e zero erros.

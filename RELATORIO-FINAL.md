@@ -1,5 +1,15 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.5 — persistência, cache e vídeos, 2026-09-21
+
+Corrigida a perda de carga digitada quando a página era recarregada sem sair do campo. O autosave sinaliza alterações pendentes, aguarda a gravação mais recente antes de indicar sucesso e mantém o texto com opção de nova tentativa em caso de falha. Atualização, importação e restauração aguardam as escritas pendentes.
+
+O service worker agora preserva a resposta válida da internet mesmo se a cópia offline não puder ser atualizada. Falha de cache deixa de provocar falso fallback de rede. Três vídeos cuja incorporação não havia sido confirmada agora respeitam a preferência de reprodução interna, após teste real do player.
+
+Gate local: 154/154 testes de lógica/dados/cache e 64/64 cenários no navegador; revisão de quatro capturas, migração, backup, autosave sem blur e recarga offline, sem erros de página/console. Publicação e evidências consolidadas em `TESTES.md`.
+
+A ficha e a periodização não mudaram; esquema 13 preservado. Não há garantia de ausência absoluta de defeitos: testes em iPhone físico, leitor de tela e instalação nativa seguem pendentes, assim como tornar mais específicas as 13 associações de vídeo classificadas como movimento-base.
+
 ## Rodada 3.6.4 — auditoria corretiva, 2026-09-18
 
 Corrigidas quatro associações que eram apenas aproximadas: supino inclinado, remada unilateral, alongamento posterior sentado e bracing agora usam demonstrações específicas. Título, duração ou recorte também foram corrigidos em desenvolvimento na máquina, remada sentada, crossover e voador inverso. As novas fontes têm proveniência brasileira registrada; quando a incorporação não foi comprovada, o cartão abre no YouTube sem oferecer prévia interna.

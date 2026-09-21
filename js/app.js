@@ -60,6 +60,10 @@
   let persistedRevision = 0;
   let saveQueue = Promise.resolve();
   let editVersion = 0;
+  let inputSaveTimer = 0;
+  let inputSavePending = false;
+  let pendingSaveCount = 0;
+  let inputSaveFailed = false;
   let modalReturnFocus = null;
   let deferredInstallPrompt = null;
   let pendingImport = null;
@@ -324,8 +328,39 @@
     return herdarMaquinas(Core.createSession(workoutId, date, week, state.settings));
   }
 
+  function queueInputSave() {
+    // Uma gravação anterior não pode declarar esta edição mais nova como salva.
+    editVersion += 1;
+    inputSavePending = true;
+    setSaveState('Alterações não salvas · salvando em instantes…', false);
+    global.clearTimeout(inputSaveTimer);
+    inputSaveTimer = global.setTimeout(() => { void flushInputSave(); }, 300);
+  }
+
+  async function flushInputSave() {
+    // Enquanto aguardávamos, outra edição pode ter entrado na fila.
+    // Atualização/restauração só prossegue quando a edição mais recente terminou.
+    for (;;) {
+      if (inputSavePending && !(await persist('', false, {preserveInputOnFailure: true}))) return false;
+      const operation = saveQueue;
+      try { await operation; } catch (error) { return false; }
+      if (inputSavePending || operation !== saveQueue) continue;
+      return !inputSaveFailed;
+    }
+  }
+
+  function guardUnsavedExit(event) {
+    if (!inputSavePending && !pendingSaveCount && !inputSaveFailed) return;
+    if (inputSavePending) void flushInputSave();
+    event.preventDefault();
+    event.returnValue = '';
+  }
+
   async function persist(reason, rerender, options) {
     const settings = options || {};
+    global.clearTimeout(inputSaveTimer);
+    inputSaveTimer = 0;
+    inputSavePending = false;
     // Capture o controle no momento da edição. A gravação em IndexedDB é
     // assíncrona e, até terminar, o navegador ou uma automação pode mover o
     // foco; capturá-lo somente durante a remontagem perderia a série/campo.
@@ -336,31 +371,48 @@
     const rerenderScroll = rerender ? global.scrollY : null;
     const requestVersion = ++editVersion;
     const candidate = Core.deepClone(state);
+    pendingSaveCount += 1;
     setSaveState('Salvando…', false);
-    saveQueue = saveQueue.catch(() => undefined).then(async () => {
+    const operation = saveQueue.catch(() => undefined).then(async () => {
       candidate.revision = persistedRevision;
       const saved = await storage.writeDocument(candidate, persistedRevision, {});
       persistedRevision = saved.revision;
       state.revision = saved.revision;
       state.updatedAt = saved.updatedAt;
       rememberConsistentState(saved);
-      if (requestVersion === editVersion) setSaveState('Salvo neste aparelho', false);
+      if (requestVersion === editVersion) {
+        inputSaveFailed = false;
+        if (dom.notice.dataset.source === 'input-save') hideNotice();
+        setSaveState('Salvo neste aparelho', false);
+      }
       return saved;
     }).catch(error => {
       setSaveState('Falha ao salvar', true);
-      showNotice(error.message || String(error), 'error', error.code === 'REVISION_CONFLICT' ? [button('Recarregar dados', 'reload-external', 'secondary-button')] : []);
+      const actions = error.code === 'REVISION_CONFLICT'
+        ? [button('Recarregar dados', 'reload-external', 'secondary-button')]
+        : settings.preserveInputOnFailure ? [button('Tentar salvar novamente', 'retry-input-save', 'secondary-button')] : [];
+      showNotice(error.message || String(error), 'error', actions);
       if (requestVersion === editVersion && lastConsistentState) {
-        state = Core.deepClone(lastConsistentState);
-        persistedRevision = state.revision;
-        applyPreferences();
-        if (!settings.keepDomOnFailure) renderActivePanel(rerenderFocus, rerenderScroll, focusAtRequest);
+        if (settings.preserveInputOnFailure) {
+          inputSaveFailed = true;
+          dom.notice.dataset.source = 'input-save';
+        } else {
+          inputSaveFailed = false;
+          state = Core.deepClone(lastConsistentState);
+          persistedRevision = state.revision;
+          applyPreferences();
+          if (!settings.keepDomOnFailure) renderActivePanel(rerenderFocus, rerenderScroll, focusAtRequest);
+        }
       }
       throw error;
+    }).finally(() => {
+      pendingSaveCount -= 1;
     });
+    saveQueue = operation;
     try {
-      await saveQueue;
+      await operation;
       if (reason) announce(reason);
-      if (rerender) renderActivePanel(rerenderFocus, rerenderScroll, focusAtRequest);
+      if (rerender && requestVersion === editVersion) renderActivePanel(rerenderFocus, rerenderScroll, focusAtRequest);
     } catch (error) {
       return false;
     }
@@ -833,7 +885,7 @@
   }
 
   function videoIncorporavel(video) {
-    return videoUsavel(video) && video.embedCompatible !== false && video.availability !== 'external_only';
+    return videoUsavel(video) && video.embedCompatible === true && video.availability === 'available';
   }
 
   function renderVideoByKey(videoKey, label) {
@@ -2089,6 +2141,7 @@
   }
 
   async function restoreAutomaticBackup(backupId) {
+    if (!(await flushInputSave())) return;
     try {
       const restored = await storage.restoreBackup(backupId, state);
       state = restored;
@@ -2539,7 +2592,7 @@
       showNotice('Os vídeos de apoio exigem internet. O restante do treino continua disponível offline.', 'warning');
       return;
     }
-    // O proprietário deste vídeo bloqueia incorporação: não há o que perguntar.
+    // Só oferecer player interno quando a incorporação foi confirmada.
     if (!videoIncorporavel(video)) { openVideoExternally(videoKey); return; }
     if (state.settings.videoMode === 'external') { openVideoExternally(videoKey); return; }
     if (state.settings.videoMode === 'inline') { openVideoInline(videoKey); return; }
@@ -2562,7 +2615,7 @@
     const video = Data.VIDEOS[videoKey];
     if (!playableVideo(video)) return;
     if (!videoIncorporavel(video)) {
-      showNotice('Este vídeo não permite reprodução dentro do app. Abrindo no YouTube.', 'warning');
+      showNotice('A reprodução interna deste vídeo não está disponível ou confirmada. Abrindo no YouTube.', 'warning');
       openVideoExternally(videoKey);
       return;
     }
@@ -2611,6 +2664,8 @@
     document.addEventListener('keydown', handleKeyDown);
     global.addEventListener('online', updateOnlineStatus);
     global.addEventListener('offline', updateOnlineStatus);
+    global.addEventListener('beforeunload', guardUnsavedExit);
+    global.addEventListener('pagehide', () => { if (inputSavePending) void flushInputSave(); });
     global.addEventListener('beforeinstallprompt', event => {
       event.preventDefault();
       deferredInstallPrompt = event;
@@ -2621,7 +2676,10 @@
       dom.installButton.hidden = true;
       announce('Aplicativo instalado.');
     });
-    document.addEventListener('visibilitychange', () => { void handleForegroundReturn(); });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') { if (inputSavePending) void flushInputSave(); }
+      else void handleForegroundReturn();
+    });
   }
 
   async function handleForegroundReturn() {
@@ -2657,7 +2715,8 @@
     if (action === 'timer-add') { addTimerSeconds(30); return; }
     if (action === 'timer-undo') { await undoLastSet(); return; }
     if (action === 'install-app') { await installApp(); return; }
-    if (action === 'pwa-update') { applyPwaUpdate(); return; }
+    if (action === 'pwa-update') { await applyPwaUpdate(); return; }
+    if (action === 'retry-input-save') { await persist('', false, {preserveInputOnFailure: true}); return; }
     if (action === 'reload-external') { await reloadExternalState(); return; }
     if (action === 'export-json') { exportJson(); return; }
     if (action === 'export-encrypted') { openEncryptedExportModal(); return; }
@@ -2877,7 +2936,7 @@
       // o IndexedDB termina de gravar. Selects ainda redesenham a semântica da
       // série, preservando o foco vivo e os <details> abertos acima.
       const rerender = ['rir', 'status'].includes(fieldName);
-      await persist('Série atualizada.', rerender, rerender ? {focusDescriptor: captureFocusDescriptor(target)} : {});
+      await persist('Série atualizada.', rerender, Object.assign({preserveInputOnFailure: !rerender}, rerender ? {focusDescriptor: captureFocusDescriptor(target)} : {}));
       return;
     }
     if (action === 'set-rest-select') {
@@ -2892,11 +2951,11 @@
       // Trocar a identificação da máquina troca o histórico comparável: a
       // referência do treino anterior na tela precisa acompanhar. O evento é
       // `change` (sai do campo), não `input`, então isso não atrapalha a digitação.
-      await persist('Registro do exercício atualizado.', target.dataset.field === 'machineId');
+      await persist('Registro do exercício atualizado.', target.dataset.field === 'machineId', {preserveInputOnFailure: true});
       return;
     }
     if (action === 'mobility-flag') { log.mobilityFeedback[target.dataset.side][target.dataset.flag] = target.checked; await persist('Feedback de mobilidade atualizado.', false); return; }
-    if (action === 'mobility-note') { log.mobilityFeedback.note = Core.cleanText(target.value, 300); await persist('Observação de mobilidade atualizada.', false); return; }
+    if (action === 'mobility-note') { log.mobilityFeedback.note = Core.cleanText(target.value, 300); await persist('Observação de mobilidade atualizada.', false, {preserveInputOnFailure: true}); return; }
     if (action === 'execution-flag') {
       if (!Core.EXECUTION_FEEDBACK_FLAGS.includes(target.dataset.flag) || log.side === 'bilateral') return;
       log.executionFeedback = Core.normalizeExecutionFeedback(Object.assign({}, log.executionFeedback, {[target.dataset.flag]: target.checked}));
@@ -2906,7 +2965,7 @@
     if (action === 'execution-note') {
       if (log.side === 'bilateral') return;
       log.executionFeedback = Core.normalizeExecutionFeedback(Object.assign({}, log.executionFeedback, {note: Core.cleanText(target.value, 300)}));
-      await persist('Observação da execução salva neste lado.', false);
+      await persist('Observação da execução salva neste lado.', false, {preserveInputOnFailure: true});
       return;
     }
     if (action === 'variation-change') { await requestVariationChange(session, log, target.value); return; }
@@ -2949,6 +3008,7 @@
       renderActivePanel();
       return;
     }
+    const beforeInput = JSON.stringify(log);
     if (action === 'set-field') {
       const set = log.sets.find(item => item.id === target.dataset.setId);
       if (set) {
@@ -2971,6 +3031,7 @@
     } else if (action === 'exercise-field') assignExerciseField(log, target.dataset.field, target.value);
     else if (action === 'execution-note') log.executionFeedback = Core.normalizeExecutionFeedback(Object.assign({}, log.executionFeedback, {note: Core.cleanText(target.value, 300)}));
     else log.mobilityFeedback.note = Core.cleanText(target.value, 300);
+    if (JSON.stringify(log) !== beforeInput) queueInputSave();
   }
 
   function handleKeyDown(event) {
@@ -3315,6 +3376,7 @@
   async function changeCycleWeek(week) {
     const nextWeek = Math.max(1, Math.min(8, Number(week) || 1));
     if (nextWeek === state.cycle.currentWeek) return;
+    if (!(await flushInputSave())) return;
     await storage.createSnapshot(state, `Antes de alterar para semana ${nextWeek}`);
     state.cycle.currentWeek = nextWeek;
     let updated = 0;
@@ -3326,6 +3388,7 @@
   }
 
   async function resetCycle() {
+    if (!(await flushInputSave())) return;
     await storage.createSnapshot(state, 'Antes de zerar a periodização');
     const archivedAt = new Date().toISOString();
     state.archives.push({
@@ -3345,6 +3408,7 @@
   }
 
   async function restoreSnapshot() {
+    if (!(await flushInputSave())) return;
     try {
       const snapshot = await storage.latestSnapshot();
       if (!snapshot || !snapshot.state) { closeModal(); showNotice('Nenhum snapshot válido está disponível.', 'warning'); return; }
@@ -3533,6 +3597,7 @@
 
   async function confirmImport() {
     if (!pendingImport) return;
+    if (!(await flushInputSave())) return;
     try {
       await storage.saveRecovery({id: Core.uid('import-source'), savedAt: new Date().toISOString(), reason: `Arquivo bruto antes da importação: ${pendingImport.filename}`, raw: pendingImport.raw});
       await storage.createSnapshot(state, `Antes de importar ${pendingImport.filename}`);
@@ -3556,6 +3621,7 @@
   }
 
   async function createBackupNow() {
+    if (!(await flushInputSave())) return;
     try {
       await storage.automaticBackup(state, true);
       lastBackupState = 'Cópia automática atualizada agora';
@@ -3573,11 +3639,16 @@
   }
 
   async function reloadExternalState() {
+    global.clearTimeout(inputSaveTimer);
+    inputSavePending = false;
+    // Aguarda escritas já enfileiradas antes da releitura escolhida pelo usuário.
+    try { await saveQueue; } catch (error) { /* O conflito é resolvido pela releitura. */ }
     const latest = await storage.readDocument();
     if (!latest) { showNotice('Não foi possível reler o documento local.', 'error'); return; }
     state = latest;
     persistedRevision = latest.revision;
     rememberConsistentState(latest);
+    inputSaveFailed = false;
     applyPreferences();
     hideNotice();
     renderActivePanel();
@@ -3618,7 +3689,8 @@
     global.__treinoHardWaitingRegistration = registration;
   }
 
-  function applyPwaUpdate() {
+  async function applyPwaUpdate() {
+    if (!(await flushInputSave())) return;
     const registration = global.__treinoHardWaitingRegistration;
     if (registration && registration.waiting) {
       pwaUpdateConfirmed = true;

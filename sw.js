@@ -1,5 +1,5 @@
 const CACHE_PREFIX = 'treino-hard-';
-const CACHE_NAME = `${CACHE_PREFIX}v3.6.4`;
+const CACHE_NAME = `${CACHE_PREFIX}v3.6.5`;
 const OFFLINE_DOCUMENT = './index.html';
 
 const APP_SHELL = Object.freeze([
@@ -150,51 +150,78 @@ self.addEventListener('activate', event => {
   })());
 });
 
-async function networkFirstNavigation(request) {
+async function updateRuntimeCache(resource, response) {
   try {
-    const response = await fetch(request);
+    const cache = await caches.open(CACHE_NAME);
+    await cache.put(resource, response.clone());
+  } catch (error) {
+    // A cópia offline é opcional para uma resposta que já chegou da rede.
+    // Quota ou indisponibilidade do Cache Storage não podem descartá-la.
+    await notifyClients('SW_CACHE_ERROR', {
+      operation: 'write',
+      resource: typeof resource === 'string' ? resource : resource.url,
+      message: 'Não foi possível atualizar a cópia offline. O conteúdo recebido da internet continua disponível.'
+    });
+  }
+}
 
-    if (response.ok) {
-      lastOfflineFallbackAt = 0;
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('text/html')) {
-        const cache = await caches.open(CACHE_NAME);
-        await cache.put(OFFLINE_DOCUMENT, response.clone());
-      }
-      return response;
-    }
+async function readRuntimeCache(resource) {
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    return {response: await cache.match(resource), unavailable: false};
+  } catch (error) {
+    await notifyClients('SW_CACHE_ERROR', {
+      operation: 'read',
+      resource: typeof resource === 'string' ? resource : resource.url,
+      message: 'Não foi possível acessar a cópia offline. Verifique o espaço e as permissões de armazenamento do navegador.'
+    });
+    return {response: null, unavailable: true};
+  }
+}
 
-    const fallback = await caches.match(OFFLINE_DOCUMENT);
-    return fallback || response;
+async function networkFirstNavigation(request) {
+  let response;
+
+  try {
+    response = await fetch(request);
+    lastOfflineFallbackAt = 0;
   } catch (error) {
     lastOfflineFallbackAt = Date.now();
-    console.warn('[Treino Hard SW] Navegação offline; usando o shell local.', error);
+    console.warn('[Treino Hard SW] Rede indisponível; tentando o shell local.', error);
     await notifyClients('SW_OFFLINE_FALLBACK', {
       url: request.url,
       message: error instanceof Error ? error.message : String(error)
     });
-
-    const fallback = await caches.match(OFFLINE_DOCUMENT);
-    if (fallback) return fallback;
-
-    return new Response(
-      'O Treino Hard está offline e o pacote local ainda não foi instalado.',
-      {
-        status: 503,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-      }
-    );
   }
+
+  if (response && response.ok) {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      await updateRuntimeCache(OFFLINE_DOCUMENT, response);
+    }
+    return response;
+  }
+
+  const fallback = await readRuntimeCache(OFFLINE_DOCUMENT);
+  if (fallback.response) return fallback.response;
+  if (response) return response;
+
+  return new Response(
+    fallback.unavailable
+      ? 'A rede está indisponível e não foi possível acessar a cópia local do Treino Hard.'
+      : 'O Treino Hard está offline e o pacote local ainda não foi instalado.',
+    {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' }
+    }
+  );
 }
 
 async function revalidateAsset(request) {
-  try {
-    const response = await fetch(request, {cache: 'no-cache'});
-    if (!response.ok) return null;
+  let response;
 
-    const cache = await caches.open(CACHE_NAME);
-    await cache.put(request, response.clone());
-    return response;
+  try {
+    response = await fetch(request, {cache: 'no-cache'});
   } catch (error) {
     console.warn('[Treino Hard SW] Não foi possível revalidar um recurso.', request.url, error);
     await notifyClients('SW_ASSET_REVALIDATION_ERROR', {
@@ -203,17 +230,22 @@ async function revalidateAsset(request) {
     });
     return null;
   }
+
+  if (response.ok) await updateRuntimeCache(request, response);
+  return response;
 }
 
 async function networkFirstAsset(request) {
   const response = await revalidateAsset(request);
+  if (response && response.ok) return response;
+
+  const fallback = await readRuntimeCache(request);
+  if (fallback.response) return fallback.response;
   if (response) return response;
 
-  const cache = await caches.open(CACHE_NAME);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-
-  return new Response('Recurso indisponível enquanto o aplicativo está offline.', {
+  return new Response(fallback.unavailable
+    ? 'A rede está indisponível e não foi possível acessar a cópia local deste recurso.'
+    : 'Recurso indisponível enquanto o aplicativo está offline.', {
     status: 503,
     headers: { 'Content-Type': 'text/plain; charset=utf-8' }
   });

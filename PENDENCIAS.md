@@ -1,5 +1,17 @@
 # Pendências reais
 
+## Estado da rodada 3.6.5 — 2026-09-21
+
+- Correções validadas localmente: autosave de campos ainda focados, indicador de gravação consistente com a edição mais recente e tratamento separado de falha de rede/cache. Gate: 154/154 testes de lógica/dados/cache e 64/64 em Chrome, além de revisão visual e offline. Consultar `TESTES.md` para confirmação da publicação.
+- Supino inclinado (`s20MPQbKIHQ`), remada unilateral (`Prevu525iYQ`) e bracing (`6OTssJK_sVU`) reproduziram via IFrame Player API em 2026-09-21, estado 1; deixam de ser classificados como incorporação bloqueada.
+- Curadoria adicional: 46 associações para 32 vídeos únicos, com 33 correspondências exatas e 13 guias de movimento-base. Buscar demonstrações mais específicas para as 13 aproximações continua sendo uma melhoria pendente, e não uma correção já entregue.
+- Validação manual pendente: iPhone físico, leitor de tela real, instalação pelo prompt nativo e importação de backup pessoal autorizado. Os testes usam dados fictícios.
+- No YouTube externo, o link posiciona o início do trecho, mas não interrompe o vídeo automaticamente no fim indicado.
+
+## Histórico das rodadas anteriores
+
+As contagens, pendências e estados de publicação abaixo são retratos das respectivas datas. O estado atual é o descrito acima; não reutilizar números históricos como inventário atual.
+
 ## Auditoria 3.6.4 — 2026-09-18
 
 - O catálogo atual permanece com 46/46 entradas aprovadas em português por criadores/canais brasileiros. Supino inclinado, remada unilateral, posterior sentado e bracing deixaram de depender de demonstrações apenas aproximadas.

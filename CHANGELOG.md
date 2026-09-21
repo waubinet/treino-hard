@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.6.5] — salvamento, cache e reprodução interna — 2026-09-21
+
+- Campos de carga, repetições e observações passam a salvar após uma breve pausa na digitação, sem depender de sair do campo. Uma gravação antiga não pode marcar uma edição mais nova como salva.
+- Falha no autosave mantém o conteúdo digitado e oferece nova tentativa. Atualização da PWA, restauração, importação e troca de ciclo aguardam a gravação pendente; a saída sinaliza alterações ainda não salvas quando o navegador permite.
+- Falha ao gravar o cache offline não descarta mais uma resposta válida da internet. Erros de rede, leitura e escrita do cache são tratados separadamente, sem substituir conteúdo novo por cópia antiga por falta de espaço.
+- Reprodução incorporada confirmada para supino inclinado, remada unilateral e bracing pelo IFrame Player API (estado 1). A preferência de assistir dentro do app passa a ser respeitada nesses três casos.
+- Documentação corrigida: são 46 associações para 32 vídeos únicos, com 33 correspondências exatas e 13 guias de movimento-base; essas aproximações continuam identificadas, não são demonstrações idênticas do equipamento.
+- Nenhuma alteração de exercícios, séries, ordem, aquecimento, progressão ou histórico. Esquema permanece 13; versão e cache passam a 3.6.5.
+
 ## [3.6.4] — correção da curadoria e navegação móvel — 2026-09-18
 
 - Corrigidas associações inexatas: supino inclinado agora usa demonstração específica da máquina; remada unilateral mostra execução unilateral; alongamento posterior sentado deixou de apontar para uma execução em pé; bracing usa uma explicação dedicada.
