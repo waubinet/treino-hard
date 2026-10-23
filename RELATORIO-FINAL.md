@@ -1,5 +1,11 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.7.0 — aparência grafite, 2026-10-23
+
+Identidade visual refeita em grafite, cinza e prata, incluindo ursinho e ícones da PWA. Revisados cartões, navegação, botões, campos, séries, gráficos, silhueta e cronômetro; contraste e foco receberam atenção específica. Cores semânticas continuam distintas. Não houve alteração de prescrição, vídeos, progressão ou esquema de dados.
+
+Gate local aprovado: 156/156 testes de lógica/dados/cache, 68/68 em Chrome e nove capturas finais inspecionadas. Migração, backup, autosave, responsividade e offline passaram sem erros de página/console; hashes dos quatro assets conferidos. Publicação em confirmação no topo de `TESTES.md`. Auditoria visual, paleta, capturas e origem da arte em `DESIGN-3.7.0.md`.
+
 ## Rodada 3.6.10 — opções nos supinos, 2026-10-23
 
 Supino reto oferece máquina/convencional com barra e inclinado oferece máquina/halteres nos dois treinos de peito. Nomes neutros dos cartões, instruções de unidade de carga e vídeos específicos por opção. Séries, aquecimento, ordem e periodização mantidos. A máquina continua padrão.

@@ -1,5 +1,11 @@
 # Pendências reais
 
+## Rodada 3.7.0 — aparência grafite — 2026-10-23
+
+- Tema e ursinho atualizados localmente por pedido explícito do usuário, sem mudar ficha, dados ou curadoria.
+- Gate local aprovado: 156/156 testes de lógica/dados/cache e 68/68 em Chrome; revisão visual/offline e hashes dos assets aprovados. Publicação em confirmação; consultar o topo de `TESTES.md` antes de tratar esta rodada como pública.
+- Mesmos limites manuais: iPhone físico, leitor de tela real e instalação pelo prompt nativo ainda não executados. Nenhum teste desta rodada equivale a certificação integral de acessibilidade.
+
 ## Rodada 3.6.10 — 2026-10-23
 
 - Implementadas opções máquina/barra no supino reto e máquina/halteres no inclinado, em Empurrar A e B, com vídeos brasileiros específicos. Notas distinguem carga total da barra e carga por halter.

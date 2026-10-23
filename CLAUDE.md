@@ -32,10 +32,16 @@ No esquema 13, renderização/validação de sessões usa `Core.sessionWorkout` 
 
 ## Referência visual
 
-A referência visual canônica é `treino-hard-original-v2.2-2026-08-08/index.html`
-(cópia preservada da 2.2): paleta, proporções, espaçamento, cards, abas, seletor
-de semana, resumo e estados. Extraia dela apenas o **sistema visual** — a
-arquitetura e o JavaScript continuam sendo os da v3.
+A partir da autorização explícita de 2026-10-23, a identidade visual é **grafite,
+cinza e prata**, com logo do ursinho monocromática. `styles.css` e
+`DESIGN-3.7.0.md` são a referência de cores, superfícies, legibilidade e controles.
+A antiga paleta rosa da 2.2 não deve ser restaurada. Verde, âmbar e vermelho
+permanecem somente em estados semânticos, não como identidade principal.
+
+A cópia `treino-hard-original-v2.2-2026-08-08/index.html` continua como referência
+histórica da estrutura em cartões, abas, seletor de semana e resumo; não é mais
+a fonte de paleta nem de tamanhos de texto/controle. Arquitetura e JavaScript
+continuam os da v3.
 
 A referência do **cartão de exercício** é a captura do card da 2.2: nome + botão
 Marcar, subtítulo, selo, bloco Alvo, bloco do vídeo, cabeçalho das séries com o

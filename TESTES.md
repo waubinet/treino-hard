@@ -1,5 +1,20 @@
 # Plano e evidências de teste
 
+## Rodada 3.7.0 / esquema 13 — 2026-10-23
+
+Gate local aprovado: **156/156** testes de lógica/dados/cache e **68/68** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa final em **390.319 ms**. Publicação ainda em confirmação.
+
+- Sintaxe dos scripts/testes verificada; 156/156 testes de lógica/dados/cache passaram. Log: `output/playwright/unit-3.7.0.tap.log`.
+- Cenários dirigidos de neutralidade da identidade, contraste aplicável, larguras móveis/texto ampliado, ícones e cartão de exercício passaram. Primeira execução registrou aviso de CSP reescrita pelo Kaspersky; separador final corrigiu a concatenação. O cenário de CSP passou após isolar sua resposta HTML dos intermediários, sem alterar o código de segurança do app nem silenciar erros.
+- Novo gate de identidade mede tokens e seleções em escala neutra; gate de ícones confere dimensões, ausência de rosa e zona segura do maskable. Manifesto/meta/CSS compartilham fundo `#111315`.
+- Primeira suíte completa: 66/68 passaram em 505.662 ms. As duas falhas eram do harness: leitura do aviso anterior durante importação assíncrona e chamadas externas injetadas pelo Kaspersky (`gc.kis.v2.scr.kaspersky-labs.com/.../dp.onGetFields`) quando o teste de fallback simulava offline. A primeira passou a aguardar uma mutação nova do aviso; o segundo e o cenário de CSP recebem somente a resposta HTML original por interceptação local de teste. Não há filtro que descarte erros; a exigência `errors=[]` permanece. Diagnóstico com URL e repetição dos três cenários passaram (3/3). Nenhuma configuração do antivírus foi alterada.
+- Segunda suíte: 67/68 em 388.836 ms; a única falha veio do `longpooling` do mesmo domínio do Kaspersky durante o teste longo de sequência, no final após as asserções funcionais. O transporte de HTML original foi centralizado em `openApp` para todos os testes comuns com service workers bloqueados. Os testes PWA/offline com worker habilitado mantêm transporte real; não foram filtrados erros nem alteradas proteções do sistema.
+- Revisão visual IAB: quatro telas antes/depois, foco interno de feedback e desktop, com imagens inspecionadas. Evidências e prompt da logo em `DESIGN-3.7.0.md`.
+- Suíte completa final: `node --test --test-concurrency=1 --test-reporter=tap tests/browser.test.cjs`, log `output/playwright/browser-3.7.0.tap.log`, **68/68** aprovados. As execuções anteriores foram preservadas nos logs `browser-3.7.0-first.tap.log` e `browser-3.7.0-second.tap.log`.
+- Smoke local `node tests/visual-review.cjs` aprovado: tema CSS/meta/manifesto alinhado, logo 512 carregada e SHA-256 exato dos quatro assets; comparação corporal atual contínua/anterior tracejada; nove capturas inspecionadas. Quatro sessões fictícias migradas, backup, autosave sem blur, variantes dos supinos e onze vínculos/recortes de vídeo conferidos. Larguras 320/390/1280 sem overflow global, cache `treino-hard-v3.7.0`, reload offline e zero erros de página/console. Log: `output/playwright/visual-3.7.0-local.log`; imagens em `output/playwright/3.7.0-local/`.
+- Nenhuma mudança em `js/workouts.js`, `js/app.js`, `js/storage.js` ou `js/measurements.js`. `APP_VERSION=3.7.0`, `SCHEMA_VERSION=13`, `WORKOUT_REVISION=3.6.10`, cache `treino-hard-v3.7.0`.
+- Limites: Chrome desktop com viewports móveis e dados fictícios; não houve QA em iPhone físico, leitor de tela real ou instalação nativa. A navegação por teclado, contraste e semântica automatizados não provam conformidade completa com WCAG.
+
 ## Rodada 3.6.10 / esquema 13 — 2026-10-23
 
 Gate aprovado: **156/156** testes de lógica/dados/cache e **67/67** cenários em Chrome, sem falhas, cancelamentos ou ignorados. Suíte completa em 391.157 ms. Publicação e smoke público aprovados.

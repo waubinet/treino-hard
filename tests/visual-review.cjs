@@ -5,11 +5,11 @@ const {chromium} = require('playwright');
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
+const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const {readLegacyState} = require('./legacy-fixture.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const OUTPUT = path.join(os.tmpdir(), 'treino-hard-3.6-visual-review');
+const OUTPUT = path.join(ROOT, 'output', 'playwright', process.env.REVIEW_URL ? '3.7.0-public' : '3.7.0-local');
 
 async function main() {
   let server;
@@ -40,6 +40,32 @@ async function main() {
     await page.goto(baseUrl, {waitUntil: 'networkidle'});
     const ready = () => page.waitForFunction(() => /Salvo neste aparelho/.test(document.querySelector('#save-state').textContent));
     await ready();
+    const theme = await page.evaluate(async () => {
+      const css = getComputedStyle(document.documentElement);
+      const manifest = await fetch(document.querySelector('link[rel="manifest"]').href).then(r => r.json());
+      const logo = document.querySelector('.brand-logo img');
+      return {
+        background: css.getPropertyValue('--bg').trim(), action: css.getPropertyValue('--action').trim(),
+        meta: document.querySelector('meta[name="theme-color"]').content,
+        manifest: {theme: manifest.theme_color, background: manifest.background_color},
+        logo: {loaded: logo.complete && logo.naturalWidth === 512, width: logo.naturalWidth, height: logo.naturalHeight}
+      };
+    });
+    assert.deepEqual(theme, {
+      background: '#111315', action: '#ccd2d9', meta: '#111315',
+      manifest: {theme: '#111315', background: '#111315'},
+      logo: {loaded: true, width: 512, height: 512}
+    });
+    const assetNames = ['logo.png', 'icon-192.png', 'icon-512.png', 'icon-maskable-512.png'];
+    const expectedAssets = Object.fromEntries(assetNames.map(name => [name, crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT, name))).digest('hex')]));
+    const assetHashes = await page.evaluate(async names => Object.fromEntries(await Promise.all(names.map(async name => {
+      const response = await fetch(new URL(name, location.href));
+      if (!response.ok) throw new Error(`Asset indisponível: ${name}`);
+      const digest = await crypto.subtle.digest('SHA-256', await response.arrayBuffer());
+      return [name, Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')];
+    }))), assetNames);
+    assert.deepEqual(assetHashes, expectedAssets, 'logo e ícones servidos devem corresponder exatamente ao pacote revisado');
+    await page.screenshot({path: path.join(OUTPUT, 'mobile-today.png')});
     const legacy = readLegacyState();
     await page.evaluate(value => new Promise((resolve, reject) => {
       const request = indexedDB.open('treino-hard-v3');
@@ -67,7 +93,7 @@ async function main() {
       storage.close();
       return data;
     });
-    assert.equal(migration.version, '3.6.10');
+    assert.equal(migration.version, '3.7.0');
     assert.equal(migration.schema, 13);
     assert.equal(migration.history, 4);
     assert.deepEqual(migration.curl, ['bilateral']);
@@ -114,6 +140,13 @@ async function main() {
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
     await page.locator('#measurement-pair-thigh > summary').click();
     await page.locator('.measurement-side-history').screenshot({path: path.join(OUTPUT, 'mobile-measures.png')});
+    await page.locator('.body-map-stage').screenshot({path: path.join(OUTPUT, 'mobile-body-map.png')});
+    const bodyComparison = await page.evaluate(() => ({
+      current: getComputedStyle(document.querySelector('.body-current .body-mass')).strokeDasharray,
+      previous: getComputedStyle(document.querySelector('.body-previous .body-mass')).strokeDasharray
+    }));
+    assert.equal(bodyComparison.current, 'none');
+    assert.notEqual(bodyComparison.previous, 'none', 'a comparação precisa diferenciar as linhas sem depender de cor');
     await page.locator('.table-scroll').first().focus();
     for (const width of [320, 390, 1280]) {
       await page.setViewportSize({width, height: 844});
@@ -126,14 +159,14 @@ async function main() {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({waitUntil: 'networkidle'});
     const caches = await page.evaluate(() => globalThis.caches.keys());
-    assert.ok(caches.includes('treino-hard-v3.6.10'));
+    assert.ok(caches.includes('treino-hard-v3.7.0'));
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
     await ready();
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
     assert.equal(await page.locator('.measurement-side-history').isVisible(), true);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({url: baseUrl, migration, reviewedVideos, autosaveWithoutBlur: true, caches, offline: true, errors, screenshots: fs.readdirSync(OUTPUT).map(file => path.join(OUTPUT, file))}, null, 2));
+    console.log(JSON.stringify({url: baseUrl, theme, assetHashes, bodyComparison, migration, reviewedVideos, autosaveWithoutBlur: true, caches, offline: true, errors, screenshots: fs.readdirSync(OUTPUT).map(file => path.join(OUTPUT, file))}, null, 2));
   } finally {
     await browser.close();
     if (server) await new Promise(resolve => server.close(resolve));

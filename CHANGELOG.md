@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.7.0] — identidade grafite e refinamento de interface — 2026-10-23
+
+- Rosa substituído por grafite, cinza e prata em marca, ações, abas, semana, cartões, formulários, cronômetro, gráficos e silhueta. Verde, âmbar e vermelho continuam distinguindo sucesso, atenção e erro.
+- Hierarquia de superfícies, bordas mais discretas, contraste de textos secundários, espaçamentos, estados selecionados/indisponíveis, foco por teclado e organização das séries em telas estreitas revisados.
+- Ursinho editado em tons neutros, preservando personagem, pose e barra; logo e ícones de instalação regenerados, incluindo zona segura do maskable. Manifesto e cor do navegador alinhados ao fundo grafite.
+- CSP termina com separador explícito, evitando concatenação inválida de diretivas por intermediários. O teste de CSP isola os bytes originais da página de reescritas por antivírus, mantendo a prova de bloqueio de script inline.
+- Versão/cache 3.7.0; esquema 13 e ficha 3.6.10 preservados. Não houve troca de exercício, série, vídeo ou regra de progressão.
+- Evidências e limites em `DESIGN-3.7.0.md` e `TESTES.md`.
+
 ## [3.6.10] — opções de equipamento nos supinos — 2026-10-23
 
 - Em Empurrar A e B, supino reto oferece máquina ou convencional com barra; supino inclinado oferece máquina ou halteres. Máquina permanece padrão; ordem, três séries de trabalho, aquecimentos e periodização não mudaram.

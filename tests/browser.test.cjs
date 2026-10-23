@@ -184,11 +184,26 @@ async function openApp(t, options) {
     reducedMotion: settings.reducedMotion,
     acceptDownloads: true
   });
+  if ((settings.serviceWorkers || 'block') === 'block') {
+    // Nos testes comuns, entrega os bytes reais do HTML por um transporte
+    // determinístico. O antivírus deste computador reescreve HTML e injeta
+    // consultas/long-polling externos, que geravam erros alheios ao app.
+    // Não filtramos console, não mudamos a CSP e não desativamos o antivírus.
+    // PWA/offline deixam a rede real intacta para validar worker e cache.
+    const origin = new URL(baseUrl).origin;
+    await context.route(url => url.origin === origin && ['/', '/index.html'].includes(url.pathname), route => route.fulfill({
+      status: 200, contentType: 'text/html; charset=utf-8',
+      body: fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8')
+    }));
+  }
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(`pageerror: ${error.message}`));
   page.on('console', message => {
-    if (message.type() === 'error') errors.push(`console: ${message.text()}`);
+    if (message.type() === 'error') {
+      const source = message.location().url;
+      errors.push(`console: ${message.text()}${source ? ` [${source}]` : ''}`);
+    }
   });
   await page.clock.setFixedTime(settings.fixedTime || new Date(2026, 7, 10, 8, 0, 0));
   if (!settings.skipGoto) {
@@ -1585,10 +1600,17 @@ test('importações hostis e malformadas são recusadas sem tocar no documento',
     ['outro aplicativo', writeScratchFile(directory, 'outro.json', JSON.stringify(Object.assign({}, envelope, {app: 'outro-app'}))), /não pertence ao Treino Hard/i]
   ];
 
+  // Um aviso anterior ainda visível não prova que o arquivo seguinte terminou.
+  await page.evaluate(() => {
+    window.qaImportNoticeRevision = 0;
+    const observer = new MutationObserver(() => { window.qaImportNoticeRevision += 1; });
+    observer.observe(document.getElementById('app-notice'), {childList: true, subtree: true, characterData: true});
+  });
   for (const [label, file, expected] of cases) {
     await openTab(page, 'Ajustes');
+    const noticeRevision = await page.evaluate(() => window.qaImportNoticeRevision);
     await page.locator('#import-file').setInputFiles(file);
-    await page.locator('#app-notice').waitFor({state: 'visible', timeout: 20000});
+    await page.waitForFunction(revision => window.qaImportNoticeRevision > revision, noticeRevision, {timeout: 20000});
     assert.match(await page.locator('#app-notice').innerText(), expected, `mensagem inesperada para: ${label}`);
     assert.equal(await page.locator('#app-modal').isHidden(), true, `${label} não pode abrir prévia`);
     const after = await readStoredDocument(page);
@@ -1952,7 +1974,9 @@ test('nenhuma entrada do usuário vira HTML executável', {timeout: 180000}, asy
 });
 
 test('a Content Security Policy declarada bloqueia script inline e origens externas', {timeout: 90000}, async t => {
-  const {page} = await openApp(t);
+  const {page, baseUrl} = await openApp(t, {skipGoto: true});
+  await page.goto(baseUrl, {waitUntil: 'domcontentloaded'});
+  await waitAppReady(page);
   const csp = await page.evaluate(() => document.querySelector('meta[http-equiv="Content-Security-Policy"]')?.content || '');
   assert.match(csp, /default-src 'self'/);
   assert.match(csp, /script-src 'self'/);
@@ -1960,6 +1984,8 @@ test('a Content Security Policy declarada bloqueia script inline e origens exter
   assert.match(csp, /object-src 'none'/);
   assert.match(csp, /base-uri 'none'/);
   assert.doesNotMatch(csp, /unsafe-inline|unsafe-eval/, 'a CSP não pode ser enfraquecida');
+  const sourceCsp = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8').match(/http-equiv="Content-Security-Policy" content="([^"]+)"/)[1];
+  assert.match(sourceCsp, /upgrade-insecure-requests;$/, 'terminar a última diretiva evita concatenação inválida por intermediários');
   const frameSources = csp.split(';').map(part => part.trim()).find(part => part.startsWith('frame-src'));
   assert.equal(frameSources, 'frame-src https://www.youtube-nocookie.com', 'só o domínio sem cookies do YouTube pode ser permitido');
 
@@ -2124,6 +2150,48 @@ test('estrutura acessível: papéis, relações ARIA, regiões vivas e rótulos'
     assert.equal(labelledBy, panelId.replace('panel-', 'tab-'), `o painel ${panelId} precisa apontar para a própria aba`);
   }
 
+  assert.deepEqual(errors, []);
+});
+
+test('identidade grafite mantém superfícies, marca e seleções neutras sem restringir cores semânticas', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+
+  const palette = await page.evaluate(() => {
+    const channels = value => {
+      const hex = String(value).trim().match(/^#([\da-f]{6})$/i);
+      if (hex) return [0, 2, 4].map(offset => parseInt(hex[1].slice(offset, offset + 2), 16));
+      const rgb = String(value).match(/^rgba?\(([^)]+)\)$/);
+      if (!rgb) return null;
+      const parts = rgb[1].split(/[,/]/).map(part => Number.parseFloat(part.trim()));
+      if (parts.length > 3 && parts[3] === 0) return [];
+      return parts.slice(0, 3);
+    };
+    const root = getComputedStyle(document.documentElement);
+    const tokens = ['--bg', '--elev', '--card', '--card2', '--border', '--control-border', '--text', '--muted', '--dim', '--action'];
+    const samples = tokens.map(token => ({name: token, colors: [channels(root.getPropertyValue(token))]}));
+    for (const selector of ['.brand h1 span', '.week.on:not(.dl)', '.tab[aria-selected="true"]', '.primary-button']) {
+      const nodes = [...document.querySelectorAll(selector)].filter(node => node.getBoundingClientRect().width > 0);
+      if (!nodes.length) samples.push({name: selector, colors: [null]});
+      for (const node of nodes) {
+        const style = getComputedStyle(node);
+        for (const property of ['color', 'backgroundColor', 'borderTopColor']) {
+          samples.push({name: `${selector}.${property}`, colors: [channels(style[property])]});
+        }
+        if (style.backgroundImage !== 'none') {
+          const colors = [...style.backgroundImage.matchAll(/rgba?\([^)]+\)|#[\da-f]{6}/gi)].map(match => channels(match[0]));
+          samples.push({name: `${selector}.backgroundImage`, colors: colors.length ? colors : [null]});
+        }
+      }
+    }
+    return samples.map(sample => ({
+      name: sample.name,
+      invalid: sample.colors.some(color => color === null || color.some(channel => !Number.isFinite(channel))),
+      chroma: Math.max(0, ...sample.colors.filter(Boolean).filter(color => color.length).map(color => Math.max(...color) - Math.min(...color)))
+    }));
+  });
+
+  assert.deepEqual(palette.filter(sample => sample.invalid), [], 'os tokens e componentes da identidade precisam ter cores mensuráveis');
+  assert.deepEqual(palette.filter(sample => sample.chroma > 24), [], 'a identidade deve permanecer cinza/grafite, sem recuperar os destaques rosas');
   assert.deepEqual(errors, []);
 });
 
@@ -2356,6 +2424,14 @@ test('manifesto e ícones da PWA existem, têm as dimensões declaradas e o mask
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.lang, 'pt-BR');
   assert.ok(manifest.background_color && manifest.theme_color);
+  const theme = await page.evaluate(() => ({
+    meta: document.querySelector('meta[name="theme-color"]')?.content.toLowerCase(),
+    background: getComputedStyle(document.documentElement).getPropertyValue('--bg').trim().toLowerCase()
+  }));
+  assert.equal(theme.background, '#111315', 'a PWA precisa partir da mesma base grafite da interface');
+  assert.equal(manifest.theme_color.toLowerCase(), theme.background, 'o manifesto não pode manter a cor da identidade anterior');
+  assert.equal(manifest.background_color.toLowerCase(), theme.background, 'a tela de abertura deve usar o fundo do app');
+  assert.equal(theme.meta, theme.background, 'a barra do navegador deve acompanhar a identidade grafite');
 
   const declared = manifest.icons.map(icon => `${icon.sizes}:${icon.purpose}`);
   assert.ok(declared.includes('192x192:any'), 'falta o ícone 192×192');
@@ -2396,12 +2472,16 @@ test('manifesto e ícones da PWA existem, têm as dimensões declaradas e o mask
       let outside = 0;
       let inside = 0;
       let maxRadius = 0;
+      let opaquePixels = 0;
+      let pinkPixels = 0;
       const center = size / 2;
       const safeRadius = size * 0.4;
       for (let y = 0; y < size; y += 1) {
         for (let x = 0; x < size; x += 1) {
           const offset = (y * size + x) * 4;
           if (data[offset + 3] < 16) continue;
+          opaquePixels += 1;
+          if (data[offset] - data[offset + 1] > 20 && data[offset + 2] - data[offset + 1] > 5) pinkPixels += 1;
           const distinct = Math.abs(data[offset] - corner[0]) + Math.abs(data[offset + 1] - corner[1]) + Math.abs(data[offset + 2] - corner[2]) > 24;
           if (!distinct) continue;
           const radius = Math.hypot(x - center, y - center);
@@ -2411,15 +2491,25 @@ test('manifesto e ícones da PWA existem, têm as dimensões declaradas e o mask
           if (edge) outside += 1;
         }
       }
-      return {size, safeRadius, maxRadius, outside, inside, transparentCorner: data[3] < 16};
+      return {size, safeRadius, maxRadius, outside, inside, transparentCorner: data[3] < 16, opaquePixels, pinkPixels};
     };
-    return {maskable: await inspect('./icon-maskable-512.png'), any: await inspect('./icon-512.png')};
+    return {
+      maskable: await inspect('./icon-maskable-512.png'),
+      any: await inspect('./icon-512.png'),
+      small: await inspect('./icon-192.png'),
+      logo: await inspect('./logo.png')
+    };
   });
 
   assert.equal(safety.maskable.outside, 0, `há conteúdo do maskable fora da zona segura (raio máximo ${Math.round(safety.maskable.maxRadius)} de ${safety.maskable.safeRadius})`);
   assert.ok(safety.maskable.inside > 1000, 'o maskable precisa conter o desenho');
   assert.equal(safety.maskable.transparentCorner, false, 'o maskable precisa sangrar a cor de fundo até as bordas');
   assert.ok(safety.any.maxRadius > safety.maskable.maxRadius + 20, 'o maskable não pode ser uma cópia do ícone comum');
+  assert.equal(safety.logo.size, 512, 'a logo precisa manter a fonte de 512 pixels');
+  for (const [name, image] of Object.entries(safety)) {
+    assert.ok(image.opaquePixels > 1000, `${name} precisa conter a arte do ursinho`);
+    assert.ok(image.pinkPixels / image.opaquePixels <= 0.001, `${name} ainda contém rosa em ${(image.pinkPixels / image.opaquePixels * 100).toFixed(2)}% dos pixels visíveis`);
+  }
 
   const links = await page.evaluate(() => [...document.querySelectorAll('link[rel~="icon"], link[rel="apple-touch-icon"]')].map(node => node.getAttribute('href')));
   for (const href of links) {
