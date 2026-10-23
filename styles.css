@@ -580,6 +580,32 @@ h1, h2, h3, h4 {
   overflow-wrap: anywhere;
 }
 
+.session-card > .card-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 10px;
+}
+
+.session-card > .card-header > .card-title {
+  display: contents;
+}
+
+.session-card > .card-header h3 {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.session-card > .card-header .status-pill {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.session-card > .card-header .cdetail,
+.session-card > .card-header .card-title > p {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
 .card-title h3,
 .cname {
   margin: 0;
@@ -587,6 +613,23 @@ h1, h2, h3, h4 {
   font-weight: 800;
   line-height: 1.28;
   overflow-wrap: anywhere;
+}
+
+.card > h3,
+.section-card > h3 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 800;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.card > h3 + p:not(.fine-print),
+.section-card > h3 + p:not(.fine-print) {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
 }
 
 .card-title p,
@@ -851,8 +894,9 @@ h1, h2, h3, h4 {
   border-radius: 999px;
   background: rgba(94, 200, 120, .12);
   color: #9be6ad;
-  font-size: 9.5px;
+  font-size: 10.5px;
   font-weight: 900;
+  line-height: 1.4;
   text-transform: uppercase;
   letter-spacing: .35px;
 }
@@ -864,6 +908,25 @@ h1, h2, h3, h4 {
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
+}
+
+.vclip {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.vclip.is-note {
+  color: var(--yellow);
+}
+
+.vclip.is-range {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
 }
 
 .video-pending {
@@ -1270,7 +1333,8 @@ select.sin {
 }
 
 .feedback > summary:focus-visible,
-.exdetails > summary:focus-visible {
+.exdetails > summary:focus-visible,
+.session-effort-guide > summary:focus-visible {
   outline-offset: -4px;
   border-radius: 10px;
 }
@@ -1442,6 +1506,20 @@ select.sin {
   background: var(--elev);
 }
 
+.measurement-form {
+  display: grid;
+  gap: 16px;
+}
+
+.measurement-form > h3,
+.measurement-form > .button-row {
+  margin: 0;
+}
+
+.measurement-form .field-grid {
+  gap: 14px 12px;
+}
+
 .measurement-group legend {
   padding: 0 6px;
   color: var(--text);
@@ -1464,6 +1542,30 @@ select.sin {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 12px;
+}
+
+.session-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.session-actions > button {
+  min-width: 0;
+  width: 100%;
+  padding: 10px 12px;
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+
+.session-actions > .primary-button {
+  grid-column: 1 / -1;
+  font-size: 14px;
+}
+
+.session-actions > .ghost-button,
+.session-actions > .danger-button {
+  background: transparent;
 }
 
 .primary-button,
@@ -1976,15 +2078,23 @@ select.sin {
 /* ------------------------------------------------------------ texto ampliado */
 
 body.large-text { font-size: 18px; }
-.large-text .cname { font-size: 19px; }
+.large-text .cname,
+.large-text .session-card .card-title h3,
+.large-text .card > h3,
+.large-text .section-card > h3 { font-size: 19px; }
 .large-text .panel-header h2 { font-size: 24px; }
 .large-text .panel-header p,
 .large-text .cdetail,
 .large-text .info-box p,
+.large-text .card > h3 + p,
+.large-text .section-card > h3 + p,
+.large-text .session-effort-guide > summary,
+.large-text .session-effort-guide .details-body > p,
 .large-text .notes-p { font-size: 14px; }
 .large-text .tab,
 .large-text .primary-button,
 .large-text .secondary-button,
+.large-text .session-actions > button,
 .large-text .donebtn { font-size: 15px; }
 .large-text .field > span:first-child:not(.sr-only),
 .large-text .feedback .field > span,
@@ -1996,6 +2106,7 @@ body.large-text { font-size: 18px; }
 .large-text .variantlabel,
 .large-text .vquality,
 .large-text .vreason,
+.large-text .vclip,
 .large-text .vbtn .vs,
 .large-text .variantnote,
 .large-text .feedbackmsg,
@@ -2060,6 +2171,35 @@ details[open] > summary::after {
   border-top: 1px solid var(--border);
 }
 
+.session-effort-guide {
+  margin: 0 0 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--elev);
+}
+
+.session-effort-guide > summary {
+  min-height: 46px;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.session-effort-guide .details-body {
+  padding: 12px 14px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.session-effort-guide .details-body > p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .details-body {
   display: grid;
   gap: 10px;
@@ -2115,20 +2255,37 @@ details[open] > summary::after {
 }
 
 .set-field-rir .sin {
-  padding-right: 30px;
+  padding-right: 48px;
   padding-left: 6px;
   font-size: 15.5px;
 }
 
+.srow .set-field-rir {
+  flex: 0 0 92px;
+}
+
 .set-field-rir .funit {
-  right: 7px;
+  right: 24px;
   font-size: 9.5px;
+}
+
+.set-field-rir .fieldwrap::after {
+  content: '';
+  position: absolute;
+  top: calc(50% - 4px);
+  right: 10px;
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--muted);
+  border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 
 
 /* Em telas estreitas a unidade sai de reps e RIR: o rótulo acessível continua
    no <label>, e a faixa alvo (12–15) precisa caber dentro do campo. */
-@media (max-width: 430px) {
+@media (max-width: 560px) {
   .set-field-reps .funit,
   .set-field-rir .funit {
     display: none;
@@ -2138,6 +2295,10 @@ details[open] > summary::after {
   .set-field-rir .sin {
     padding-right: 8px;
     padding-left: 8px;
+  }
+
+  .set-field-rir .sin {
+    padding-right: 24px;
   }
 
   .srow .set-field-rir { flex: 0 0 64px; }
@@ -2153,6 +2314,10 @@ details[open] > summary::after {
 /* Em 320 px a linha da série quebra em duas: carga × reps em cima,
    RIR e confirmação embaixo. Nada some e nada transborda. */
 @media (max-width: 370px) {
+  .session-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .srow {
     flex-wrap: wrap;
     row-gap: 7px;
@@ -2166,6 +2331,10 @@ details[open] > summary::after {
   .srow .set-field-rir {
     flex: 1 1 auto;
     margin-left: 34px;
+  }
+
+  .large-text .session-actions {
+    grid-template-columns: 1fr;
   }
 }
 

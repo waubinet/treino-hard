@@ -850,7 +850,7 @@
       actions.push(button('Cancelar', 'session-cancel', 'danger-button', {sessionId: session.id}));
     }
     if (TERMINAL_STATUSES.has(session.status)) actions.push(button('Reabrir sessão', 'session-reopen', 'secondary-button', {sessionId: session.id}));
-    return element('div', {className: 'button-row'}, actions);
+    return element('div', {className: 'button-row session-actions'}, actions);
   }
 
   function prescriptionText(snapshot) {
@@ -922,8 +922,8 @@
         element('span', {className: 'vs', text: `Canal brasileiro: ${video.channel || 'YouTube'}${revisao ? ` · revisado ${revisao}` : ''}`}),
         element('span', {className: 'vquality', text: videoClassificationLabel(video).toUpperCase()}),
         cobertura ? element('span', {className: 'vreason', text: cobertura}) : null,
-        ressalva ? element('span', {className: 'vclip', text: ressalva}) : null,
-        recorte ? element('span', {className: 'vclip', text: recorte}) : null
+        ressalva ? element('span', {className: 'vclip is-note', text: ressalva}) : null,
+        recorte ? element('span', {className: 'vclip is-range', text: recorte}) : null
       ]),
       element('span', {className: 'ext', text: '▸'})
     ]);
@@ -1395,7 +1395,7 @@
     const progress = sessionProgress(session);
     const readOnly = !isSessionEditable(session);
     const children = [
-      element('article', {className: 'card'}, [
+      element('article', {className: 'card session-card'}, [
         element('div', {className: 'card-header'}, [
           element('div', {className: 'card-title'}, [element('h3', {text: `${formatDate(session.plannedDate, true)} · Semana ${session.week}`}), element('p', {text: `${workout.workSetTotal} séries de trabalho planejadas; aquecimentos não entram no volume${session.exercises.some(log => log.side !== 'bilateral') ? ' e cada exercício unilateral conta uma vez, embora seja executado nos dois lados' : ''}.`})]),
           element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
@@ -1411,7 +1411,10 @@
         element('strong', {text: 'Sessão encerrada — somente leitura.'}),
         element('span', {text: ' Use “Reabrir sessão” para voltar a editar os registros.'})
       ]) : null,
-      element('div', {className: 'info-box'}, [element('strong', {text: 'Faixa, RIR e falha'}), element('p', {text: 'O limite inferior é o mínimo planejado; o superior é o topo da faixa. RIR estima quantas repetições ainda seriam possíveis com técnica aceitável. RIR 0 não é obrigatório e uma série encerrada por dor ou técnica inadequada não deve ser tratada como falha muscular planejada.'})]),
+      element('details', {className: 'session-effort-guide', attrs: {id: `${workoutId}-effort-guide`}}, [
+        element('summary', {text: 'Faixa, RIR e falha'}),
+        element('div', {className: 'details-body'}, [element('p', {text: 'O limite inferior é o mínimo planejado; o superior é o topo da faixa. RIR estima quantas repetições ainda seriam possíveis com técnica aceitável. RIR 0 não é obrigatório e uma série encerrada por dor ou técnica inadequada não deve ser tratada como falha muscular planejada.'})])
+      ]),
       // Um cartão por exercício da ficha. O exercício unilateral tem dois
       // registros (um por lado) e ambos vivem no mesmo cartão, atrás dos chips.
       ...workout.exercises.map((exercise, index) => {
@@ -1835,7 +1838,7 @@
 
   function measurementForm() {
     const groups = {base: 'Dados de base', torso: 'Tronco', limbs: 'Membros — registre cada lado'};
-    return element('form', {className: 'section-card', dataset: {form: 'measurement'}}, [
+    return element('form', {className: 'section-card measurement-form', dataset: {form: 'measurement'}}, [
       element('h3', {text: 'Nova medição'}),
       element('div', {className: 'field-grid'}, [
         field('Data', element('input', {className: 'input', attrs: {type: 'date', name: 'date', required: true}, props: {value: Core.localDateKey()}})),

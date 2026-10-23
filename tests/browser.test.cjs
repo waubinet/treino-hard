@@ -2195,6 +2195,63 @@ test('identidade grafite mantém superfícies, marca e seleções neutras sem re
   assert.deepEqual(errors, []);
 });
 
+test('refino visual preserva ações, orientações expansíveis e leitura dos seletores', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA, viewport: {width: 390, height: 844}});
+  await openTab(page, 'Empurrar A');
+  const guide = page.locator('#push_a-effort-guide');
+  assert.equal(await guide.evaluate(node => node.open), false);
+  const before = await readStoredDocument(page);
+  await guide.locator('summary').press('Enter');
+  assert.match(await guide.innerText(), /RIR 0 não é obrigatório/);
+  assert.equal((await readStoredDocument(page)).revision, before.revision, 'abrir orientação não pode gravar dados');
+  const actions = page.locator('.session-actions');
+  assert.deepEqual(await actions.locator('button').allTextContents(), ['Iniciar treino', 'Remarcar', 'Pular', 'Cancelar']);
+  const layout = await actions.evaluate(node => ({
+    display: getComputedStyle(node).display,
+    width: node.getBoundingClientRect().width,
+    primaryWidth: node.querySelector('.primary-button').getBoundingClientRect().width
+  }));
+  assert.equal(layout.display, 'grid');
+  assert.ok(layout.primaryWidth >= layout.width - 2, 'a ação primária ocupa a linha inteira');
+  await actions.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  assert.equal(await guide.evaluate(node => node.open), true, 'a orientação aberta deve sobreviver ao redesenho do painel');
+  assert.deepEqual(await actions.locator('button').allTextContents(), ['Pausar', 'Finalizar treino', 'Encerrar como parcial', 'Remarcar', 'Pular', 'Cancelar']);
+  const rir = page.locator('.set-field-rir select').first();
+  await rir.selectOption('5+');
+  await page.waitForFunction(() => document.getElementById('save-state').textContent === 'Salvo neste aparelho');
+  for (const width of [320, 390, 430, 440, 460, 560, 760]) {
+    await page.setViewportSize({width, height: 844});
+    assert.equal(await rir.inputValue(), '5+');
+    const selector = await rir.evaluate(node => ({
+      arrow: getComputedStyle(node.closest('.fieldwrap'), '::after').content,
+      padding: parseFloat(getComputedStyle(node).paddingRight),
+      overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth
+    }));
+    assert.notEqual(selector.arrow, 'none', `o seletor de RIR precisa de um sinal de expansão em ${width}px`);
+    assert.ok(selector.padding >= 20, 'o valor não pode ficar sob o chevron');
+    assert.equal(selector.overflow, false);
+    const repsReadable = await page.locator('.set-row:not(.is-warmup) .set-field-reps input').first().evaluate(node => {
+      const style = getComputedStyle(node);
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      context.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      return context.measureText(node.value || node.placeholder).width <= node.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) + 1;
+    });
+    assert.equal(repsReadable, true, `a faixa de repetições não pode ser cortada em ${width}px`);
+  }
+  for (const clip of await page.locator('.vclip').all()) {
+    assert.equal(await clip.evaluate(node => getComputedStyle(node).display), 'block');
+  }
+  await openTab(page, 'Medidas');
+  const form = page.locator('.measurement-form');
+  assert.equal(await form.locator('fieldset').count(), 3);
+  assert.ok(await form.evaluate(node => parseFloat(getComputedStyle(node).rowGap) >= 16));
+  assert.equal(await form.locator('h3').evaluate(node => parseFloat(getComputedStyle(node).marginTop)), 0);
+  assert.equal(await form.getByRole('button', {name: 'Salvar medidas', exact: true}).isVisible(), true);
+  assert.deepEqual(errors, []);
+});
+
 test('contraste das combinações de texto atende ao mínimo aplicável do WCAG AA', {timeout: 150000}, async t => {
   const {page, errors} = await openApp(t);
   await seedSampleData(page);
@@ -2267,6 +2324,8 @@ test('contraste das combinações de texto atende ao mínimo aplicável do WCAG 
   const seen = new Map();
   for (const label of ['Hoje', 'Empurrar A', 'Pernas A', 'Caminhada', 'Rotina em casa', 'Evolução', 'Medidas', 'Ciclos', 'Ajustes']) {
     await openTab(page, label);
+    const guide = page.locator('.session-effort-guide');
+    if (await guide.count()) await guide.locator('summary').click();
     await page.waitForTimeout(150);
     for (const failure of await measure()) seen.set(`${label} · ${failure.selector} · ${failure.text}`, failure);
   }

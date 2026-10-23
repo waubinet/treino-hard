@@ -9,7 +9,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const {readLegacyState} = require('./legacy-fixture.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const OUTPUT = path.join(ROOT, 'output', 'playwright', process.env.REVIEW_URL ? '3.7.0-public' : '3.7.0-local');
+const OUTPUT = path.join(ROOT, 'output', 'playwright', process.env.REVIEW_URL ? '3.7.1-public' : '3.7.1-local');
 
 async function main() {
   let server;
@@ -93,7 +93,7 @@ async function main() {
       storage.close();
       return data;
     });
-    assert.equal(migration.version, '3.7.0');
+    assert.equal(migration.version, '3.7.1');
     assert.equal(migration.schema, 13);
     assert.equal(migration.history, 4);
     assert.deepEqual(migration.curl, ['bilateral']);
@@ -111,6 +111,18 @@ async function main() {
     await page.reload({waitUntil: 'networkidle'});
     await ready();
     await page.getByRole('tab', {name: 'Empurrar A', exact: true}).click();
+    const guide = page.locator('.session-effort-guide');
+    const uiRefinements = {
+      guideCollapsed: await guide.evaluate(node => !node.open),
+      actionsLayout: await page.locator('.session-actions').evaluate(node => getComputedStyle(node).display),
+      videoClipsAreBlocks: await page.locator('.vclip').evaluateAll(nodes => nodes.length > 0 && nodes.every(node => getComputedStyle(node).display === 'block'))
+    };
+    assert.deepEqual(uiRefinements, {guideCollapsed: true, actionsLayout: 'grid', videoClipsAreBlocks: true});
+    await page.locator('.session-card').screenshot({path: path.join(OUTPUT, 'mobile-session-actions.png')});
+    await guide.locator('summary').press('Enter');
+    assert.match(await guide.innerText(), /RIR 0 não é obrigatório/);
+    await guide.screenshot({path: path.join(OUTPUT, 'mobile-effort-guide.png')});
+    await guide.locator('summary').press('Enter');
     const load = page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup) .set-field-load input').first();
     await load.fill('37');
     await ready();
@@ -138,6 +150,8 @@ async function main() {
       await card.screenshot({path: path.join(OUTPUT, file)});
     }
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
+    assert.equal(await page.locator('.measurement-form').evaluate(node => getComputedStyle(node).rowGap), '16px');
+    await page.locator('.measurement-form').screenshot({path: path.join(OUTPUT, 'mobile-measurement-form.png')});
     await page.locator('#measurement-pair-thigh > summary').click();
     await page.locator('.measurement-side-history').screenshot({path: path.join(OUTPUT, 'mobile-measures.png')});
     await page.locator('.body-map-stage').screenshot({path: path.join(OUTPUT, 'mobile-body-map.png')});
@@ -159,14 +173,14 @@ async function main() {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({waitUntil: 'networkidle'});
     const caches = await page.evaluate(() => globalThis.caches.keys());
-    assert.ok(caches.includes('treino-hard-v3.7.0'));
+    assert.ok(caches.includes('treino-hard-v3.7.1'));
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
     await ready();
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
     assert.equal(await page.locator('.measurement-side-history').isVisible(), true);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({url: baseUrl, theme, assetHashes, bodyComparison, migration, reviewedVideos, autosaveWithoutBlur: true, caches, offline: true, errors, screenshots: fs.readdirSync(OUTPUT).map(file => path.join(OUTPUT, file))}, null, 2));
+    console.log(JSON.stringify({url: baseUrl, theme, assetHashes, uiRefinements, bodyComparison, migration, reviewedVideos, autosaveWithoutBlur: true, caches, offline: true, errors, screenshots: fs.readdirSync(OUTPUT).map(file => path.join(OUTPUT, file))}, null, 2));
   } finally {
     await browser.close();
     if (server) await new Promise(resolve => server.close(resolve));

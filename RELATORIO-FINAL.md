@@ -1,5 +1,11 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.7.1 — organização e legibilidade, 2026-10-23
+
+Refinamento da identidade grafite existente: ações da sessão organizadas, descrição com largura disponível, orientação de faixa/RIR expansível, grupos de Medidas espaçados, títulos de apoio normalizados, metadados de vídeo separados e sinal de seletor no RIR. Nenhuma mudança de prescrição, conteúdo de orientação, vídeo, esquema ou armazenamento.
+
+Gate local aprovado: 156/156 testes de lógica/dados/cache, 69/69 em Chrome e doze capturas finais inspecionadas; smoke local com migração, backup, autosave e offline sem erros de página/console. Publicação em confirmação no topo de `TESTES.md`; critérios e capturas em `UI-REFINO-3.7.1.md`.
+
 ## Rodada 3.7.0 — aparência grafite, 2026-10-23
 
 Identidade visual refeita em grafite, cinza e prata, incluindo ursinho e ícones da PWA. Revisados cartões, navegação, botões, campos, séries, gráficos, silhueta e cronômetro; contraste e foco receberam atenção específica. Cores semânticas continuam distintas. Não houve alteração de prescrição, vídeos, progressão ou esquema de dados.

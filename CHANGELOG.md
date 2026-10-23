@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.7.1] — organização e legibilidade da interface — 2026-10-23
+
+- Resumo da sessão com descrição em largura total e ações em grade responsiva, mantendo todas as ações e sua ordem no DOM. Iniciar/Retomar ocupam linha própria; cancelar fica visualmente secundário, sem perder identificação de ação destrutiva.
+- A explicação “Faixa, RIR e falha” passa a um bloco expansível recolhido por padrão. O texto foi preservado; abertura por teclado e manutenção do estado durante redesenho do painel verificadas.
+- Grupos do formulário de medidas passam a ter espaçamento real entre si. Títulos e descrições de cartões de apoio têm margens e escala consistentes.
+- Metadados dos vídeos separam ressalva e trecho indicado; classificação fica mais legível. Não houve alteração de vínculo, curadoria ou conteúdo de vídeo.
+- Seletor RIR ganha chevron; reserva de espaço para número/unidade/seta e faixa de repetições revista em telas de 320 a 760 px. Tema grafite, logo, ficha 3.6.10 e esquema 13 preservados; versão/cache 3.7.1.
+
 ## [3.7.0] — identidade grafite e refinamento de interface — 2026-10-23
 
 - Rosa substituído por grafite, cinza e prata em marca, ações, abas, semana, cartões, formulários, cronômetro, gráficos e silhueta. Verde, âmbar e vermelho continuam distinguindo sucesso, atenção e erro.

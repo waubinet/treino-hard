@@ -37,6 +37,8 @@ cinza e prata**, com logo do ursinho monocromática. `styles.css` e
 `DESIGN-3.7.0.md` são a referência de cores, superfícies, legibilidade e controles.
 A antiga paleta rosa da 2.2 não deve ser restaurada. Verde, âmbar e vermelho
 permanecem somente em estados semânticos, não como identidade principal.
+Os refinamentos de composição da 3.7.1 estão em `UI-REFINO-3.7.1.md`:
+ações da sessão, orientação expansível, Medidas, metadados de vídeo e RIR.
 
 A cópia `treino-hard-original-v2.2-2026-08-08/index.html` continua como referência
 histórica da estrutura em cartões, abas, seletor de semana e resumo; não é mais

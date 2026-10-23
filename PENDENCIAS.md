@@ -1,5 +1,11 @@
 # Pendências reais
 
+## Rodada 3.7.1 — refinamento visual — 2026-10-23
+
+- Implementados localmente: hierarquia das ações e cabeçalho da sessão, orientação de esforço expansível, espaçamento de Medidas, títulos de apoio, metadados dos vídeos e seletor RIR.
+- Gate local aprovado: 156/156 testes de lógica/dados/cache, 69/69 em Chrome e revisão final/offline sem erros. Publicação em confirmação; consultar o topo de `TESTES.md` antes de tratar esta rodada como pública.
+- Tema, logo, ficha, esquema e curadoria permanecem inalterados. QA em iPhone físico, leitor de tela real e instalação nativa segue pendente.
+
 ## Rodada 3.7.0 — aparência grafite — 2026-10-23
 
 - Tema e ursinho publicados por pedido explícito do usuário, sem mudar ficha, dados ou curadoria.
