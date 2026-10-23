@@ -2,7 +2,7 @@
 
 ## Rodada 3.7.0 / esquema 13 — 2026-10-23
 
-Gate local aprovado: **156/156** testes de lógica/dados/cache e **68/68** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa final em **390.319 ms**. Publicação ainda em confirmação.
+Gate local aprovado: **156/156** testes de lógica/dados/cache e **68/68** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa final em **390.319 ms**. Publicação e smoke público aprovados.
 
 - Sintaxe dos scripts/testes verificada; 156/156 testes de lógica/dados/cache passaram. Log: `output/playwright/unit-3.7.0.tap.log`.
 - Cenários dirigidos de neutralidade da identidade, contraste aplicável, larguras móveis/texto ampliado, ícones e cartão de exercício passaram. Primeira execução registrou aviso de CSP reescrita pelo Kaspersky; separador final corrigiu a concatenação. O cenário de CSP passou após isolar sua resposta HTML dos intermediários, sem alterar o código de segurança do app nem silenciar erros.
@@ -12,6 +12,8 @@ Gate local aprovado: **156/156** testes de lógica/dados/cache e **68/68** cená
 - Revisão visual IAB: quatro telas antes/depois, foco interno de feedback e desktop, com imagens inspecionadas. Evidências e prompt da logo em `DESIGN-3.7.0.md`.
 - Suíte completa final: `node --test --test-concurrency=1 --test-reporter=tap tests/browser.test.cjs`, log `output/playwright/browser-3.7.0.tap.log`, **68/68** aprovados. As execuções anteriores foram preservadas nos logs `browser-3.7.0-first.tap.log` e `browser-3.7.0-second.tap.log`.
 - Smoke local `node tests/visual-review.cjs` aprovado: tema CSS/meta/manifesto alinhado, logo 512 carregada e SHA-256 exato dos quatro assets; comparação corporal atual contínua/anterior tracejada; nove capturas inspecionadas. Quatro sessões fictícias migradas, backup, autosave sem blur, variantes dos supinos e onze vínculos/recortes de vídeo conferidos. Larguras 320/390/1280 sem overflow global, cache `treino-hard-v3.7.0`, reload offline e zero erros de página/console. Log: `output/playwright/visual-3.7.0-local.log`; imagens em `output/playwright/3.7.0-local/`.
+- Pages confirmou `built` para o commit funcional **`947ef3bc601b348e984a5a764d88c92f4dd0952c`**. Smoke em `https://waubinet.github.io/treino-hard/?v=947ef3b` passou: versão 3.7.0, esquema 13, cache correto, tema/meta/manifesto grafite, SHA-256 dos quatro assets igual ao pacote local, comparação corporal contínua/tracejada, migração de quatro sessões fictícias, backup, autosave sem blur, variantes/vídeos e reload offline; zero erros de página/console. Log: `output/playwright/visual-3.7.0-public.log`; capturas em `output/playwright/3.7.0-public/`.
+- Conferência visual adicional no IAB público: tema/logo renderizados; instalação anterior mostrou cache 3.6.10 até o aviso “Atualizar agora”. Após confirmação explícita, Ajustes mostrou app 3.7.0, esquema 13 e cache `treino-hard-v3.7.0`, sem limpeza de dados. Capturas `gray-audit/12-public-today.jpg` e `13-public-settings.jpg` inspecionadas; zero erros de console nesse fluxo.
 - Nenhuma mudança em `js/workouts.js`, `js/app.js`, `js/storage.js` ou `js/measurements.js`. `APP_VERSION=3.7.0`, `SCHEMA_VERSION=13`, `WORKOUT_REVISION=3.6.10`, cache `treino-hard-v3.7.0`.
 - Limites: Chrome desktop com viewports móveis e dados fictícios; não houve QA em iPhone físico, leitor de tela real ou instalação nativa. A navegação por teclado, contraste e semântica automatizados não provam conformidade completa com WCAG.
 

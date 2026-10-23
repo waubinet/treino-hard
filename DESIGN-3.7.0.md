@@ -38,6 +38,8 @@ Desktop: `10-after-desktop.jpg`. Tela estreita e foco: `11-after-320px.jpg`. Sem
 
 Revisão complementar do pacote final: nove imagens em `output/playwright/3.7.0-local/`, cobrindo Hoje, supinos com barra/halteres, leg press, remada com anilhas, medidas em móvel/desktop, silhueta e mobilidade. Todas inspecionadas. O smoke compara SHA-256 de `logo.png` e dos três ícones com os bytes servidos, além de verificar tema, cache, offline e diferenciação contínua/tracejada da silhueta.
 
+Publicação confirmada para `947ef3b`. Smoke público aprovado, inclusive hashes dos quatro assets. No IAB, `12-public-today.jpg` e `13-public-settings.jpg` documentam aparência e versão/cache 3.7.0 após confirmar “Atualizar agora”; ambas inspecionadas. Não houve limpeza de dados para a atualização.
+
 ## Ursinho e assets
 
 Arte existente editada com **Image Gen integrado**; preservados personagem preto, expressão, pose, barra, pesos, corações e badge. Os detalhes rosa passam a prata e cinza. Nenhuma ferramenta de desenho programático foi usada para redesenhar o personagem. `scripts/build-brand-assets.cjs` usa Sharp apenas para redimensionamento, transparência e composição do fundo dos ícones.

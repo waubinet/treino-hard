@@ -4,7 +4,7 @@
 
 Identidade visual refeita em grafite, cinza e prata, incluindo ursinho e ícones da PWA. Revisados cartões, navegação, botões, campos, séries, gráficos, silhueta e cronômetro; contraste e foco receberam atenção específica. Cores semânticas continuam distintas. Não houve alteração de prescrição, vídeos, progressão ou esquema de dados.
 
-Gate local aprovado: 156/156 testes de lógica/dados/cache, 68/68 em Chrome e nove capturas finais inspecionadas. Migração, backup, autosave, responsividade e offline passaram sem erros de página/console; hashes dos quatro assets conferidos. Publicação em confirmação no topo de `TESTES.md`. Auditoria visual, paleta, capturas e origem da arte em `DESIGN-3.7.0.md`.
+Gate aprovado: 156/156 testes de lógica/dados/cache, 68/68 em Chrome e nove capturas finais inspecionadas. Migração, backup, autosave, responsividade e offline passaram sem erros de página/console; hashes dos quatro assets conferidos. Pages confirmou `947ef3bc601b348e984a5a764d88c92f4dd0952c`; smoke público repetiu as verificações com sucesso, e o IAB confirmou o novo tema e cache após a atualização explícita. Prova no topo de `TESTES.md`. Auditoria visual, paleta, capturas e origem da arte em `DESIGN-3.7.0.md`.
 
 ## Rodada 3.6.10 — opções nos supinos, 2026-10-23
 
