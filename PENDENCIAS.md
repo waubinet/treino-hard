@@ -5,7 +5,7 @@
 - Leg press 45° unilateral, vacuum em pé e quatro apoios receberam demonstrações específicas; extensora unilateral e panturrilha unilateral em pé tiveram incorporação confirmada.
 - Inventário: 46 associações, 36 vídeos únicos, 38 correspondências exatas e 8 guias-base. A posição sentada em cadeira continua sem demonstração exata; a execução ajoelhada do candidato não foi usada como equivalente.
 - Permanecem guias-base para panturrilhas unilateral no leg press/sentada, remadas genérica/sem apoio e com geometria diferente, mobilidade de quadril, vacuum genérico/sentado.
-- Gate completo e publicação: consultar `TESTES.md`. Testes em iPhone físico, leitor de tela real e instalação nativa continuam pendentes.
+- Publicação funcional `c81ad5f` confirmada pelo Pages; smoke público aprovado. Gate: 154/154 testes de lógica/dados/cache e 65/65 em Chrome, revisão visual e offline. Evidências em `TESTES.md`. Testes em iPhone físico, leitor de tela real e instalação nativa continuam pendentes.
 
 ## Rodada 3.6.7 — 2026-10-23
 

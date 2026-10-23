@@ -1,6 +1,6 @@
 # Revisão de vídeos — 2026-10-23
 
-## Lote 3.6.8 — revisão concluída, publicação em validação
+## Lote 3.6.8 — publicado e verificado
 
 - Leg press 45° unilateral: `ausscKK91R8`, Fernando Maradona, 5:53, recorte 1:55–2:45. Inspeção individual confirmou trilhos inclinados, banco com apoio, perna única na plataforma e orientação de alinhamento de joelho/tornozelo. Quadros conferidos em 0:35, 1:20, 2:20, 3:20 e 4:20. O vídeo também contém contagens e estratégias próprias de treino; elas não alteram a ficha do app. Origem: evento do CREF22/ES lista Prof. Fernando Maradona, CREF006152-G/MG: https://www.sympla.com.br/evento/conferencia-da-educacao-fisica-capixaba/2633822 .
 - Vacuum em pé: `TU9XSn6TYxs`, Treino Mestre, 4:13, recorte 2:18–2:33. Mostra a retração abdominal em pé com vista lateral. Origem brasileira já documentada pelo site oficial https://treinomestre.com.br/sobre/ .

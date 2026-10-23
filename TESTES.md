@@ -10,7 +10,7 @@ Gate local final aprovado: **154/154** testes de lógica/dados/cache e **65/65**
 - Inventário conferido no código: 46 associações, 36 vídeos únicos, 38 correspondências exatas e 8 guias-base. Vacuum sentado continua aproximação: ajoelhado sobre os calcanhares não equivale a cadeira.
 - Revisão visual: quatro capturas desktop/móvel inspecionadas; larguras 320/390/1280 sem overflow global. Migração preservou quatro sessões fictícias e backup; autosave sem blur, cache `treino-hard-v3.6.8` e recarga offline passaram, com zero erros de página/console. Smoke também confere os cinco registros de vídeo alterados.
 - Sintaxe dos scripts/testes e `git diff --check`: aprovados. Nenhuma mudança de prescrição, esquema ou identidades de histórico. Continuam pendentes testes em iPhone físico, leitor de tela real e instalação nativa.
-- Publicação: aguardando confirmação do Pages e smoke público.
+- Publicação funcional confirmada: Pages `built` para `c81ad5f53a8eddb15663b41cd9f74970b67b11d7`. Smoke público em `https://waubinet.github.io/treino-hard/?v=c81ad5f` passou: versão 3.6.8, esquema 13, cache correto, cinco entradas de vídeo com IDs/recortes/incorporação esperados, quatro sessões fictícias migradas, backup, autosave sem blur, recarga offline e zero erros de página/console.
 
 ## Rodada 3.6.7 / esquema 13 — 2026-10-23
 
