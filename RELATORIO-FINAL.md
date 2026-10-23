@@ -6,7 +6,7 @@ Implementados vídeos específicos de panturrilha unilateral no leg press 45°, 
 
 Corrigida a resolução da curadoria em sessões anteriores: um vínculo novo com exercício e variação exatos pode ser exibido sem reescrever a prescrição ou os registros históricos. Catálogo: 47 associações, 40 vídeos únicos, 42 correspondências de execução e 5 guias-base, incluindo dois fallbacks genéricos legados.
 
-Gate local aprovado: 154/154 testes de lógica/dados/cache, 66/66 cenários em Chrome e cinco capturas inspecionadas; migração, backup, autosave e offline sem erros de página/console. Publicação ainda pendente; evidências no topo de `TESTES.md`. Esquema 13, séries, ordem, aquecimento e periodização preservados. Fontes e inspeção: `REVISAO-VIDEOS-2026-10-23.md`.
+Gate aprovado: 154/154 testes de lógica/dados/cache, 66/66 cenários em Chrome e cinco capturas inspecionadas; migração, backup, autosave e offline sem erros de página/console. Pages confirmou o commit funcional `679ee27c6a6ffc83e6c2b19dcdad7d51bda55a07`; smoke público aprovado, incluindo os nove registros de vídeo e a variação com anilhas. Evidências no topo de `TESTES.md`. Esquema 13, séries, ordem, aquecimento e periodização preservados. Fontes e inspeção: `REVISAO-VIDEOS-2026-10-23.md`.
 
 ## Rodada 3.6.8 — lote de curadoria, 2026-10-23
 

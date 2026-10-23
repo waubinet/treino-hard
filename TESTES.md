@@ -2,7 +2,7 @@
 
 ## Rodada 3.6.9 / esquema 13 — 2026-10-23
 
-Gate local final aprovado: **154/154** testes de lógica/dados/cache e **66/66** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa de navegador em 397.330 ms. Publicação ainda pendente.
+Gate local final aprovado: **154/154** testes de lógica/dados/cache e **66/66** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa de navegador em 397.330 ms. Publicação e smoke público aprovados.
 
 - Lógica/dados/cache: **154/154** aprovados. Sintaxe de todos os scripts/testes e `git diff --check` aprovados.
 - Quatro novos IDs inspecionados individualmente e com reprodução real confirmada pelo IFrame Player API (estado 1): `m4ky4df0t4Y`, `MhUzkSK2Slk`, `VFd1fO_H7do`, `rXAP7YQF6ps`. Fontes e limites em `REVISAO-VIDEOS-2026-10-23.md`.
@@ -11,6 +11,8 @@ Gate local final aprovado: **154/154** testes de lógica/dados/cache e **66/66**
 - Revisão visual: cinco capturas desktop/móvel inspecionadas, incluindo o novo cartão de remada com anilhas. Larguras 320/390/1280 sem overflow global; quatro sessões fictícias preservadas pela migração, backup, autosave sem blur, cache `treino-hard-v3.6.9` e recarga offline aprovados; zero erros de página/console. O smoke confere nove entradas de vídeo, seus recortes e o vínculo da variante com anilhas.
 - Inventário executado: 47 associações, 40 vídeos únicos, 42 correspondências de execução e 5 guias-base. Prescrição, padrão de máquina, esquema e identidades históricas preservados.
 - Limites: testes com dados fictícios, sem acessar o perfil pessoal. iPhone físico, leitor de tela real e instalação nativa não executados.
+- Publicação funcional confirmada: Pages `built` para `679ee27c6a6ffc83e6c2b19dcdad7d51bda55a07`. Smoke público em `https://waubinet.github.io/treino-hard/?v=679ee27` aprovou versão 3.6.9, esquema 13, cache correto, nove registros de vídeo com IDs/recortes esperados e o vínculo `plate_loaded`. Migração de quatro sessões fictícias, backup, autosave sem blur, responsividade, recarga offline e zero erros de página/console confirmados.
+- Orientação reafirmada pelo usuário nesta rodada: o app ainda não está em uso; dados atuais são de teste. Preservação desse histórico não deve ser prioridade de desenvolvimento, sem dispensar correção básica do salvamento futuro.
 
 ## Rodada 3.6.8 / esquema 13 — 2026-10-23
 

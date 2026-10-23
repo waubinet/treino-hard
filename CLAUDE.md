@@ -4,8 +4,12 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Rodada local validada: **3.6.9**, esquema **13**, cache `treino-hard-v3.6.9`; última publicação verificada: 3.6.8 (consultar `TESTES.md` para o resultado da nova publicação).
+- Versão publicada e verificada: **3.6.9**, esquema **13**, cache `treino-hard-v3.6.9` (consultar `TESTES.md` para publicação e evidências).
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
+
+## Fase atual do projeto
+
+Em 2026-10-23, o usuário reafirmou que o app ainda está somente em teste, não em uso real. Priorizar os ajustes funcionais, a experiência desejada e a curadoria; não investir trabalho adicional para preservar dados de teste como se fossem um histórico pessoal em uso. Isso não autoriza apagar dados sem necessidade nem relaxar o tratamento de falhas de salvamento que afetariam o uso futuro.
 
 ## Arquitetura
 

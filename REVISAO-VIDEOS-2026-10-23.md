@@ -1,6 +1,6 @@
 # Revisão de vídeos — 2026-10-23
 
-## Lote 3.6.9 — inspeção individual e integração validada
+## Lote 3.6.9 — publicado e verificado
 
 Quatro novos IDs tiveram reprodução real confirmada pelo IFrame Player API em origem localhost, host `youtube-nocookie.com`, estado 1 e sem erro. As páginas Sobre dos próprios canais declaram país Brasil; títulos, nomes atuais e durações foram reconferidos no player. A aprovação é da execução nos recortes inspecionados, não de todas as afirmações dos vídeos completos.
 
