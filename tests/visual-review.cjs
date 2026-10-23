@@ -67,20 +67,21 @@ async function main() {
       storage.close();
       return data;
     });
-    assert.equal(migration.version, '3.6.9');
+    assert.equal(migration.version, '3.6.10');
     assert.equal(migration.schema, 13);
     assert.equal(migration.history, 4);
     assert.deepEqual(migration.curl, ['bilateral']);
     assert.ok(migration.backups > 0);
     const reviewedVideos = await page.evaluate(() => Object.fromEntries(
-      ['leg_press_45_unilateral', 'leg_extension_unilateral', 'calf_standing_unilateral', 'vacuum_standing', 'vacuum_all_fours', 'calf_leg_press_unilateral', 'calf_seated_unilateral', 'mob_hip_butterfly', 'unilateral_row_plate_loaded']
+      ['leg_press_45_unilateral', 'leg_extension_unilateral', 'calf_standing_unilateral', 'vacuum_standing', 'vacuum_all_fours', 'calf_leg_press_unilateral', 'calf_seated_unilateral', 'mob_hip_butterfly', 'unilateral_row_plate_loaded', 'chest_press_barbell', 'incline_press_dumbbell']
         .map(key => {const v = THFData.VIDEOS[key]; return [key, {id: v.youtubeId, scope: v.coverageScope, available: v.availability, embed: v.embedCompatible, start: v.startSeconds, end: v.endSeconds}];})
     ));
-    assert.deepEqual(Object.values(reviewedVideos).map(v => v.id), ['ausscKK91R8', '7HcK7fmYJP0', 'fSQ5LGWfnYU', 'TU9XSn6TYxs', 'TU9XSn6TYxs', 'm4ky4df0t4Y', 'MhUzkSK2Slk', 'VFd1fO_H7do', 'rXAP7YQF6ps']);
+    assert.deepEqual(Object.values(reviewedVideos).map(v => v.id), ['ausscKK91R8', '7HcK7fmYJP0', 'fSQ5LGWfnYU', 'TU9XSn6TYxs', 'TU9XSn6TYxs', 'm4ky4df0t4Y', 'MhUzkSK2Slk', 'VFd1fO_H7do', 'rXAP7YQF6ps', 'EZMYCLKuGow', 'ZvNNhS9csqw']);
     assert.ok(Object.values(reviewedVideos).every(v => v.scope === 'exact' && v.available === 'available' && v.embed === true));
     assert.deepEqual([reviewedVideos.vacuum_standing.start, reviewedVideos.vacuum_standing.end, reviewedVideos.vacuum_all_fours.start, reviewedVideos.vacuum_all_fours.end], [138, 153, 154, 167]);
     assert.deepEqual(['calf_leg_press_unilateral', 'calf_seated_unilateral', 'mob_hip_butterfly', 'unilateral_row_plate_loaded'].map(key => [reviewedVideos[key].start, reviewedVideos[key].end]), [[25, 55], [0, 10], [0, 17], [3, 15]]);
     assert.equal(await page.evaluate(() => THFData.CATALOG.unilateral_row_machine.variants.find(v => v.id === 'plate_loaded').videoKey), 'unilateral_row_plate_loaded');
+    assert.deepEqual([reviewedVideos.chest_press_barbell.start, reviewedVideos.chest_press_barbell.end, reviewedVideos.incline_press_dumbbell.start, reviewedVideos.incline_press_dumbbell.end], [2, 24, 0, 0]);
     await page.reload({waitUntil: 'networkidle'});
     await ready();
     await page.getByRole('tab', {name: 'Empurrar A', exact: true}).click();
@@ -99,6 +100,17 @@ async function main() {
     await ready();
     assert.equal(await page.locator('#exercicio-unilateral_row_machine [data-video-key="unilateral_row_plate_loaded"]').count(), 1);
     await page.locator('#exercicio-unilateral_row_machine').screenshot({path: path.join(OUTPUT, 'mobile-plate-loaded-row.png')});
+    await page.getByRole('tab', {name: 'Empurrar B', exact: true}).click();
+    for (const [exerciseId, variantId, videoKey, file] of [
+      ['chest_press_machine', 'barbell', 'chest_press_barbell', 'mobile-bench-barbell.png'],
+      ['incline_press_machine', 'dumbbell', 'incline_press_dumbbell', 'mobile-incline-dumbbell.png']
+    ]) {
+      const card = page.locator(`#exercicio-${exerciseId}`);
+      await card.locator(`[data-variation-id="${variantId}"]`).click();
+      await ready();
+      assert.equal(await card.locator(`[data-video-key="${videoKey}"]`).count(), 1);
+      await card.screenshot({path: path.join(OUTPUT, file)});
+    }
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
     await page.locator('#measurement-pair-thigh > summary').click();
     await page.locator('.measurement-side-history').screenshot({path: path.join(OUTPUT, 'mobile-measures.png')});
@@ -114,7 +126,7 @@ async function main() {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({waitUntil: 'networkidle'});
     const caches = await page.evaluate(() => globalThis.caches.keys());
-    assert.ok(caches.includes('treino-hard-v3.6.9'));
+    assert.ok(caches.includes('treino-hard-v3.6.10'));
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
     await ready();

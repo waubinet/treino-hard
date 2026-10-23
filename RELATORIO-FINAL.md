@@ -1,5 +1,11 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.10 — opções nos supinos, 2026-10-23
+
+Supino reto oferece máquina/convencional com barra e inclinado oferece máquina/halteres nos dois treinos de peito. Nomes neutros dos cartões, instruções de unidade de carga e vídeos específicos por opção. Séries, aquecimento, ordem e periodização mantidos. A máquina continua padrão.
+
+Esquema 13 preservado; ficha, versão e cache 3.6.10. Catálogo com 49 associações para 42 vídeos, 44 correspondências de execução e 5 guias-base. Gate local aprovado: 156/156 testes de lógica/dados/cache, 67/67 em Chrome e sete capturas revisadas; migração, backup, autosave e offline sem erros de página/console. Publicação ainda pendente; evidências no topo de `TESTES.md`.
+
 ## Rodada 3.6.9 — curadoria e compatibilidade, 2026-10-23
 
 Implementados vídeos específicos de panturrilha unilateral no leg press 45°, panturrilha sentada unilateral, borboleta dinâmica e remada unilateral com anilhas/apoio peitoral. A remada foi separada da máquina seletorizada a partir da foto e confirmação do usuário; as alavancas do vídeo não são idênticas às da foto. A variação deve ser escolhida explicitamente no cartão; não houve mudança automática de aparelho.

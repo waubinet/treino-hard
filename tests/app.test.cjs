@@ -257,7 +257,7 @@ test('Pernas A e B começam com a mesma mobilidade e não contêm stiff', () => 
   assert.doesNotMatch(strengthText, /\bstiff\b/i);
 });
 
-test('as duas exposições de empurrar usam supinos em máquina', () => {
+test('as duas exposições de empurrar oferecem supinos com máquina como opção padrão', () => {
   const app = boot();
   ['push_a', 'push_b'].forEach(workoutId => {
     const workout = app.Data.WORKOUT_BY_ID[workoutId];
@@ -265,13 +265,58 @@ test('as duas exposições de empurrar usam supinos em máquina', () => {
       plain(workout.exercises.slice(0, 2).map(exercise => exercise.id)),
       ['chest_press_machine', 'incline_press_machine']
     );
-    workout.exercises.slice(0, 2).forEach(exercise => assert.match(exercise.name, /máquina/i));
+    workout.exercises.slice(0, 2).forEach(exercise => {
+      assert.equal(exercise.defaultVariant, 'machine');
+      assert.equal(exercise.variants.find(variant => variant.id === 'machine').label, 'Na máquina');
+      assert.doesNotMatch(exercise.name, /na máquina/i, 'o nome da família não deve contradizer a opção com peso livre');
+    });
   });
   const pressIds = app.Data.WORKOUTS
     .flatMap(workout => workout.exercises)
     .filter(exercise => /supino/i.test(exercise.name))
     .map(exercise => exercise.id);
   assert.equal(pressIds.every(id => id.endsWith('_machine')), true);
+});
+
+test('supinos têm opções explícitas, vídeos próprios e orientação de unidade de carga', () => {
+  const app = boot();
+  const definitions = [
+    ['chest_press_machine', 'barbell', 'chest_press_barbell', 'Convencional com barra'],
+    ['incline_press_machine', 'dumbbell', 'incline_press_dumbbell', 'Com halteres']
+  ];
+  definitions.forEach(([id, freeId, freeVideo, freeLabel]) => {
+    const exercise = app.Data.CATALOG[id];
+    assert.deepEqual(plain(exercise.variants.map(variant => [variant.id, variant.label, variant.videoKey])), [
+      ['machine', 'Na máquina', id],
+      [freeId, freeLabel, freeVideo]
+    ]);
+    assert.equal(exercise.variants.every(variant => variant.sideMode === 'bilateral'), true);
+    assert.equal(exercise.workSets, 3);
+    assert.equal(exercise.restSeconds, 120);
+  });
+  assert.match(app.Data.CATALOG.chest_press_machine.notes.join(' '), /carga total \(barra \+ anilhas\)/);
+  assert.match(app.Data.CATALOG.incline_press_machine.notes.join(' '), /peso de cada halter, não a soma do par/);
+});
+
+test('escolher barra ou halteres nos supinos separa a carga sem alterar séries ou aquecimento', () => {
+  const app = boot();
+  ['push_a', 'push_b'].forEach(workoutId => {
+    const session = app.Core.createSession(workoutId, '2026-10-23', 1);
+    [['chest_press_machine', 'barbell', 3], ['incline_press_machine', 'dumbbell', 0]].forEach(([id, variationId, warmups]) => {
+      const log = session.exercises.find(item => item.exerciseId === id);
+      assert.equal(log.variationId, 'machine');
+      const initial = plain(log.prescriptionSnapshot);
+      const machineKey = app.Core.loadHistoryKey(id, log.variationId, '', 'bilateral');
+      assert.equal(app.Core.changeExerciseVariant(session, log.id, variationId, {}).changed, true);
+      assert.equal(log.variationId, variationId);
+      assert.notEqual(machineKey, app.Core.loadHistoryKey(id, log.variationId, '', 'bilateral'));
+      assert.equal(log.sets.filter(set => set.type === 'warmup').length, warmups);
+      assert.equal(log.sets.filter(set => set.type === 'work').length, 3);
+      assert.deepEqual(plain(log.prescriptionSnapshot), initial);
+      assert.equal(app.Core.changeExerciseVariant(session, log.id, 'machine', {}).changed, true);
+      assert.equal(app.Core.loadHistoryKey(id, log.variationId, '', 'bilateral'), machineKey);
+    });
+  });
 });
 
 test('periodização aplica faixas e RIR por semana aos exercícios principais', () => {
@@ -368,7 +413,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
 
   // A política brasileira é uma barreira de publicação: a revisão anterior
   // continua registrada; novas revisões exigem prova individual e data explícita.
-  assert.equal(accepted.length, 47, 'todos os exercícios e suas variações específicas precisam ter vídeo brasileiro aprovado');
+  assert.equal(accepted.length, 49, 'todos os exercícios e suas variações específicas precisam ter vídeo brasileiro aprovado');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.ok(['exact', 'foundation'].includes(video.coverageScope), `${key}: escopo de cobertura`);
@@ -1424,8 +1469,8 @@ const FICHA_CANONICA = Object.freeze({
   push_a: {
     label: 'Empurrar A', weekday: 1, total: 20, mobilidade: [],
     exercicios: [
-      ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
-      ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
+      ['chest_press_machine', 'Supino reto', 3, 'upper_compound', 120, false],
+      ['incline_press_machine', 'Supino inclinado', 3, 'upper_compound', 120, false],
       ['machine_fly', 'Voador (peck deck)', 3, 'accessory', 90, false],
       ['shoulder_press_machine', 'Desenvolvimento na máquina', 3, 'upper_compound', 120, false],
       ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
@@ -1457,8 +1502,8 @@ const FICHA_CANONICA = Object.freeze({
   push_b: {
     label: 'Empurrar B', weekday: 4, total: 20, mobilidade: [],
     exercicios: [
-      ['chest_press_machine', 'Supino reto na máquina', 3, 'upper_compound', 120, false],
-      ['incline_press_machine', 'Supino inclinado na máquina', 3, 'upper_compound', 120, false],
+      ['chest_press_machine', 'Supino reto', 3, 'upper_compound', 120, false],
+      ['incline_press_machine', 'Supino inclinado', 3, 'upper_compound', 120, false],
       ['machine_fly', 'Voador (peck deck)', 3, 'accessory', 90, false],
       ['shoulder_press_machine', 'Desenvolvimento na máquina', 3, 'upper_compound', 120, false],
       ['lateral_raise_dumbbell', 'Elevação lateral com halteres', 3, 'accessory', 90, false],
@@ -1626,6 +1671,7 @@ test('sessão planejada recebe a ficha atual e descarta somente registros de tes
   const empty = app.Core.createSession('push_b', '2026-09-17', 1);
   empty.workoutSnapshot.revision = '3.5.1';
   const oldFirst = empty.exercises.find(log => log.exerciseId === 'chest_press_machine');
+  oldFirst.variationId = '';
   oldFirst.sets = oldFirst.sets.filter(set => set.type === 'work');
   oldFirst.machineId = 'Supino da academia';
   const id = oldFirst.id;
@@ -1635,6 +1681,9 @@ test('sessão planejada recebe a ficha atual e descarta somente registros de tes
   assert.equal(refreshed.sets.filter(set => set.type === 'warmup').length, 3);
   assert.equal(refreshed.id, id, 'identidade do registro vazio é preservada');
   assert.equal(refreshed.machineId, 'Supino da academia', 'identificação da máquina é preservada');
+  assert.equal(refreshed.variationId, 'machine', 'a ficha nova mantém a opção em máquina, sem converter para barra');
+  assert.deepEqual(plain(app.Core.sessionExercise(empty, 'chest_press_machine').variants.map(variant => variant.id)), ['machine', 'barbell']);
+  assert.deepEqual(plain(app.Core.sessionExercise(empty, 'incline_press_machine').variants.map(variant => variant.id)), ['machine', 'dumbbell']);
 
   const testPlan = app.Core.createSession('push_b', '2026-09-18', 1);
   testPlan.workoutSnapshot.revision = '3.5.1';
@@ -1693,6 +1742,8 @@ test('conformidade: tríceps de Empurrar B oferece testa e extensão acima da ca
 test('conformidade: variações permitidas por exercício', () => {
   const app = boot();
   const esperado = {
+    chest_press_machine: ['machine', 'barbell'],
+    incline_press_machine: ['machine', 'dumbbell'],
     seated_row_triangle: ['cable_triangle', 'machine_supported'],
     unilateral_row_machine: ['machine_left_right', 'plate_loaded'],
     row_machine_choice: ['seated_cable_triangle', 'articulated_supported', 'articulated_unsupported'],
@@ -1741,13 +1792,13 @@ test('conformidade: semana canônica de segunda a sábado, domingo sem sessão',
   assert.deepEqual(plain(dias.map(day => app.Data.workoutForDate(day))), ['push_a', 'pull_a', 'legs_a', 'push_b', 'pull_b', 'legs_b']);
 });
 
-test('conformidade: supinos em máquina nas duas exposições e mobilidade idêntica nas pernas', () => {
+test('conformidade: supinos com opções de equipamento nas duas exposições e mobilidade idêntica nas pernas', () => {
   const app = boot();
   for (const workoutId of ['push_a', 'push_b']) {
     const ids = app.Data.WORKOUT_BY_ID[workoutId].exercises.map(exercise => exercise.id);
-    assert.ok(ids.includes('chest_press_machine'), `supino reto na máquina ausente em ${workoutId}`);
-    assert.ok(ids.includes('incline_press_machine'), `supino inclinado na máquina ausente em ${workoutId}`);
-    assert.equal(ids.some(id => /barbell/.test(id) && id !== 'deadlift_barbell'), false, `barra livre indevida em ${workoutId}`);
+    assert.ok(ids.includes('chest_press_machine'), `família do supino reto ausente em ${workoutId}`);
+    assert.ok(ids.includes('incline_press_machine'), `família do supino inclinado ausente em ${workoutId}`);
+    assert.equal(ids.some(id => /barbell/.test(id) && id !== 'deadlift_barbell'), false, `opção de barra não deve duplicar exercício em ${workoutId}`);
   }
   const mobilidade = workoutId => plain(app.Data.WORKOUT_BY_ID[workoutId].exercises
     .filter(exercise => exercise.type === 'mobility')
@@ -1806,10 +1857,10 @@ test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
     total[videos[chave].status] = (total[videos[chave].status] || 0) + 1;
     return total;
   }, {});
-  assert.equal(chaves.length, 47, 'total de entradas do catálogo');
-  assert.deepEqual(contagem, {accepted: 47}, 'distribuição por estado');
-  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 47, 'entradas com identificador do YouTube');
-  assert.equal(chaves.filter(chave => videos[chave].url).length, 47, 'entradas com URL');
+  assert.equal(chaves.length, 49, 'total de entradas do catálogo');
+  assert.deepEqual(contagem, {accepted: 49}, 'distribuição por estado');
+  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 49, 'entradas com identificador do YouTube');
+  assert.equal(chaves.filter(chave => videos[chave].url).length, 49, 'entradas com URL');
 });
 
 test('inventário de vídeos: estados e classificações usam o enum do código', () => {
@@ -1855,7 +1906,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 41, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 43, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);

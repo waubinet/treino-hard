@@ -1,5 +1,17 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.10 / esquema 13 — 2026-10-23
+
+Gate local aprovado: **156/156** testes de lógica/dados/cache e **67/67** cenários em Chrome, sem falhas, cancelamentos ou ignorados. Suíte completa em 391.157 ms. Publicação ainda pendente.
+
+- **156/156** testes de lógica/dados/cache aprovados. Duas regressões novas cobrem as opções, vínculos de vídeo, unidade da carga, chaves separadas e manutenção de séries/aquecimento.
+- Cenário novo em Chrome aprovado: as duas opções nos supinos de Empurrar A/B, máquina como padrão, troca para barra/halteres, vídeo correspondente, recorte e persistência após reload; sem overflow global em 320/390/1280. Três cenários dirigidos adicionais (atualização física, degrau e faixa) passaram antes da última seleção de vídeo.
+- Reprodução real e inspeção individual dos dois IDs finais confirmadas; fonte/limites em `REVISAO-VIDEOS-2026-10-23.md`. Um candidato anterior foi descartado por cartela incorreta e o teste dirigido foi repetido após selecionar BlueFit.
+- Inventário executado: 49 associações, 42 vídeos únicos, 44 correspondências de execução e 5 guias-base. WORKOUT_REVISION/APP_VERSION/cache 3.6.10; esquema permanece 13.
+- Sessões planejadas recebem a ficha nova pelo refresh existente. Sessões iniciadas/encerradas mantêm a ficha anterior; para conferir num treino de teste antigo, iniciar um novo ciclo pela opção já existente, sem migração adicional criada nesta rodada.
+- Sintaxe de todos os scripts/testes e `git diff --check` aprovados. Sete capturas desktop/móvel inspecionadas, incluindo reto com barra e inclinado com halteres; versão/cache 3.6.10, onze registros de vídeo, recorte da barra 0:02–0:24, seleção das alternativas no cartão e ausência de overflow global em 320/390/1280 confirmados. Migração de quatro sessões fictícias, backup, autosave sem blur e reload offline passaram, zero erros de página/console.
+- Publicação ainda pendente. Testes com dados fictícios; iPhone físico, leitor de tela e instalação nativa continuam não verificados. A verificação de reprodução real foi feita separadamente dos testes de integração.
+
 ## Rodada 3.6.9 / esquema 13 — 2026-10-23
 
 Gate local final aprovado: **154/154** testes de lógica/dados/cache e **66/66** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa de navegador em 397.330 ms. Publicação e smoke público aprovados.

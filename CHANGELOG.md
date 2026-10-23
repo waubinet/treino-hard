@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.10] — opções de equipamento nos supinos — 2026-10-23
+
+- Em Empurrar A e B, supino reto oferece máquina ou convencional com barra; supino inclinado oferece máquina ou halteres. Máquina permanece padrão; ordem, três séries de trabalho, aquecimentos e periodização não mudaram.
+- Nomes dos cartões passam a Supino reto / Supino inclinado para não contradizer a alternativa escolhida. Notas explicam carga total da barra e peso de cada halter.
+- Duas demonstrações brasileiras específicas adicionadas, com incorporação real confirmada. O supino reto com barra abre somente em 0:02–0:24; o inclinado com halteres usa demonstração específica BlueFit/Leandro Twin.
+- Ficha e versão/cache passam a 3.6.10, mantendo esquema 13. O refresh existente atualiza sessões planejadas de teste; sessões iniciadas ou encerradas não são remodeladas.
+- Inventário: 49 associações para 42 vídeos únicos, 44 correspondências de execução e 5 guias-base. Evidências em `TESTES.md` e `REVISAO-VIDEOS-2026-10-23.md`.
+
 ## [3.6.9] — panturrilhas, mobilidade e remada com anilhas — 2026-10-23
 
 - Panturrilha unilateral no leg press 45° e sentada passam a ter demonstrações realmente unilaterais, em vez dos guias bilaterais anteriores.

@@ -20,7 +20,7 @@
   // Identifica a ficha que originou o retrato persistido de uma sessão. A
   // versão fica separada do esquema de armazenamento porque a ficha pode
   // evoluir sem exigir, por si só, uma migração de todos os documentos.
-  const WORKOUT_REVISION = '3.6.1';
+  const WORKOUT_REVISION = '3.6.10';
 
   const MOBILITY_SEQUENCE = Object.freeze([
     {
@@ -188,19 +188,29 @@
   }
 
   const CATALOG = Object.freeze({
-    chest_press_machine: strength('chest_press_machine', 'Supino reto na máquina', 'upper_compound', 3, {
+    chest_press_machine: strength('chest_press_machine', 'Supino reto', 'upper_compound', 3, {
       restSeconds: 120,
       warmupSets: 3,
       warmupOptional: true,
       bracing: true,
-      detail: 'Máquina horizontal ou convergente',
-      notes: ['Escolhido pela praticidade e pelo controle ao treinar sozinho. Isso não significa que máquinas sejam universalmente menos lesivas.']
+      detail: 'Escolha entre máquina e convencional com barra',
+      notes: ['Na opção com barra, registre a carga total (barra + anilhas). Na máquina, registre a carga indicada no aparelho. Não compare as cargas entre equipamentos.'],
+      variants: [
+        {id: 'machine', label: 'Na máquina', videoKey: 'chest_press_machine'},
+        {id: 'barbell', label: 'Convencional com barra', videoKey: 'chest_press_barbell'}
+      ],
+      defaultVariant: 'machine'
     }),
-    incline_press_machine: strength('incline_press_machine', 'Supino inclinado na máquina', 'upper_compound', 3, {
+    incline_press_machine: strength('incline_press_machine', 'Supino inclinado', 'upper_compound', 3, {
       restSeconds: 120,
       bracing: true,
-      detail: 'Máquina inclinada, seletorizada ou articulada',
-      notes: ['Mantenha este exercício separado do supino reto; as cargas não são equivalentes.']
+      detail: 'Escolha entre máquina e halteres',
+      notes: ['Com halteres, registre o peso de cada halter, não a soma do par. Na máquina, registre a carga indicada no aparelho. As cargas entre essas opções e as do supino reto não são equivalentes.'],
+      variants: [
+        {id: 'machine', label: 'Na máquina', videoKey: 'incline_press_machine'},
+        {id: 'dumbbell', label: 'Com halteres', videoKey: 'incline_press_dumbbell'}
+      ],
+      defaultVariant: 'machine'
     }),
     cable_crossover: strength('cable_crossover', 'Crossover na polia', 'accessory', 2, {
       restSeconds: 90,
@@ -550,6 +560,8 @@
     ,MhUzkSK2Slk: Object.freeze({channel: 'Personal TAF @personaltaf.oficial', country: 'BR', channelHandle: '@personaltaf', evidenceKind: 'official_creator_channel', evidenceUrl: 'https://www.youtube.com/@personaltaf/about', verifiedAt: '2026-10-23'})
     ,VFd1fO_H7do: Object.freeze({channel: 'Matheus Nascimento - Emagrecimento Feminino', country: 'BR', channelHandle: '@MatheusPersonalNutri', evidenceKind: 'official_creator_channel', evidenceUrl: 'https://www.youtube.com/@MatheusPersonalNutri/about', verifiedAt: '2026-10-23'})
     ,rXAP7YQF6ps: Object.freeze({channel: 'Emmanuel Cony', country: 'BR', channelHandle: '@emmanuelcony6308', evidenceKind: 'official_creator_channel', evidenceUrl: 'https://www.youtube.com/@emmanuelcony6308/about', verifiedAt: '2026-10-23'})
+    ,EZMYCLKuGow: Object.freeze({channel: 'Leandro Twin', country: 'BR', channelHandle: '@LeandroTwin', evidenceKind: 'official_professional_record', evidenceUrl: 'https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf', verifiedAt: '2026-10-23'})
+    ,ZvNNhS9csqw: Object.freeze({channel: 'BlueFit', country: 'BR', channelHandle: '@BluefitAcademia', evidenceKind: 'official_creator_channel', evidenceUrl: 'https://www.youtube.com/@BluefitAcademia/about', verifiedAt: '2026-10-23'})
   });
 
   function verifiedBrazilianProvenance(value) {
@@ -609,6 +621,8 @@
   }
 
   const VIDEOS = Object.freeze({
+    chest_press_barbell: reviewedVideo({exerciseId: 'chest_press_machine', variationId: 'barbell', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'EZMYCLKuGow', startSeconds: 2, endSeconds: 24, title: 'Como fazer supino reto', channel: 'Leandro Twin', duration: '2:01', language: 'pt-BR', reviewedAt: '2026-10-23', availability: 'available', embedCompatible: true, positives: 'Inspeção visual do recorte confirmou banco horizontal, barra livre fora dos suportes, pegada bilateral e demonstração da descida e subida. Instruções em português e associação ao supino reto com barra no PDF oficial do criador. Reprodução incorporada confirmada pelo IFrame Player API em 2026-10-23, estado 1.', limitations: 'Usar somente 0:02–0:24: o restante apresenta halteres, Smith e máquina. Demonstração não substitui ajuste individual de apoio, amplitude ou ajuda para retirar e recolocar a barra. Não copiar a carga do vídeo.', decision: 'Vincular exclusivamente à opção convencional com barra do supino reto, mantendo o vídeo da máquina separado.'}),
+    incline_press_dumbbell: reviewedVideo({exerciseId: 'incline_press_machine', variationId: 'dumbbell', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'ZvNNhS9csqw', title: 'Como Fazer Supino Inclinado com Halteres? Técnica Correta Para Peitoral | Leandro Twin', channel: 'BlueFit', duration: '0:14', language: 'pt-BR', reviewedAt: '2026-10-23', availability: 'available', embedCompatible: true, positives: 'Inspeção visual em 2, 6 e 11 segundos confirmou banco inclinado com encosto, pés apoiados, dois halteres e execução bilateral com descida e subida. Título, identificação na tela e instruções em português correspondem à opção. Reprodução incorporada confirmada pelo IFrame Player API em 2026-10-23, estado 1.', limitations: 'Demonstração breve de movimento, sem detalhar como posicionar e guardar halteres pesados. Não pressupõe que o usuário consiga preparar a mesma carga sem ajuda; a regulagem do banco e a amplitude precisam ser ajustadas ao usuário.', decision: 'Vincular a demonstração específica de halteres ao supino inclinado, sem substituir o vídeo da máquina.'}),
     leg_press_45_unilateral: reviewedVideo({exerciseId: 'leg_press_45', variationId: 'machine_unilateral', status: 'accepted', classification: 'technical_guide', exactMatch: true, youtubeId: 'ausscKK91R8', startSeconds: 115, endSeconds: 165, title: 'TREINO DE PERNAS - LEG PRESS 45 UNILATERAL', channel: 'Fernando Maradona', duration: '5:53', language: 'pt-BR', reviewedAt: '2026-10-23', availability: 'available', embedCompatible: true, positives: 'O recorte mostra leg press em trilhos inclinados, apoio do tronco, execução com uma perna e orientação de alinhamento de tornozelo e joelho. Reprodução incorporada confirmada pelo IFrame Player API em 2026-10-23, estado 1.', limitations: 'A regulagem e a amplitude dependem da máquina e do usuário. Use como demonstração: as contagens e estratégias do treino do vídeo não substituem séries, repetições ou RIR registrados no app.', decision: 'Substituir o guia bilateral pelo recorte específico unilateral no leg press 45°, mantendo a prescrição do app.'}),
     leg_extension_unilateral: reviewedVideo({exerciseId: 'leg_extension', variationId: 'machine_unilateral', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: '7HcK7fmYJP0', title: 'Cadeira extensora unilateral', channel: 'Foco30Dias', duration: '0:32', language: 'pt-BR', reviewedAt: '2026-10-23', availability: 'available', embedCompatible: true, positives: 'Inspeção visual confirmou execução unilateral sentada, costas apoiadas, mãos nos pegadores e outra perna fora do rolete em movimento. Conferidas flexão e extensão do joelho em 5, 15 e 22 segundos. Reprodução incorporada confirmada pelo IFrame Player API em 2026-10-23, estado 1.', limitations: 'Demonstração breve sem explicação de regulagem. Ajuste banco, eixo do joelho e rolete ao seu aparelho.', decision: 'Oferecer a demonstração unilateral específica dentro do app ou no YouTube, conforme a preferência de reprodução.'}),
     calf_standing_unilateral: reviewedVideo({exerciseId: 'calf_standing_or_leg_press', variationId: 'standing_machine_unilateral', status: 'accepted', classification: 'objective_demo', exactMatch: true, youtubeId: 'fSQ5LGWfnYU', title: 'PANTURRILHA UNILATERAL EM PÉ NA MÁQUINA', channel: 'GR Treinamento Físico - João Gomes', duration: '0:18', language: 'pt-BR', reviewedAt: '2026-10-23', availability: 'available', embedCompatible: true, positives: 'Inspeção visual confirmou apoio nos ombros, uma perna na plataforma e a outra flexionada, com flexão plantar unilateral. Instruções em português pedem amplitude completa e movimento lento e controlado. Reprodução incorporada confirmada pelo IFrame Player API em 2026-10-23, estado 1.', limitations: 'Demonstração curta, sem explicar regulagem. A máquina precisa permitir execução unilateral estável.', decision: 'Oferecer a demonstração específica dentro do app ou no YouTube, conforme a preferência de reprodução.'}),

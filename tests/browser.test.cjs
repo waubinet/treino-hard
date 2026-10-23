@@ -447,7 +447,7 @@ test('fluxos essenciais funcionam em Chrome, responsivo e offline', {timeout: 90
 
   await page.getByRole('tab', {name: 'Empurrar A', exact: true}).click();
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
-  const firstExercise = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  const firstExercise = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first();
   const firstWorkSet = firstExercise.locator('.set-row').nth(3);
   await firstWorkSet.locator('input').nth(0).fill('52');
   await firstWorkSet.locator('input').nth(1).fill('13');
@@ -519,7 +519,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
   const trackedId = afterStart.sessions.find(session => session.workoutId === 'push_a' && session.status === 'started').id;
   assert.ok(afterStart.sessions.find(session => session.id === trackedId).startedAt, 'startedAt não foi persistido');
 
-  const firstExercise = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  const firstExercise = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first();
   const workSet = firstExercise.locator('.set-row').nth(3);
   await workSet.locator('input').nth(0).fill('52,5');
   await workSet.locator('input').nth(1).fill('13');
@@ -529,7 +529,7 @@ test('ciclo de vida da sessão persiste status, horários e séries após recarr
 
   await reloadApp(page);
   await openTab(page, 'Empurrar A');
-  const reloadedSet = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
+  const reloadedSet = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row').nth(3);
   assert.equal(await reloadedSet.locator('input').nth(0).inputValue(), '52.5');
   assert.equal(await reloadedSet.locator('input').nth(1).inputValue(), '13');
   assert.equal(await reloadedSet.locator('select').nth(0).inputValue(), '3');
@@ -965,7 +965,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
 
-  const exercise = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  const exercise = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first();
   const firstWork = exercise.locator('.set-row').nth(3);
   assert.equal(await firstWork.locator('select').nth(2).inputValue(), '120', 'o descanso padrão do supino é 120 s');
 
@@ -998,7 +998,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
 
   await reloadApp(page);
   await openTab(page, 'Empurrar A');
-  const persisted = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
+  const persisted = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row').nth(3);
   await openSetMore(persisted);
   assert.equal(await persisted.locator('select').nth(2).inputValue(), 'custom', 'o descanso personalizado deve sobreviver ao reload');
   assert.equal(await persisted.locator('input').nth(2).inputValue(), '45');
@@ -1007,7 +1007,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await page.locator('input[data-action="setting-toggle"][data-setting="autoStartRest"]').check();
   await page.waitForTimeout(300);
   await openTab(page, 'Empurrar A');
-  const secondWork = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(4);
+  const secondWork = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row').nth(4);
   await secondWork.locator('input').nth(1).fill('12');
   await secondWork.getByRole('button', {name: /^Concluir série \d+$/}).click();
   await page.locator('#timer-bar').waitFor({state: 'visible', timeout: 5000});
@@ -1016,7 +1016,7 @@ test('descanso padrão, personalizado, início manual e automático, +30 s e des
   await page.locator('#timer-bar').getByRole('button', {name: 'Desfazer série', exact: true}).click();
   await page.waitForTimeout(400);
   assert.equal(await page.locator('#timer-bar').isHidden(), true);
-  const undone = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(4);
+  const undone = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row').nth(4);
   assert.doesNotMatch(await undone.getAttribute('class'), /is-complete/);
   await openSetMore(undone);
   assert.equal(await undone.locator('select').nth(1).inputValue(), '');
@@ -1120,7 +1120,7 @@ test('semana, deload, arquivamento e snapshot preservam o ciclo anterior', {time
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const marker = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
+  const marker = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row').nth(3);
   await marker.locator('input').nth(0).fill('60');
   await marker.locator('input').nth(1).fill('12');
   await marker.getByRole('button', {name: /^Concluir série \d+$/}).click();
@@ -1234,7 +1234,7 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const chestCard = () => page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  const chestCard = () => page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first();
   await abrirDetalhes(chestCard());
   await chestCard().locator('input[data-field="machineId"]').fill('supino convergente histórico');
   await chestCard().locator('input[data-field="machineId"]').blur();
@@ -1273,7 +1273,7 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
   assert.equal(await chestCard().locator('input[data-field="machineId"]').inputValue(), 'supino convergente histórico', 'a máquina precisa atravessar o limite entre ciclos');
   assert.match(await chestCard().locator('.prevref').innerText(), /62×12/, 'a execução arquivada precisa continuar como referência');
   await openTab(page, 'Hoje');
-  assert.match(await page.locator('.today-card').innerText(), /última sessão você registrou desconforto.*Supino reto na máquina/i, 'o lembrete de desconforto precisa consultar o ciclo arquivado');
+  assert.match(await page.locator('.today-card').innerText(), /última sessão você registrou desconforto.*Supino reto/i, 'o lembrete de desconforto precisa consultar o ciclo arquivado');
 
   await openTab(page, 'Ciclos');
   const archivedDetails = page.locator('#panel-cycles details.timeline-item').first();
@@ -1284,7 +1284,7 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
 
   await openTab(page, 'Evolução');
   const comparisonSelect = page.locator('select[data-action="evolution-key"]');
-  const archivedOption = comparisonSelect.locator('option').filter({hasText: 'Supino reto na máquina'}).first();
+  const archivedOption = comparisonSelect.locator('option').filter({hasText: 'Supino reto'}).first();
   assert.equal(await archivedOption.count(), 1, 'o exercício arquivado precisa continuar disponível no filtro');
   const archivedKey = await archivedOption.getAttribute('value');
   await comparisonSelect.selectOption(archivedKey);
@@ -1297,7 +1297,7 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
   await openTab(page, 'Ajustes');
   const csv = await downloadToDisk(page, directory, () => page.getByRole('button', {name: 'Exportar CSV', exact: true}).click());
   const csvRows = csv.text.replace(/^﻿/, '').split('\r\n').filter(Boolean).slice(1).map(parseCsvRow);
-  const archivedSet = csvRows.find(cells => cells[1] === archivedSessionId && cells[7] === 'Supino reto na máquina' && cells[12] === 'work' && cells[13] === '62');
+  const archivedSet = csvRows.find(cells => cells[1] === archivedSessionId && cells[7] === 'Supino reto' && cells[12] === 'work' && cells[13] === '62');
   assert.ok(archivedSet, 'o CSV precisa conter a série da sessão arquivada');
   assert.equal(archivedSet[14], '12');
   assert.equal(archivedSet[16], 'completed');
@@ -1310,7 +1310,7 @@ async function seedSampleData(page) {
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const workSet = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row').nth(3);
+  const workSet = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row').nth(3);
   await workSet.locator('input').nth(0).fill('57,5');
   await workSet.locator('input').nth(1).fill('13');
   await workSet.locator('select').nth(0).selectOption('2');
@@ -1861,7 +1861,7 @@ test('nenhuma entrada do usuário vira HTML executável', {timeout: 180000}, asy
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const card = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  const card = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first();
   await card.getByText('Detalhes do exercício', {exact: true}).click();
   let revision = (await readStoredDocument(page)).revision;
   await card.locator('input[data-field="machineId"]').fill(payload);
@@ -2590,7 +2590,7 @@ test('falha de cache do service worker é avisada em vez de silenciada', {timeou
 // Ficha canônica conferida na interface real, e não apenas no catálogo.
 const FICHA_NA_TELA = Object.freeze({
   'Empurrar A': {total: 20, linhas: 20, itens: [
-    '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Voador (peck deck)',
+    '1. Supino reto', '2. Supino inclinado', '3. Voador (peck deck)',
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa com halteres', '7. Tríceps na polia com corda'
   ]},
@@ -2606,7 +2606,7 @@ const FICHA_NA_TELA = Object.freeze({
     '9. Panturrilha em pé ou no leg press'
   ]},
   'Empurrar B': {total: 20, linhas: 20, itens: [
-    '1. Supino reto na máquina', '2. Supino inclinado na máquina', '3. Voador (peck deck)',
+    '1. Supino reto', '2. Supino inclinado', '3. Voador (peck deck)',
     '4. Desenvolvimento na máquina', '5. Elevação lateral com halteres',
     '6. Tríceps testa ou extensão acima da cabeça', '7. Tríceps na polia com corda'
   ]},
@@ -3134,7 +3134,7 @@ test('atualização física 12 para 13 preserva registros reais, recuperação e
       && !log.feedback && !log.note
     );
     if (refreshablePlan) {
-      assert.equal(target.workoutSnapshot.revision, '3.6.1', 'o plano futuro recebe a ficha atual');
+      assert.equal(target.workoutSnapshot.revision, '3.6.10', 'o plano futuro recebe a ficha atual');
       assert.equal(target.id, source.id);
       assert.equal(target.status, 'planned');
       continue;
@@ -3353,6 +3353,51 @@ test('curadoria atual alcança remada com anilhas de sessão anterior sem remode
   const after = (await readStoredDocument(page)).sessions.find(item => item.id === session.id);
   assert.deepEqual(after.workoutSnapshot, before.snapshot, 'a curadoria não deve regravar a prescrição antiga');
   assert.deepEqual(after.exercises, before.logs, 'cargas, lados e identidades históricas devem permanecer intactos');
+  assert.deepEqual(errors, []);
+});
+
+test('supinos oferecem barra e halteres nas duas fichas com vídeos e unidades corretos após reload', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>Player isolado de integração</body></html>'}));
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('inline');
+  const options = [
+    ['chest_press_machine', 'barbell', 'chest_press_barbell', 'EZMYCLKuGow', 2, 24, 3, /carga total \(barra \+ anilhas\)/],
+    ['incline_press_machine', 'dumbbell', 'incline_press_dumbbell', 'ZvNNhS9csqw', 0, 0, 0, /peso de cada halter, não a soma do par/]
+  ];
+  for (const tab of ['Empurrar A', 'Empurrar B']) {
+    await openTab(page, tab);
+    for (const [exerciseId, variantId, videoKey, videoId, start, end, warmups, unit] of options) {
+      const card = page.locator(`#exercicio-${exerciseId}`);
+      assert.equal(await card.locator('[data-action="variation-pick"]').count(), 2);
+      assert.equal(await card.locator('[data-variation-id="machine"]').getAttribute('aria-pressed'), 'true');
+      await card.locator(`[data-variation-id="${variantId}"]`).click();
+      await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+      assert.doesNotMatch(await card.locator('h3').innerText(), /na máquina/);
+      assert.match(await card.innerText(), unit);
+      assert.equal(await card.locator('.set-row.is-warmup').count(), warmups);
+      assert.equal(await card.locator('.set-row:not(.is-warmup)').count(), 3);
+      await card.locator(`[data-action="open-video"][data-video-key="${videoKey}"]`).click();
+      const frame = page.locator('#video-modal iframe');
+      await frame.waitFor({state: 'attached'});
+      const url = new URL(await frame.getAttribute('src'));
+      assert.equal(url.pathname, `/embed/${videoId}`);
+      assert.equal(Number(url.searchParams.get('start') || 0), start);
+      assert.equal(Number(url.searchParams.get('end') || 0), end);
+      await page.keyboard.press('Escape');
+    }
+    await reloadApp(page);
+    await openTab(page, tab);
+    for (const [exerciseId, variantId, videoKey] of options) {
+      const card = page.locator(`#exercicio-${exerciseId}`);
+      assert.equal(await card.locator(`[data-variation-id="${variantId}"]`).getAttribute('aria-pressed'), 'true');
+      assert.equal(await card.locator(`[data-video-key="${videoKey}"]`).count(), 1);
+    }
+    for (const width of [320, 390, 1280]) {
+      await page.setViewportSize({width, height: 844});
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth === document.documentElement.clientWidth), true, `supinos não podem causar overflow global em ${width}px`);
+    }
+  }
   assert.deepEqual(errors, []);
 });
 
@@ -3627,7 +3672,7 @@ test('degrau personalizado persiste por aparelho e o volume muscular usa apenas 
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
 
-  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Supino reto na máquina'}).first();
+  const cartao = () => page.locator('#panels article.section-card').filter({hasText: 'Supino reto'}).first();
   await abrirDetalhes(cartao());
   const documentoAntes = await readStoredDocument(page);
   const maquina = cartao().locator('input[data-action="exercise-field"][data-field="machineId"]');
@@ -3658,7 +3703,7 @@ test('degrau personalizado persiste por aparelho e o volume muscular usa apenas 
 
   await reloadApp(page);
   await openTab(page, 'Ajustes');
-  const configuracao = page.locator('.load-step-setting').filter({hasText: 'Supino reto na máquina'}).first();
+  const configuracao = page.locator('.load-step-setting').filter({hasText: 'Supino reto'}).first();
   assert.match(await configuracao.innerText(), /supino convergente 3/i);
   assert.match(await configuracao.innerText(), /7,5 kg/);
 
@@ -3839,7 +3884,7 @@ test('falha ao salvar série ou finalização não inicia descanso nem mostra su
   await waitStatus(page, 'Iniciado');
   const beforeFailureBackup = await page.evaluate(() => localStorage.getItem('treinohard_auto_backups_v11'));
 
-  const row = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row:not(.is-warmup)').first();
+  const row = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row:not(.is-warmup)').first();
   await row.locator('.set-field-reps input').fill('12');
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
@@ -3872,7 +3917,7 @@ test('sessão terminal é somente leitura até reabertura, inclusive contra even
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const row = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row:not(.is-warmup)').first();
+  const row = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row:not(.is-warmup)').first();
   await row.locator('.set-field-load input').fill('40');
   await row.locator('.set-field-load input').blur();
   await page.getByRole('button', {name: 'Cancelar', exact: true}).click();
@@ -3897,7 +3942,7 @@ test('sessão terminal é somente leitura até reabertura, inclusive contra even
 
   await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).click();
   await waitStatus(page, 'Pausado');
-  const reopened = page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row:not(.is-warmup)').first();
+  const reopened = page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row:not(.is-warmup)').first();
   assert.equal(await reopened.locator('.set-field-load input').isEnabled(), true);
   const revision = (await readStoredDocument(page)).revision;
   await reopened.locator('.set-field-load input').fill('42');
@@ -3913,7 +3958,7 @@ test('editar carga, repetições ou RIR invalida confirmação e restaura foco s
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const row = () => page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row:not(.is-warmup)').first();
+  const row = () => page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row:not(.is-warmup)').first();
   await row().locator('.set-field-load input').fill('40');
   await row().locator('.set-field-reps input').fill('12');
   await row().locator('.set-field-rir select').selectOption('2');
@@ -3965,7 +4010,7 @@ test('editar carga, repetições ou RIR invalida confirmação e restaura foco s
 test('troca de semana preserva máquina, variante e faixa alta de sessão vazia', {timeout: 150000}, async t => {
   const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
   await openTab(page, 'Empurrar B');
-  const chest = () => page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first();
+  const chest = () => page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first();
   await abrirDetalhes(chest());
   let revision = (await readStoredDocument(page)).revision;
   await chest().locator('input[data-field="machineId"]').fill('máquina convergente 7');
@@ -4015,7 +4060,7 @@ test('+30 segundos reinicia o cronômetro depois de zero e continua decrementand
   await openTab(page, 'Empurrar A');
   await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
   await waitStatus(page, 'Iniciado');
-  const row = () => page.locator('article.section-card').filter({hasText: '1. Supino reto na máquina'}).first().locator('.set-row:not(.is-warmup)').first();
+  const row = () => page.locator('article.section-card').filter({hasText: '1. Supino reto'}).first().locator('.set-row:not(.is-warmup)').first();
   await openSetMore(row());
   const revision = (await readStoredDocument(page)).revision;
   const rest = row().locator('input[data-field="nextRestSeconds"]');

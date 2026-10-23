@@ -1,5 +1,11 @@
 # Curadoria de vídeos
 
+## Lote 3.6.10 — 2026-10-23
+
+Opções de supino reto com barra e inclinado com halteres receberam vídeos específicos brasileiros, inspecionados individualmente e com reprodução incorporada confirmada pelo IFrame Player API. Os vídeos das opções em máquina continuam separados. Fontes e limites em `REVISAO-VIDEOS-2026-10-23.md`.
+
+Inventário atual: **49 associações para 42 vídeos únicos, 44 correspondências de execução e 5 guias-base**. O trecho antigo do inclinado de Leandro Twin foi preterido por conter cartela “reto” durante a demonstração inclinada; a entrada integrada usa BlueFit, com identificação coerente. Os números abaixo são históricos.
+
 ## Lote 3.6.9 — 2026-10-23
 
 Panturrilhas unilaterais no leg press 45° e sentada, borboleta dinâmica e remada unilateral com anilhas receberam vínculos específicos brasileiros, com inspeção visual e reprodução real confirmada. Origem, recortes e limitações em `REVISAO-VIDEOS-2026-10-23.md`.

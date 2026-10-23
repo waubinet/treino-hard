@@ -10,7 +10,7 @@
 - A ficha em `js/workouts.js` é congelada. Não altere exercícios, ordem, séries ou periodização sem autorização explícita e atualização dos testes de conformidade.
 - `loadHistoryKey` identifica exercício + variação + máquina + lado. `comparableSeriesKey` acrescenta a faixa. Não misture históricos distintos.
 - A ficha usa séries tradicionais. Não introduza bi-set, super-set, drop-set ou rest-pause sem autorização explícita.
-- Não introduza stiff/RDL; os supinos permanecem em máquinas salvo autorização explícita.
+- Não introduza stiff/RDL. Supinos, por autorização de 2026-10-23: reto com opções máquina/barra convencional; inclinado com opções máquina/halteres. Não acrescente outras alternativas sem autorização.
 - Vídeo aprovado deve estar em português do Brasil, ser de criador/canal brasileiro, ter proveniência verificável e passar por inspeção visual individual; título ou descrição isolados não bastam.
 - Use `element()`/`textContent`; não introduza `innerHTML`, handlers inline, `unsafe-inline` ou `unsafe-eval`.
 - Ao mudar o formato persistido, crie migração explícita, incremente o esquema e prove ida/volta por testes. Não altere o esquema por mudança apenas visual.

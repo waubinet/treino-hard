@@ -1,5 +1,20 @@
 # Revisão de vídeos — 2026-10-23
 
+## Lote 3.6.10 — supinos opcionais, validação local
+
+Pedido explícito do usuário: supino reto com máquina/convencional com barra e supino inclinado com máquina/halteres, nas duas exposições. Nenhuma prescrição de séries, ordem, aquecimento, descanso ou periodização foi alterada.
+
+| Variação | Fonte primária | Inspeção / recorte |
+|---|---|---|
+| Supino reto convencional com barra | [Como fazer supino reto — Leandro Twin](https://www.youtube.com/watch?v=EZMYCLKuGow); [PDF oficial, página 1, Supino Reto Barra](https://www.leandrotwin.com.br/assessoria/arquivos/lista-de-videos-de-exercicios.pdf) | Player confirmou duração 120,101 s, apresentada como 2:01. Quadros 2, 8, 10, 16 e 22 s conferidos: banco horizontal, barra livre, pegada bilateral e descida/subida. Recorte **0:02–0:24** encerra antes de começar a seção de halteres (cartela já presente em 26 s). O restante contém Smith e máquina e não é tratado como demonstração da barra livre. |
+| Supino inclinado com halteres | [Como Fazer Supino Inclinado com Halteres? Técnica Correta Para Peitoral \| Leandro Twin — BlueFit](https://www.youtube.com/watch?v=ZvNNhS9csqw); [canal oficial BlueFit](https://www.youtube.com/@BluefitAcademia/about) | Duração 13,661 s, apresentada como 0:14. Quadros 2, 6 e 11 s: banco inclinado com encosto, pés apoiados, dois halteres, posição inferior e extensão bilateral. Instruções pt-BR e identificação da tela coerentes. Demonstração completa breve, sem instrução detalhada para posicionar/guardar carga pesada. O HTML do canal declara país Brasil. |
+
+Reprodução real confirmada nos dois IDs pelo IFrame Player API em origem localhost, host `youtube-nocookie.com`, estado 1 e sem erro. Os quadros finais foram conferidos após avançar, reproduzir e verificar `getCurrentTime()`, evitando tratar quadro parado anterior como se fosse o instante solicitado. Artefatos em `output/playwright/`, ignorados pelo Git.
+
+Alternativa não integrada: `WP1VLAt8hbM`, Como fazer supino inclinado, Leandro Twin, 2:10, vinculada pelo mesmo PDF oficial. Embora mostre o banco inclinado com halteres em 28–53 s e reproduza, a cartela em 28 s diz “SUPINO RETO HALTERES”. Preferida a demonstração BlueFit para evitar informação visual contraditória.
+
+Inventário: **49 associações, 42 vídeos únicos, 44 correspondências de execução e 5 guias-base**. Testes da interface interceptam o YouTube e verificam apenas seleção e vínculo; não são prova de reprodução real. Resultado do gate e publicação no topo de `TESTES.md`.
+
 ## Lote 3.6.9 — publicado e verificado
 
 Quatro novos IDs tiveram reprodução real confirmada pelo IFrame Player API em origem localhost, host `youtube-nocookie.com`, estado 1 e sem erro. As páginas Sobre dos próprios canais declaram país Brasil; títulos, nomes atuais e durações foram reconferidos no player. A aprovação é da execução nos recortes inspecionados, não de todas as afirmações dos vídeos completos.

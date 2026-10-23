@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Versão publicada e verificada: **3.6.9**, esquema **13**, cache `treino-hard-v3.6.9` (consultar `TESTES.md` para publicação e evidências).
+- Rodada local validada: **3.6.10**, esquema **13**, cache `treino-hard-v3.6.10`; última publicação verificada: 3.6.9 (consultar `TESTES.md` para o resultado da nova publicação).
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Fase atual do projeto
@@ -95,7 +95,7 @@ Sábado   Pernas B    15 séries
 Domingo  descanso completo, sem meta obrigatória
 ```
 
-- Supino reto e inclinado **na máquina**, nas duas exposições de peito.
+- Nas duas exposições de peito: supino reto com opções **máquina / convencional com barra** e supino inclinado com opções **máquina / halteres**, autorizadas em 2026-10-23. Máquina continua como padrão. Carga de barra inclui barra + anilhas; halteres usam o peso de cada unidade, sem somar o par. Vídeos distintos por variação.
 - Exercícios em máquina seguem o catálogo atual; a remada unilateral usa 3 séries por lado. Na semana de deload a redução temporária para até 2 séries continua intencional.
 - Empurrar A usa **Voador (peck deck)** no lugar do crossover; a revisão atual usa 3 séries e 90 s nas duas exposições. Não converter registros históricos de crossover em voador. Sessões já existentes conservam seu retrato histórico.
 - Sem stiff e sem terra romeno. Terra com barra só em Pernas B, com periodização própria.
@@ -160,8 +160,8 @@ Um push não é uma publicação. Confirme o build do Pages e a versão exibida 
 
 ## Pendências atuais
 
-Ver `PENDENCIAS.md`. O catálogo tem 47 associações aprovadas para 40 vídeos:
-42 correspondências de execução e 5 guias de movimento-base, incluindo dois fallbacks legados. Correspondência não implica marca/modelo de máquina idêntico; a remada com anilhas tem essa limitação documentada.
+Ver `PENDENCIAS.md`. O catálogo tem 49 associações aprovadas para 42 vídeos:
+44 correspondências de execução e 5 guias de movimento-base, incluindo dois fallbacks legados. Correspondência não implica marca/modelo de máquina idêntico; a remada com anilhas tem essa limitação documentada.
 Faltam testes em iPhone físico, com leitor de tela real e da instalação pelo
 prompt do sistema. Os testes de interface de vídeo não substituem a verificação
 real de reprodução no YouTube.
