@@ -2776,8 +2776,9 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
   await antiga.evaluate(() => navigator.serviceWorker.getRegistration().then(registration => registration.update()));
   await antiga.waitForFunction(async () => (await caches.keys()).length >= 2, null, {timeout: 30000});
 
-  // 3. O usuário fecha o aplicativo e abre de novo: a versão nova assume.
-  await antiga.close();
+  // 3. Outra janela mantém o worker antigo ativo. Fechar o último cliente
+  // permitiria ativação automática legítima, tornando aleatória a expectativa
+  // de um aviso de worker em espera na página nova.
   const nova = await context.newPage();
   await nova.clock.setFixedTime(SEGUNDA_FIXA);
   const erros = [];
@@ -2808,6 +2809,7 @@ test('quem tem a 2.2 instalada recebe a 3.x e mantém o histórico legado', {tim
   ]);
   await waitAppReady(nova);
   assert.equal(await nova.evaluate(() => Boolean(navigator.serviceWorker.controller)), true);
+  await antiga.close();
 
   let caches1 = [];
   for (let tentativa = 0; tentativa < 60; tentativa += 1) {

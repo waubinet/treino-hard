@@ -1,5 +1,11 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.6 — 2026-10-23
+
+Adicionada demonstração brasileira específica para panturrilha unilateral em pé na máquina, substituindo a demonstração bilateral dessa opção. O vídeo abre no YouTube até confirmar incorporação no app. Catálogo: 46 associações para 33 vídeos únicos, 34 correspondências exatas e 12 guias de movimento-base.
+
+Auditoria com 154/154 testes de lógica/dados/cache e 64/64 cenários em Chrome aprovados, revisão visual e offline sem erros. Corrigida uma condição instável no teste de atualização da 2.2, que fechava o último cliente antes de exigir atualização em espera. Nenhum novo defeito funcional foi reproduzido nos cenários auditados. Evidências e publicação em `TESTES.md`.
+
 ## Rodada 3.6.5 — persistência, cache e vídeos, 2026-09-21
 
 Corrigida a perda de carga digitada quando a página era recarregada sem sair do campo. O autosave sinaliza alterações pendentes, aguarda a gravação mais recente antes de indicar sucesso e mantém o texto com opção de nova tentativa em caso de falha. Atualização, importação e restauração aguardam as escritas pendentes.

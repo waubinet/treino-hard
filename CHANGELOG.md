@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.6] — demonstração unilateral e auditoria — 2026-10-23
+
+- Panturrilha unilateral em pé na máquina recebeu demonstração específica brasileira, com apoio nos ombros e execução de uma perna, substituindo o guia bilateral. O vídeo abre no YouTube; incorporação ainda não confirmada.
+- Corrigida a condição instável do teste de atualização da 2.2: manter um cliente antigo aberto é necessário para exigir um worker em espera. Fechar todos os clientes permite ativação automática legítima.
+- Origem atual do canal e inspeção visual registradas em `REVISAO-VIDEOS-2026-10-23.md`. Inventário: 46 associações, 33 vídeos únicos, 34 correspondências exatas e 12 guias de movimento-base.
+- Esquema 13 e prescrição preservados; versão e cache elevados para 3.6.6.
+
 ## [3.6.5] — salvamento, cache e reprodução interna — 2026-09-21
 
 - Campos de carga, repetições e observações passam a salvar após uma breve pausa na digitação, sem depender de sair do campo. Uma gravação antiga não pode marcar uma edição mais nova como salva.

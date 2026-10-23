@@ -1,5 +1,9 @@
 # Curadoria de vídeos
 
+## Rodada 3.6.6 — 2026-10-23
+
+Panturrilha unilateral em pé na máquina passa a usar `fSQ5LGWfnYU`, do canal brasileiro GR Treinamento Físico - João Gomes (`@grjoãogomes`), antes indexado como Treinando Online. Inspeção visual e origem documentadas em `REVISAO-VIDEOS-2026-10-23.md`. Abre externamente até confirmar incorporação. Inventário atual: **46 associações, 33 vídeos únicos, 34 correspondências exatas e 12 guias de movimento-base**. Os números abaixo são históricos.
+
 ## Estado revisado em 3.6.5
 
 O catálogo contém 46 entradas e todas têm vídeo brasileiro em português aprovado. `coverageScope: exact` significa que a demonstração corresponde à execução do cartão; `coverageScope: foundation` significa que o vídeo ensina o padrão-base, mas difere em lado, apoio, inclinação ou posição. O segundo caso é rotulado na interface como **Guia do movimento-base** e exige `limitations` e `decision` explícitos. Essa distinção impede que uma demonstração bilateral seja apresentada como se fosse unilateral.

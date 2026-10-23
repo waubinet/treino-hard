@@ -1,5 +1,15 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.6 / esquema 13 — 2026-10-23
+
+- Gate final: **154/154** testes de lógica/dados/cache e **64/64** cenários em Chrome, 0 falhas, 0 ignorados; suíte de navegador em 538.954 ms.
+- A primeira execução teve 63/64, com timeout no aviso de atualização da 2.2. O teste fechava o último cliente antigo antes de exigir worker em espera; o navegador podia ativá-lo automaticamente. Mantido um cliente antigo aberto, a execução completa passou, incluindo atualização confirmada e preservação do histórico.
+- Vídeo específico de panturrilha unilateral em pé na máquina integrado; origem brasileira conferida no canal atual e inspeção visual documentada em `REVISAO-VIDEOS-2026-10-23.md`. Abre no YouTube; incorporação ainda não confirmada.
+- Inventário executável: 46 associações, 33 vídeos únicos, 34 correspondências exatas e 12 guias de movimento-base.
+- Sintaxe dos scripts e testes e `git diff --check`: aprovados. Revisão visual: quatro capturas desktop/móvel inspecionadas; larguras 320/390/1280 sem overflow global; migração preservou quatro sessões fictícias e backup; autosave sem blur e reload offline passaram, cache `treino-hard-v3.6.6`, zero erros de página/console.
+- Não foi reproduzido novo defeito funcional nos cenários auditados. Isso não substitui testes em iPhone físico, leitor de tela ou instalação nativa, que seguem pendentes.
+- Publicação: aguardando confirmação do Pages e smoke público.
+
 ## Rodada 3.6.5 / esquema 13 — 2026-09-21
 
 Gate local concluído: **154/154** testes de lógica/dados/cache e **64/64** cenários em Chrome (443.283 ms), nenhuma falha, cancelamento ou teste ignorado.

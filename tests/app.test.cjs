@@ -379,7 +379,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
     assert.equal(video.creatorCountry, 'BR', `${key}: origem brasileira`);
     assert.equal(video.language, 'pt-BR', `${key}: idioma brasileiro`);
     assert.match(video.originEvidence, /^https:\/\//, `${key}: evidência pública da origem`);
-    assert.ok(['2026-08-09', '2026-09-07', '2026-09-16', '2026-09-17', '2026-09-18'].includes(video.reviewedAt), `${key}: data da revisão visual`);
+    assert.ok(['2026-08-09', '2026-09-07', '2026-09-16', '2026-09-17', '2026-09-18', '2026-10-23'].includes(video.reviewedAt), `${key}: data da revisão visual`);
     // A incorporação foi verificada com o IFrame Player API em 2026-08-09:
     // erro 101/150 vira external_only, erro 100 viraria removed_or_private.
     assert.ok(['available', 'external_only'].includes(video.availability), `${key}: disponibilidade verificada`);
@@ -1848,7 +1848,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 33, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 34, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);

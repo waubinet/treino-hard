@@ -1,5 +1,12 @@
 # Pendências reais
 
+## Rodada 3.6.6 — 2026-10-23
+
+- Demonstração específica de panturrilha unilateral em pé integrada; incorporação ainda não confirmada, com abertura externa disponível.
+- Permanecem 12 guias de movimento-base: leg press unilateral, extensora unilateral, panturrilha no leg press unilateral, panturrilha sentada unilateral, remada unilateral em máquina de geometria diferente, remada genérica/sem apoio, mobilidade de quadril e posturas de vacuum.
+- 154 testes de lógica/dados/cache aprovados; gate completo de navegador e publicação serão registrados em `TESTES.md`.
+- Testes em iPhone físico, leitor de tela real e instalação nativa seguem pendentes.
+
 ## Estado da rodada 3.6.5 — 2026-09-21
 
 - Correções publicadas e verificadas: autosave de campos ainda focados, indicador de gravação consistente com a edição mais recente e tratamento separado de falha de rede/cache. Gate: 154/154 testes de lógica/dados/cache e 64/64 em Chrome, além de revisão visual e offline. Pages confirmou o commit funcional `a04d99a`; smoke público passou, incluindo autosave sem blur. Evidências em `TESTES.md`.
