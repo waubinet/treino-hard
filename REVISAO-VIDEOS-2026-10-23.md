@@ -1,5 +1,13 @@
 # Revisão de vídeos — 2026-10-23
 
+## Extensora unilateral — rodada 3.6.7
+
+- Vídeo: https://www.youtube.com/watch?v=7HcK7fmYJP0 , Cadeira extensora unilateral, Foco30Dias (`@Foco30Dias`), duração no player 31,621 s (exibida como 0:32).
+- Inspeção visual em 5, 15 e 22 segundos confirmou banco, apoio do tronco, mãos nos pegadores, uma perna fora do rolete e extensão unilateral do joelho. Não há explicação detalhada de regulagem.
+- Origem brasileira: perfil profissional de Anderson Santos, FOCO30dias, Recife/PE, https://br.linkedin.com/in/anderson-santos-a0687636 . Nome e identidade do programa conferidos na página do vídeo e do canal.
+- Integrado em `leg_extension_unilateral`, como demonstração específica. Reprodução na página do YouTube conferida; incorporação ainda não confirmada, com abertura externa.
+- Leg press unilateral continua com guia-base: nenhum candidato específico foi aprovado nesta rodada.
+
 ## Panturrilha unilateral em pé na máquina
 
 - Candidato: https://www.youtube.com/watch?v=fSQ5LGWfnYU

@@ -67,7 +67,7 @@ async function main() {
       storage.close();
       return data;
     });
-    assert.equal(migration.version, '3.6.6');
+    assert.equal(migration.version, '3.6.7');
     assert.equal(migration.schema, 13);
     assert.equal(migration.history, 4);
     assert.deepEqual(migration.curl, ['bilateral']);
@@ -100,7 +100,7 @@ async function main() {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({waitUntil: 'networkidle'});
     const caches = await page.evaluate(() => globalThis.caches.keys());
-    assert.ok(caches.includes('treino-hard-v3.6.6'));
+    assert.ok(caches.includes('treino-hard-v3.6.7'));
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
     await ready();

@@ -2896,8 +2896,14 @@ test('leg press e extensora trocam cardinalidade somente antes de qualquer regis
     assert.deepEqual(logs.map(item => item.side).sort(), ['left', 'right']);
     assert.equal(logs.every(item => item.sideModeSnapshot === 'unilateral'), true);
     const videoText = await card.innerText();
-    assert.match(videoText, /GUIA DO MOVIMENTO-BASE/i, 'a variação unilateral precisa identificar o vídeo bilateral como guia-base');
-    assert.match(videoText, /Atenção:.*bilateral/is, 'a diferença da demonstração bilateral precisa ficar explícita');
+    if (exerciseId === 'leg_press_45') {
+      assert.match(videoText, /GUIA DO MOVIMENTO-BASE/i, 'o vídeo bilateral do leg press continua identificado como guia-base');
+      assert.match(videoText, /Atenção:.*bilateral/is, 'a diferença da demonstração bilateral precisa ficar explícita');
+    } else {
+      assert.match(videoText, /Foco30Dias/, 'a extensora unilateral deve oferecer sua demonstração específica');
+      assert.doesNotMatch(videoText, /GUIA DO MOVIMENTO-BASE/i);
+      assert.equal(await card.locator('[data-action="open-video"]').getAttribute('data-video-key'), 'leg_extension_unilateral');
+    }
     const input = card.locator('.set-row:not(.is-warmup) .set-field-load input').first();
     before = stored;
     await input.fill('20');

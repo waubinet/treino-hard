@@ -1,5 +1,13 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.7 / esquema 13 — 2026-10-23
+
+- 154/154 testes de lógica/dados/cache aprovados; sintaxe e diff check aprovados.
+- Suíte completa do navegador: 63/64 passaram em 539.401 ms. A única falha era a expectativa antiga de guia bilateral na extensora unilateral, que passou a ter demonstração específica. Atualizada somente essa expectativa, mantendo a exigência de ressalva no leg press bilateral; repetição dirigida do cenário passou (1/1, 8.274 ms). Nenhuma falha funcional remanescente nos cenários verificados.
+- Demonstração de extensora unilateral do Foco30Dias inspecionada em 5, 15 e 22 segundos; origem e limitações em `REVISAO-VIDEOS-2026-10-23.md`. Abre externamente; incorporação ainda não confirmada.
+- Revisão visual local: quatro capturas inspecionadas, larguras 320/390/1280 sem overflow global; versão 3.6.7, esquema 13, quatro sessões fictícias migradas, backup, autosave sem blur, cache `treino-hard-v3.6.7`, recarga offline e zero erros de página/console.
+- Publicação: aguardando Pages e smoke público.
+
 ## Rodada 3.6.6 / esquema 13 — 2026-10-23
 
 - Gate final: **154/154** testes de lógica/dados/cache e **64/64** cenários em Chrome, 0 falhas, 0 ignorados; suíte de navegador em 538.954 ms.

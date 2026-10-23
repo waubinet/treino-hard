@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.6.7] — extensora unilateral — 2026-10-23
+
+- Extensora unilateral recebeu demonstração específica brasileira do Foco30Dias, substituindo o guia bilateral. Abre no YouTube até confirmar incorporação.
+- Catálogo: 46 associações, 34 vídeos únicos, 35 correspondências exatas e 11 guias de movimento-base. Ficha e esquema 13 preservados.
+
 ## [3.6.6] — demonstração unilateral e auditoria — 2026-10-23
 
 - Panturrilha unilateral em pé na máquina recebeu demonstração específica brasileira, com apoio nos ombros e execução de uma perna, substituindo o guia bilateral. O vídeo abre no YouTube; incorporação ainda não confirmada.

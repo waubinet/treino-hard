@@ -1,5 +1,11 @@
 # Pendências reais
 
+## Rodada 3.6.7 — 2026-10-23
+
+- Extensora unilateral recebeu demonstração específica, com abertura externa. Leg press unilateral permanece com guia-base.
+- Inventário: 46 associações, 34 vídeos únicos, 35 correspondências exatas e 11 guias-base. A incorporação dos dois novos vídeos unilaterais ainda precisa ser confirmada.
+- Gate e publicação desta rodada: consultar `TESTES.md`.
+
 ## Rodada 3.6.6 — 2026-10-23
 
 - Demonstração específica de panturrilha unilateral em pé integrada; incorporação ainda não confirmada, com abertura externa disponível.

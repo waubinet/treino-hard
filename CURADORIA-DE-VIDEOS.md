@@ -1,5 +1,9 @@
 # Curadoria de vídeos
 
+## Rodada 3.6.7 — 2026-10-23
+
+Extensora unilateral passa a usar `7HcK7fmYJP0`, Foco30Dias, após inspeção visual individual. Origem e limitações em `REVISAO-VIDEOS-2026-10-23.md`. Reprodução externa disponível; incorporação ainda não confirmada. Inventário atual: **46 associações, 34 vídeos únicos, 35 correspondências exatas e 11 guias-base**.
+
 ## Rodada 3.6.6 — 2026-10-23
 
 Panturrilha unilateral em pé na máquina passa a usar `fSQ5LGWfnYU`, do canal brasileiro GR Treinamento Físico - João Gomes (`@grjoãogomes`), antes indexado como Treinando Online. Inspeção visual e origem documentadas em `REVISAO-VIDEOS-2026-10-23.md`. Abre externamente até confirmar incorporação. Inventário atual: **46 associações, 33 vídeos únicos, 34 correspondências exatas e 12 guias de movimento-base**. Os números abaixo são históricos.
