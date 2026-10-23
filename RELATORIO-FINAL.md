@@ -1,5 +1,13 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.9 — curadoria e compatibilidade, 2026-10-23
+
+Implementados vídeos específicos de panturrilha unilateral no leg press 45°, panturrilha sentada unilateral, borboleta dinâmica e remada unilateral com anilhas/apoio peitoral. A remada foi separada da máquina seletorizada a partir da foto e confirmação do usuário; as alavancas do vídeo não são idênticas às da foto. A variação deve ser escolhida explicitamente no cartão; não houve mudança automática de aparelho.
+
+Corrigida a resolução da curadoria em sessões anteriores: um vínculo novo com exercício e variação exatos pode ser exibido sem reescrever a prescrição ou os registros históricos. Catálogo: 47 associações, 40 vídeos únicos, 42 correspondências de execução e 5 guias-base, incluindo dois fallbacks genéricos legados.
+
+Gate local aprovado: 154/154 testes de lógica/dados/cache, 66/66 cenários em Chrome e cinco capturas inspecionadas; migração, backup, autosave e offline sem erros de página/console. Publicação ainda pendente; evidências no topo de `TESTES.md`. Esquema 13, séries, ordem, aquecimento e periodização preservados. Fontes e inspeção: `REVISAO-VIDEOS-2026-10-23.md`.
+
 ## Rodada 3.6.8 — lote de curadoria, 2026-10-23
 
 Leg press 45° unilateral, vacuum em pé e quatro apoios receberam demonstrações específicas brasileiras e recortes separados. Extensora unilateral e panturrilha unilateral em pé tiveram reprodução incorporada confirmada e agora respeitam a preferência de assistir dentro do app. Catálogo: 46 associações para 36 vídeos, 38 correspondências exatas e 8 guias-base.

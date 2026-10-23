@@ -1260,6 +1260,9 @@ test('sessão arquivada continua em Ciclos, Evolução e no CSV', {timeout: 1500
   before = stored;
   await page.getByRole('button', {name: 'Zerar e iniciar novo ciclo', exact: true}).click();
   await page.locator('#app-modal').getByRole('button', {name: 'Arquivar e começar na semana 1', exact: true}).click();
+  // O comando aguarda autosave e snapshot antes de arquivar. Uma revisão
+  // intermediária não prova conclusão; o modal só fecha após persistir o reset.
+  await page.locator('#app-modal').waitFor({state: 'hidden'});
   stored = await waitForStoredRevision(page, before.revision);
   assert.equal(stored.archives.length, 1);
   assert.ok(stored.archives[0].sessions.some(session => session.id === archivedSessionId));
@@ -3285,7 +3288,7 @@ test('vídeos revisados mostram o recorte e limitam o player à variante correta
   assert.deepEqual(errors, []);
 });
 
-test('demonstrações unilaterais e posições de vacuum abrem internamente no trecho correto', {timeout: 120000}, async t => {
+test('demonstrações unilaterais, mobilidade e posições de vacuum abrem internamente no trecho correto', {timeout: 120000}, async t => {
   const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
   await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>Player isolado de integração</body></html>'}));
   await openTab(page, 'Ajustes');
@@ -3294,6 +3297,10 @@ test('demonstrações unilaterais e posições de vacuum abrem internamente no t
     ['Pernas A', 'leg_press_45', 'machine_unilateral', 'leg_press_45_unilateral', 'ausscKK91R8', 115, 165],
     ['Pernas A', 'leg_extension', 'machine_unilateral', 'leg_extension_unilateral', '7HcK7fmYJP0', 0, 0],
     ['Pernas A', 'calf_standing_or_leg_press', 'standing_machine_unilateral', 'calf_standing_unilateral', 'fSQ5LGWfnYU', 0, 0],
+    ['Pernas A', 'calf_standing_or_leg_press', 'leg_press_45_unilateral', 'calf_leg_press_unilateral', 'm4ky4df0t4Y', 25, 55],
+    ['Pernas B', 'calf_seated', 'seated_machine_unilateral', 'calf_seated_unilateral', 'MhUzkSK2Slk', 0, 10],
+    ['Pernas A', '', '', 'mob_hip_butterfly', 'VFd1fO_H7do', 0, 17],
+    ['Puxar A', 'unilateral_row_machine', 'plate_loaded', 'unilateral_row_plate_loaded', 'rXAP7YQF6ps', 3, 15],
     ['Rotina em casa', '', '', 'vacuum_standing', 'TU9XSn6TYxs', 138, 153],
     ['Rotina em casa', '', '', 'vacuum_all_fours', 'TU9XSn6TYxs', 154, 167]
   ];
@@ -3315,6 +3322,37 @@ test('demonstrações unilaterais e posições de vacuum abrem internamente no t
     assert.equal(Number(src.searchParams.get('end') || 0), end);
     await page.keyboard.press('Escape');
   }
+  assert.deepEqual(errors, []);
+});
+
+test('curadoria atual alcança remada com anilhas de sessão anterior sem remodelar o snapshot ou os registros', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>Player isolado de integração</body></html>'}));
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('inline');
+  await openTab(page, 'Puxar A');
+  await page.locator('#exercicio-unilateral_row_machine [data-action="variation-pick"][data-variation-id="plate_loaded"]').click();
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  await page.locator('#exercicio-unilateral_row_machine .set-field-load input').first().fill('45');
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  const document = await readStoredDocument(page);
+  const session = document.sessions.find(item => item.workoutId === 'pull_a' && item.status === 'started');
+  const snapshotExercise = session.workoutSnapshot.exercises.find(item => item.id === 'unilateral_row_machine');
+  delete snapshotExercise.variants.find(item => item.id === 'plate_loaded').videoKey;
+  snapshotExercise.variants.find(item => item.id === 'plate_loaded').label = 'Articulada com anilhas';
+  const before = {snapshot: session.workoutSnapshot, logs: session.exercises};
+  await writeStoredDocument(page, document);
+  await reloadApp(page);
+  await openTab(page, 'Puxar A');
+  await page.locator('#exercicio-unilateral_row_machine [data-action="open-video"][data-video-key="unilateral_row_plate_loaded"]').click();
+  const frame = page.locator('#video-modal iframe');
+  await frame.waitFor({state: 'attached'});
+  assert.equal(new URL(await frame.getAttribute('src')).pathname, '/embed/rXAP7YQF6ps');
+  await page.keyboard.press('Escape');
+  const after = (await readStoredDocument(page)).sessions.find(item => item.id === session.id);
+  assert.deepEqual(after.workoutSnapshot, before.snapshot, 'a curadoria não deve regravar a prescrição antiga');
+  assert.deepEqual(after.exercises, before.logs, 'cargas, lados e identidades históricas devem permanecer intactos');
   assert.deepEqual(errors, []);
 });
 

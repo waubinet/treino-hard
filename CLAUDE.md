@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Versão publicada e verificada: **3.6.8**, esquema **13**, cache `treino-hard-v3.6.8` (consultar `TESTES.md` para publicação e evidências).
+- Rodada local validada: **3.6.9**, esquema **13**, cache `treino-hard-v3.6.9`; última publicação verificada: 3.6.8 (consultar `TESTES.md` para o resultado da nova publicação).
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Arquitetura
@@ -156,8 +156,8 @@ Um push não é uma publicação. Confirme o build do Pages e a versão exibida 
 
 ## Pendências atuais
 
-Ver `PENDENCIAS.md`. O catálogo tem 46 associações aprovadas para 36 vídeos:
-38 correspondências exatas e 8 guias de movimento-base, com ressalvas visíveis.
+Ver `PENDENCIAS.md`. O catálogo tem 47 associações aprovadas para 40 vídeos:
+42 correspondências de execução e 5 guias de movimento-base, incluindo dois fallbacks legados. Correspondência não implica marca/modelo de máquina idêntico; a remada com anilhas tem essa limitação documentada.
 Faltam testes em iPhone físico, com leitor de tela real e da instalação pelo
 prompt do sistema. Os testes de interface de vídeo não substituem a verificação
 real de reprodução no YouTube.

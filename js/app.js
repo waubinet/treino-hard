@@ -945,7 +945,16 @@
     // inteiro de Pernas A/B deixa de renderizar.
     const variants = Array.isArray(exercise.variants) ? exercise.variants : [];
     const variant = variants.find(item => item.id === log.variationId);
-    const videoKey = variant && variant.videoKey ? variant.videoKey : exercise.videoKey;
+    // A prescrição continua vindo do snapshot, mas a curadoria pode melhorar
+    // sem reescrever sessões antigas. Só aceite um vínculo atual que confirme
+    // exatamente o mesmo exercício e a mesma variação; legados não são remapeados.
+    const currentExercise = Data.CATALOG[exercise.id];
+    const currentVariants = currentExercise && Array.isArray(currentExercise.variants) ? currentExercise.variants : [];
+    const currentVariant = currentVariants.find(item => item.id === log.variationId);
+    const currentVideo = currentVariant && Data.VIDEOS[currentVariant.videoKey];
+    const videoKey = currentVideo && currentVideo.exerciseId === exercise.id && currentVideo.variationId === log.variationId
+      ? currentVariant.videoKey
+      : (variant && variant.videoKey ? variant.videoKey : exercise.videoKey);
     return renderVideoByKey(Data.VIDEOS[videoKey] ? videoKey : exercise.id);
   }
 

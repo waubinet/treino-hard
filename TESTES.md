@@ -1,5 +1,17 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.9 / esquema 13 — 2026-10-23
+
+Gate local final aprovado: **154/154** testes de lógica/dados/cache e **66/66** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa de navegador em 397.330 ms. Publicação ainda pendente.
+
+- Lógica/dados/cache: **154/154** aprovados. Sintaxe de todos os scripts/testes e `git diff --check` aprovados.
+- Quatro novos IDs inspecionados individualmente e com reprodução real confirmada pelo IFrame Player API (estado 1): `m4ky4df0t4Y`, `MhUzkSK2Slk`, `VFd1fO_H7do`, `rXAP7YQF6ps`. Fontes e limites em `REVISAO-VIDEOS-2026-10-23.md`.
+- Cenário dirigido de integração: nove associações, incluindo panturrilhas, borboleta, remada e vacuum, abrem ID e recorte corretos. Novo cenário de sessão anterior com `plate_loaded`, carga 45 e snapshot sem a chave nova comprova acesso à curadoria atual sem alterar snapshot ou registros. Ambos aprovados; YouTube interceptado nesses testes, sem alegar reprodução real a partir deles.
+- A primeira execução completa foi interrompida após detectar leitura prematura no teste de arquivamento. O teste esperava qualquer revisão posterior e podia capturar o autosave antes de concluir o reset; agora aguarda também o fechamento do modal, que só ocorre após persistência do reset. Repetição dirigida e repetição completa passaram.
+- Revisão visual: cinco capturas desktop/móvel inspecionadas, incluindo o novo cartão de remada com anilhas. Larguras 320/390/1280 sem overflow global; quatro sessões fictícias preservadas pela migração, backup, autosave sem blur, cache `treino-hard-v3.6.9` e recarga offline aprovados; zero erros de página/console. O smoke confere nove entradas de vídeo, seus recortes e o vínculo da variante com anilhas.
+- Inventário executado: 47 associações, 40 vídeos únicos, 42 correspondências de execução e 5 guias-base. Prescrição, padrão de máquina, esquema e identidades históricas preservados.
+- Limites: testes com dados fictícios, sem acessar o perfil pessoal. iPhone físico, leitor de tela real e instalação nativa não executados.
+
 ## Rodada 3.6.8 / esquema 13 — 2026-10-23
 
 Gate local final aprovado: **154/154** testes de lógica/dados/cache e **65/65** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa de navegador em 530.759 ms. Dois cenários dirigidos de variantes/integração também passaram antes da execução completa.

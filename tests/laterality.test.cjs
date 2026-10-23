@@ -263,7 +263,7 @@ test('desativar o acompanhamento mantém opções bilaterais sem colapsar remada
   }
 });
 
-test('variantes unilaterais condicionais de panturrilha criam dois registros e distinguem demonstração exata de guia-base', () => {
+test('variantes unilaterais condicionais de panturrilha criam dois registros e têm demonstração unilateral específica', () => {
   const app = boot();
   for (const [id, variant] of [
     ['calf_standing_or_leg_press', 'standing_machine_unilateral'],
@@ -276,7 +276,7 @@ test('variantes unilaterais condicionais de panturrilha criam dois registros e d
     const logs = app.Core.createExerciseLogs(exercise, 1, {variationId: variant});
     assert.deepEqual(plain(logs.map(log => log.side)), ['right', 'left']);
     assert.equal(app.Data.VIDEOS[definition.videoKey].status, 'accepted');
-    assert.equal(app.Data.VIDEOS[definition.videoKey].coverageScope, variant === 'standing_machine_unilateral' ? 'exact' : 'foundation');
+    assert.equal(app.Data.VIDEOS[definition.videoKey].coverageScope, 'exact');
   }
 });
 

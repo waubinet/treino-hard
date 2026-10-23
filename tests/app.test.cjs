@@ -368,7 +368,7 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
 
   // A política brasileira é uma barreira de publicação: a revisão anterior
   // continua registrada; novas revisões exigem prova individual e data explícita.
-  assert.equal(accepted.length, 46, 'todos os exercícios precisam ter vídeo brasileiro aprovado');
+  assert.equal(accepted.length, 47, 'todos os exercícios e suas variações específicas precisam ter vídeo brasileiro aprovado');
   accepted.forEach(([key, video]) => {
     assert.equal(approvedClasses.has(video.classification), true, `${key}: classificação`);
     assert.ok(['exact', 'foundation'].includes(video.coverageScope), `${key}: escopo de cobertura`);
@@ -402,6 +402,13 @@ test('vídeos aprovados têm curadoria auditável e variantes ambíguas permanec
   assert.equal(videos.incline_press_machine.youtubeId, 's20MPQbKIHQ', 'supino inclinado precisa de demonstração específica');
   assert.equal(videos.mob_hamstring_seated.youtubeId, '2s6jU4I5gy4', 'alongamento sentado não pode usar demonstração em pé');
   assert.equal(videos.unilateral_row_machine.youtubeId, 'Prevu525iYQ', 'remada unilateral precisa mostrar execução unilateral');
+  assert.equal(videos.unilateral_row_plate_loaded.youtubeId, 'rXAP7YQF6ps', 'a remada com anilhas precisa mostrar um braço por vez');
+  assert.deepEqual(plain(app.Data.CATALOG.unilateral_row_machine.variants.map(item => [item.id, item.videoKey || 'unilateral_row_machine'])), [
+    ['machine_left_right', 'unilateral_row_machine'],
+    ['plate_loaded', 'unilateral_row_plate_loaded']
+  ], 'torre de pesos e anilhas não podem compartilhar o vínculo por engano');
+  assert.equal(app.Data.CATALOG.unilateral_row_machine.defaultVariant, 'machine_left_right', 'a curadoria não pode trocar a identidade padrão de históricos');
+  assert.deepEqual([videos.calf_leg_press_unilateral.youtubeId, videos.calf_seated_unilateral.youtubeId, videos.mob_hip_butterfly.youtubeId], ['m4ky4df0t4Y', 'MhUzkSK2Slk', 'VFd1fO_H7do']);
   assert.equal(videos.bracing.youtubeId, '6OTssJK_sVU', 'bracing precisa de conteúdo específico');
   assert.deepEqual([videos.shoulder_press_machine.startSeconds, videos.shoulder_press_machine.endSeconds], [88, 130], 'desenvolvimento precisa abrir no trecho da máquina');
   assert.equal(videos.vacuum.coverageScope, 'foundation', 'vacuum genérico precisa declarar que é guia-base');
@@ -1799,10 +1806,10 @@ test('inventário de vídeos: contagem por estado bate com o catálogo', () => {
     total[videos[chave].status] = (total[videos[chave].status] || 0) + 1;
     return total;
   }, {});
-  assert.equal(chaves.length, 46, 'total de entradas do catálogo');
-  assert.deepEqual(contagem, {accepted: 46}, 'distribuição por estado');
-  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 46, 'entradas com identificador do YouTube');
-  assert.equal(chaves.filter(chave => videos[chave].url).length, 46, 'entradas com URL');
+  assert.equal(chaves.length, 47, 'total de entradas do catálogo');
+  assert.deepEqual(contagem, {accepted: 47}, 'distribuição por estado');
+  assert.equal(chaves.filter(chave => videos[chave].youtubeId).length, 47, 'entradas com identificador do YouTube');
+  assert.equal(chaves.filter(chave => videos[chave].url).length, 47, 'entradas com URL');
 });
 
 test('inventário de vídeos: estados e classificações usam o enum do código', () => {
@@ -1848,7 +1855,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 37, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 41, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);

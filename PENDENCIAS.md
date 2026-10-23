@@ -1,5 +1,12 @@
 # Pendências reais
 
+## Rodada 3.6.9 — 2026-10-23
+
+- Implementados localmente vídeos específicos para panturrilhas unilaterais no leg press 45° e sentada, borboleta dinâmica e remada unilateral com anilhas/apoio. A foto e a confirmação do usuário orientaram o último vínculo; não houve troca de prescrição nem conversão de históricos.
+- Inventário: 47 associações, 40 vídeos únicos, 42 correspondências de execução e 5 guias-base. Permanecem aproximações atuais na remada unilateral genérica, remada sem apoio e vacuum sentado; remada/vacuum genéricos adicionais são fallbacks legados.
+- Corrigido o vínculo de vídeo para snapshots anteriores sem reescrevê-los; teste com carga/lados preservados aprovado. Gate local: 154/154 de lógica/dados/cache, 66/66 em Chrome e revisão visual/offline aprovados. Publicação ainda pendente; consultar o resultado final no topo de `TESTES.md`.
+- iPhone físico, leitor de tela real e instalação nativa continuam pendentes; não limpar dados do usuário para atualizar.
+
 ## Rodada 3.6.8 — 2026-10-23
 
 - Leg press 45° unilateral, vacuum em pé e quatro apoios receberam demonstrações específicas; extensora unilateral e panturrilha unilateral em pé tiveram incorporação confirmada.

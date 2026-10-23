@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.6.9] — panturrilhas, mobilidade e remada com anilhas — 2026-10-23
+
+- Panturrilha unilateral no leg press 45° e sentada passam a ter demonstrações realmente unilaterais, em vez dos guias bilaterais anteriores.
+- Borboleta de mobilidade passa a mostrar movimento dinâmico; o alongamento estático continua com seu vídeo próprio.
+- A variação existente de remada unilateral com anilhas e apoio no peito recebe vídeo separado da máquina seletorizada. O desenho das alavancas do vídeo não é idêntico ao da foto do usuário; essa limitação fica documentada, sem alegar manual do modelo específico.
+- Corrigida a resolução de vídeos em sessões anteriores: a curadoria atual pode ser consultada por exercício + variação exatos sem reescrever snapshot, cargas, lados ou identidades históricas. Padrão da máquina e prescrição permanecem inalterados.
+- Inventário: 47 associações para 40 vídeos únicos, 42 correspondências de execução e 5 guias-base. Reprodução dos quatro novos IDs confirmada pelo IFrame Player API; fontes e limites em `REVISAO-VIDEOS-2026-10-23.md`.
+- Versão/cache 3.6.9; esquema 13 preservado.
+
 ## [3.6.8] — lote de vídeos específicos e reprodução interna — 2026-10-23
 
 - Leg press 45° unilateral passa a ter demonstração unilateral específica de Fernando Maradona, com trecho de apoio delimitado.

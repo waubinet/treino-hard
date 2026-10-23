@@ -1,5 +1,13 @@
 # Curadoria de vídeos
 
+## Lote 3.6.9 — 2026-10-23
+
+Panturrilhas unilaterais no leg press 45° e sentada, borboleta dinâmica e remada unilateral com anilhas receberam vínculos específicos brasileiros, com inspeção visual e reprodução real confirmada. Origem, recortes e limitações em `REVISAO-VIDEOS-2026-10-23.md`.
+
+Inventário atual: **47 associações para 40 vídeos únicos, 42 correspondências de execução e 5 guias-base**. Correspondência de execução não significa máquina de marca/modelo idêntico: a remada de Emmanuel Cony tem apoio peitoral e anilhas, mas alavancas diferentes da foto recebida. A alternativa `plate_loaded` continua separada da máquina genérica e não muda automaticamente a escolha do usuário.
+
+Permanecem aproximações: remada unilateral genérica, remada genérica legada, remada articulada sem apoio, vacuum genérico legado e vacuum sentado em cadeira. Não foi usado vídeo bilateral como equivalente unilateral, nem ajoelhado como equivalente à cadeira. Os números das seções seguintes são históricos.
+
 ## Lote 3.6.8 — 2026-10-23
 
 Leg press 45° unilateral e vacuum em pé/quatro apoios receberam demonstrações específicas brasileiras, com recortes separados. A incorporação real foi confirmada também para os dois vídeos unilaterais adicionados nas rodadas 3.6.6/3.6.7. Fontes e revisão em `REVISAO-VIDEOS-2026-10-23.md`.

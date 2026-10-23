@@ -1,5 +1,22 @@
 # Revisão de vídeos — 2026-10-23
 
+## Lote 3.6.9 — inspeção individual e integração validada
+
+Quatro novos IDs tiveram reprodução real confirmada pelo IFrame Player API em origem localhost, host `youtube-nocookie.com`, estado 1 e sem erro. As páginas Sobre dos próprios canais declaram país Brasil; títulos, nomes atuais e durações foram reconferidos no player. A aprovação é da execução nos recortes inspecionados, não de todas as afirmações dos vídeos completos.
+
+| Associação | Vídeo e origem primária | Duração / recorte | Conferência visual e limites |
+|---|---|---|---|
+| Panturrilha unilateral no leg press 45° | [GUSTAVO PERSONAL — m4ky4df0t4Y](https://www.youtube.com/watch?v=m4ky4df0t4Y), [@personalconectado/about](https://www.youtube.com/@personalconectado/about) | 1:47 / 0:25–0:55 | Quadros 15, 25, 40, 45, 50, 55, 75 e 105 s: trilhos inclinados, antepé, uma perna por vez e troca de lado. O recorte inclui preparação bilateral antes da demonstração unilateral; as partes posteriores de erros não foram usadas como execução-alvo. Aparelho deve permitir unilateral estável; não copiar a contagem do vídeo. O canal identifica Gustavo Rodrigues Pereira, CREF14255G/MG e formação UNIBH. |
+| Panturrilha sentada unilateral | [Personal TAF @personaltaf.oficial — MhUzkSK2Slk](https://www.youtube.com/watch?v=MhUzkSK2Slk), [@personaltaf/about](https://www.youtube.com/@personaltaf/about) | 0:16 / 0:00–0:10 | Quadros 3 e 8 s mostram apoio na coxa, um antepé na plataforma e a outra perna no chão; em 12 s já há vinheta. Demonstração breve sem explicar regulagem. Canal também aponta para `personaltaf.com`. |
+| Mobilidade de quadril em borboleta | [Matheus Nascimento - Emagrecimento Feminino — VFd1fO_H7do](https://www.youtube.com/watch?v=VFd1fO_H7do), [@MatheusPersonalNutri/about](https://www.youtube.com/@MatheusPersonalNutri/about) | 0:18 / 0:00–0:17 | Quadros 2, 4, 5, 6, 8 e 12 s: posição sentada, solas juntas e abertura repetida leve dos joelhos, de frente e de lado. Substitui a demonstração apenas estática nesse cartão; não forçar joelhos/tronco. |
+| Remada unilateral articulada com anilhas e apoio | [Emmanuel Cony — rXAP7YQF6ps](https://www.youtube.com/watch?v=rXAP7YQF6ps), [@emmanuelcony6308/about](https://www.youtube.com/@emmanuelcony6308/about) | 0:55 / 0:03–0:15 | Quadros 3, 8 e 12 s confirmam um braço por vez, pegada neutra, apoio peitoral e anilhas. O usuário confirmou execução unilateral na máquina da foto. A geometria das alavancas não é idêntica; aprovado para o mesmo tipo de execução, não como manual da máquina fotografada. |
+
+Na remada, a variante `plate_loaded` recebeu `videoKey` próprio, sem renomear IDs ou mudar o padrão `machine_left_right`. O vídeo `1p0fvh2USMY` do Foco30Dias corresponde à máquina da foto, mas mostra execução bilateral; não foi apresentado como guia unilateral. `wUpH4v7VOUE`, Marcio Moura, também foi inspecionado, mas não traz vantagem clara de correspondência do aparelho; não integrado. O candidato de remada sem apoio `yA2kby99f2U` não teve mecanismo confirmado como equivalente à variante e não foi promovido. Vacuum em cadeira continua sem nova demonstração aprovada.
+
+Correção de compatibilidade: `renderVideoStatus` consulta o vínculo atual somente quando exercício e variação do vídeo coincidem exatamente com os da sessão. A prescrição histórica continua vindo do snapshot; nenhuma regravação dele é necessária para receber curadoria nova. Teste de regressão com sessão anterior iniciada, carga 45 e snapshot sem a chave nova cobre esse caso.
+
+Inventário conferido executando o catálogo: **47 associações, 40 vídeos únicos, 42 correspondências de execução e 5 guias-base**. Quadros locais em `output/playwright/`, ignorados pelo Git. Testes de integração com YouTube interceptado não são usados como prova de reprodução real. Publicação e gate final são registrados em `TESTES.md`.
+
 ## Lote 3.6.8 — publicado e verificado
 
 - Leg press 45° unilateral: `ausscKK91R8`, Fernando Maradona, 5:53, recorte 1:55–2:45. Inspeção individual confirmou trilhos inclinados, banco com apoio, perna única na plataforma e orientação de alinhamento de joelho/tornozelo. Quadros conferidos em 0:35, 1:20, 2:20, 3:20 e 4:20. O vídeo também contém contagens e estratégias próprias de treino; elas não alteram a ficha do app. Origem: evento do CREF22/ES lista Prof. Fernando Maradona, CREF006152-G/MG: https://www.sympla.com.br/evento/conferencia-da-educacao-fisica-capixaba/2633822 .
