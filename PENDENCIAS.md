@@ -2,9 +2,9 @@
 
 ## Rodada 3.7.2 — fluxos funcionais — 2026-10-23
 
-- Implementados localmente: Hoje por estado, atalho para item pendente/lado, âncoras de mobilidade, foco de navegação, rascunho de Medidas com descarte explícito, proteção do rascunho na atualização PWA e descanso/desfazer contextual. Detalhes em `FUNCIONALIDADE-3.7.2.md`.
+- Publicados: Hoje por estado, atalho para item pendente/lado, âncoras de mobilidade, foco de navegação, rascunho de Medidas com descarte explícito, proteção do rascunho na atualização PWA e descanso/desfazer contextual. Detalhes em `FUNCIONALIDADE-3.7.2.md`.
 - Ficha 3.6.10, catálogo, prescrição, silhueta e esquema 13 inalterados. Identidade grafite e formato em cartões preservados.
-- Gate local aprovado: sintaxe, 156/156 testes de lógica/dados/cache, 83/83 em Chrome e smoke visual/offline sem erros. Quinze capturas locais inspecionadas. Publicação e smoke público ainda pendentes; ainda não tratar esta rodada como publicada.
+- Gate aprovado: sintaxe, 156/156 testes de lógica/dados/cache, 83/83 em Chrome e smoke visual/offline sem erros. Quinze capturas locais inspecionadas. Pages confirmou `e974b2d`; smoke público aprovou app/cache 3.7.2, esquema 13 e novos controles, sem erros, incluindo offline. Conteúdo público dos scripts/estilos/HTML/manifest/worker conferido com a origem local. Evidências no topo de `TESTES.md`.
 - Rascunho de Medidas é apenas em memória enquanto o app fica aberto; não substitui Salvar medidas. iPhone físico, leitor de tela real e instalação nativa continuam pendentes.
 
 ## Rodada 3.7.1 — refinamento visual — 2026-10-23

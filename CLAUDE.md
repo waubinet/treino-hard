@@ -4,7 +4,7 @@ Diário de treino pessoal, estático, sem servidor próprio e sem conta. Roda co
 
 - Publicação: GitHub Pages, **branch `main`, raiz**, em `https://waubinet.github.io/treino-hard/`.
   Não há workflow do Actions; o Pages compila direto da branch. Não troque esse método.
-- Versão publicada e verificada: **3.7.1**, esquema **13**, cache `treino-hard-v3.7.1` (consultar `TESTES.md` para publicação e evidências). A ficha permanece na revisão 3.6.10.
+- Versão publicada e verificada: **3.7.2**, esquema **13**, cache `treino-hard-v3.7.2` (consultar `TESTES.md` para publicação e evidências). A ficha permanece na revisão 3.6.10.
 - Crie uma branch nova por rodada e integre em `main` por fast-forward.
 
 ## Fase atual do projeto
@@ -39,6 +39,10 @@ A antiga paleta rosa da 2.2 não deve ser restaurada. Verde, âmbar e vermelho
 permanecem somente em estados semânticos, não como identidade principal.
 Os refinamentos de composição da 3.7.1 estão em `UI-REFINO-3.7.1.md`:
 ações da sessão, orientação expansível, Medidas, metadados de vídeo e RIR.
+Os aprimoramentos funcionais da 3.7.2 estão em `FUNCIONALIDADE-3.7.2.md`:
+Hoje por estado, atalho de pendência/lado, foco, rascunho de Medidas e descanso
+contextual. Rascunho é apenas em memória; não é medição salva e deve ser salvo
+ou descartado antes da atualização PWA.
 
 A cópia `treino-hard-original-v2.2-2026-08-08/index.html` continua como referência
 histórica da estrutura em cartões, abas, seletor de semana e resumo; não é mais
