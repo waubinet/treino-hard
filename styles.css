@@ -1520,6 +1520,31 @@ select.sin {
   gap: 14px 12px;
 }
 
+.measurement-draft-status {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input);
+}
+
+.measurement-draft-status[data-dirty="true"] {
+  border-color: var(--control-border);
+  color: var(--text);
+}
+
+.session-next-action {
+  display: grid;
+  gap: 10px;
+  margin-block: 16px;
+  padding: 14px;
+  background: var(--input);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.session-next-action p { margin: 0; }
+
 .measurement-group legend {
   padding: 0 6px;
   color: var(--text);

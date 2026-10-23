@@ -9,7 +9,7 @@ const crypto = require('node:crypto');
 const assert = require('node:assert/strict');
 const {readLegacyState} = require('./legacy-fixture.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const OUTPUT = path.join(ROOT, 'output', 'playwright', process.env.REVIEW_URL ? '3.7.1-public' : '3.7.1-local');
+const OUTPUT = path.join(ROOT, 'output', 'playwright', process.env.REVIEW_URL ? '3.7.2-public' : '3.7.2-local');
 
 async function main() {
   let server;
@@ -93,7 +93,7 @@ async function main() {
       storage.close();
       return data;
     });
-    assert.equal(migration.version, '3.7.1');
+    assert.equal(migration.version, '3.7.2');
     assert.equal(migration.schema, 13);
     assert.equal(migration.history, 4);
     assert.deepEqual(migration.curl, ['bilateral']);
@@ -123,6 +123,13 @@ async function main() {
     assert.match(await guide.innerText(), /RIR 0 não é obrigatório/);
     await guide.screenshot({path: path.join(OUTPUT, 'mobile-effort-guide.png')});
     await guide.locator('summary').press('Enter');
+    await page.getByRole('button', {name: 'Ir ao próximo pendente', exact: true}).click();
+    assert.equal(await page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup) .set-field-load input').first().evaluate(node => node === document.activeElement), true);
+    await page.screenshot({path: path.join(OUTPUT, 'mobile-next-pending.png')});
+    await page.locator('#exercicio-chest_press_machine [data-action="timer-start-rest"]').click();
+    assert.equal(await page.locator('#timer-bar [data-action="timer-undo"]').isDisabled(), true, 'descanso manual sem série confirmada não oferece desfazer');
+    await page.locator('#timer-bar').screenshot({path: path.join(OUTPUT, 'mobile-timer-context.png')});
+    await page.locator('#timer-bar [data-action="timer-stop"]').click();
     const load = page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup) .set-field-load input').first();
     await load.fill('37');
     await ready();
@@ -152,6 +159,15 @@ async function main() {
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
     assert.equal(await page.locator('.measurement-form').evaluate(node => getComputedStyle(node).rowGap), '16px');
     await page.locator('.measurement-form').screenshot({path: path.join(OUTPUT, 'mobile-measurement-form.png')});
+    await page.locator('.measurement-form [name="weight"]').fill('107,5');
+    await page.getByRole('tab', {name: 'Hoje', exact: true}).click();
+    await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
+    assert.equal(await page.locator('.measurement-form [name="weight"]').inputValue(), '107,5');
+    assert.equal(await page.locator('#measurement-draft-status').getAttribute('data-dirty'), 'true');
+    await page.locator('.measurement-form').screenshot({path: path.join(OUTPUT, 'mobile-measurement-draft.png')});
+    await page.getByRole('button', {name: 'Limpar formulário', exact: true}).click();
+    await page.getByRole('button', {name: 'Descartar rascunho', exact: true}).click();
+    assert.equal(await page.locator('.measurement-form [name="weight"]').inputValue(), '');
     await page.locator('#measurement-pair-thigh > summary').click();
     await page.locator('.measurement-side-history').screenshot({path: path.join(OUTPUT, 'mobile-measures.png')});
     await page.locator('.body-map-stage').screenshot({path: path.join(OUTPUT, 'mobile-body-map.png')});
@@ -173,7 +189,7 @@ async function main() {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({waitUntil: 'networkidle'});
     const caches = await page.evaluate(() => globalThis.caches.keys());
-    assert.ok(caches.includes('treino-hard-v3.7.1'));
+    assert.ok(caches.includes('treino-hard-v3.7.2'));
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
     await ready();

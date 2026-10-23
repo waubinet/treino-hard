@@ -4290,3 +4290,349 @@ test('série adversa permanece no histórico bruto mas nunca vira referência ou
   assert.equal(await first.locator('.set-field-load input').inputValue(), '30');
   assert.deepEqual(errors, []);
 });
+
+test('funcional: Hoje distingue pausa e consulta encerrada sem retomar ou reabrir sozinho', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  const base = await readStoredDocument(page);
+  for (const status of ['paused', 'completed', 'partial', 'skipped']) {
+    const document = structuredClone(base);
+    const session = document.sessions.find(item => item.workoutId === 'push_a');
+    Object.assign(session, {status, startedAt: '2026-08-10T11:00:00.000Z', actualDate: '2026-08-10', pausedAt: status === 'paused' ? '2026-08-10T11:00:00.000Z' : '', completedAt: status === 'paused' ? '' : '2026-08-10T11:01:00.000Z', durationSeconds: 60});
+    await writeStoredDocument(page, document);
+    await reloadApp(page);
+    const label = status === 'paused' ? 'Abrir treino pausado' : 'Consultar treino encerrado';
+    const before = await readStoredDocument(page);
+    await page.locator('.today-card').getByRole('button', {name: label, exact: true}).click();
+    assert.equal((await readStoredDocument(page)).sessions.find(item => item.id === session.id).status, status);
+    assert.equal((await readStoredDocument(page)).revision, before.revision, 'navegar não pode salvar ou reabrir');
+    if (status === 'paused') assert.equal(await page.getByRole('button', {name: 'Retomar', exact: true}).count(), 1);
+    else {
+      assert.equal(await page.getByRole('button', {name: 'Reabrir sessão', exact: true}).count(), 1);
+      assert.equal(await page.locator('.session-next-action').count(), 0);
+      assert.equal(await page.locator('.set-field-load input').first().isDisabled(), true);
+    }
+  }
+  assert.deepEqual(errors, []);
+});
+
+test('funcional: próximo pendente alcança mobilidade e primeira série útil sem gravar', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA, viewport: {width: 390, height: 844}});
+  const document = await readStoredDocument(page);
+  const legs = document.sessions.find(item => item.workoutId === 'legs_a');
+  const firstMobility = legs.exercises.find(log => !log.sets.length);
+  assert.ok(firstMobility);
+  legs.exercises.forEach(log => {
+    log.completed = log.id !== firstMobility.id;
+    log.sets.filter(set => set.type === 'work').forEach(set => Object.assign(set, {load: '20', reps: '12', status: 'completed', completedAt: '2026-08-10T11:00:00.000Z'}));
+  });
+  const push = document.sessions.find(item => item.workoutId === 'push_a');
+  Object.assign(push, {status: 'started', actualDate: '2026-08-10', startedAt: '2026-08-10T11:00:00.000Z'});
+  const pushLog = push.exercises.find(log => log.exerciseId === 'chest_press_machine');
+  Object.assign(pushLog.sets.find(set => set.type === 'work'), {load: '35', reps: '12', status: 'completed', completedAt: '2026-08-10T11:00:00.000Z'});
+  await writeStoredDocument(page, document);
+  await reloadApp(page);
+  const before = await readStoredDocument(page);
+  await page.locator('.today-card').getByRole('button', {name: 'Continuar treino', exact: true}).click();
+  const second = page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup)').nth(1).locator('.set-field-load input');
+  assert.equal(await second.evaluate(node => node === document.activeElement), true, 'continuar deve chegar à série pendente, não ao botão Marcar');
+  await openTab(page, 'Pernas A');
+  await page.getByRole('button', {name: 'Ir ao próximo pendente', exact: true}).click();
+  const mobility = page.locator(`#exercicio-${firstMobility.exerciseId}`);
+  assert.equal(await mobility.locator('[data-action="mobility-complete"]').evaluate(node => node === document.activeElement), true);
+  const lastStrength = page.locator('.section-card').filter({has: page.locator('.donebox')}).last();
+  await lastStrength.getByRole('button', {name: 'Ir para o próximo', exact: true}).click();
+  assert.equal(await mobility.locator('[data-action="mobility-complete"]').evaluate(node => node === document.activeElement), true, 'retorno do último exercício à mobilidade deve funcionar');
+  const after = await readStoredDocument(page);
+  assert.equal(after.revision, before.revision);
+  assert.deepEqual(after.sessions, before.sessions);
+  assert.deepEqual(errors, []);
+});
+
+test('funcional: navegação mantém foco na aba e atalhos levam à nova tarefa', {timeout: 90000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Medidas');
+  assert.equal(await page.locator('#tab-measurements').evaluate(node => node === document.activeElement), true);
+  await page.keyboard.press('ArrowRight');
+  assert.equal(await page.locator('#tab-cycles').evaluate(node => node === document.activeElement), true);
+  await openTab(page, 'Hoje');
+  await page.getByRole('button', {name: '+ Registrar caminhada', exact: true}).click();
+  assert.equal(await page.locator('#panel-cardio').evaluate(node => node === document.activeElement), true);
+  assert.deepEqual(errors, []);
+});
+
+test('funcional: rascunho de Medidas sobrevive à navegação, redesenho e falha sem virar histórico', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Medidas');
+  await page.locator('[name="weight"]').fill('109,5');
+  await page.locator('[name="thighLeft"]').fill('61,2');
+  await page.locator('[name="note"]').fill('rascunho de teste');
+  assert.match(await page.locator('#measurement-draft-status').innerText(), /Rascunho não salvo/);
+  assert.equal((await readStoredDocument(page)).measurements.length, 0);
+  assert.equal(await page.evaluate(() => { const event = new Event('beforeunload', {cancelable: true}); window.dispatchEvent(event); return event.defaultPrevented; }), true);
+  await openTab(page, 'Hoje');
+  await openTab(page, 'Medidas');
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '109,5');
+  await page.locator('[data-action="cycle-week-set"][data-week="2"]').click();
+  assert.equal(await page.locator('[name="thighLeft"]').inputValue(), '61,2');
+  await page.evaluate(() => {
+    window.failMeasure = true;
+    const write = THFStorage.AppStorage.prototype.writeDocument;
+    THFStorage.AppStorage.prototype.writeDocument = function (...args) { return window.failMeasure ? Promise.reject(new Error('Falha simulada em Medidas.')) : write.apply(this, args); };
+  });
+  await page.getByRole('button', {name: 'Salvar medidas', exact: true}).click();
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Falha ao salvar');
+  await openTab(page, 'Hoje');
+  await openTab(page, 'Medidas');
+  assert.equal(await page.locator('[name="note"]').inputValue(), 'rascunho de teste');
+  assert.equal((await readStoredDocument(page)).measurements.length, 0);
+  await page.evaluate(() => { window.failMeasure = false; });
+  const revision = (await readStoredDocument(page)).revision;
+  await page.getByRole('button', {name: 'Salvar medidas', exact: true}).click();
+  await waitForStoredRevision(page, revision);
+  await page.waitForFunction(() => document.querySelector('[name="weight"]').value === '');
+  assert.equal((await readStoredDocument(page)).measurements.length, 1);
+  assert.equal(await page.locator('#measurement-draft-status').getAttribute('data-dirty'), 'false');
+  assert.equal(await page.evaluate(() => { const event = new Event('beforeunload', {cancelable: true}); window.dispatchEvent(event); return event.defaultPrevented; }), false);
+  await page.locator('[name="weight"]').fill('107');
+  await page.getByRole('button', {name: 'Limpar formulário', exact: true}).click();
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '107', 'cancelar descarte deve manter rascunho');
+  await page.getByRole('button', {name: 'Limpar formulário', exact: true}).click();
+  await page.getByRole('button', {name: 'Descartar rascunho', exact: true}).click();
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '');
+  assert.equal((await readStoredDocument(page)).measurements.length, 1, 'limpar formulário não apaga histórico');
+  assert.deepEqual(errors, []);
+});
+
+test('funcional: Medidas evita submit duplicado e conserva edição feita durante gravação lenta', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Medidas');
+  await page.locator('[name="weight"]').fill('110');
+  await page.evaluate(() => {
+    window.measureWrites = [];
+    const write = THFStorage.AppStorage.prototype.writeDocument;
+    THFStorage.AppStorage.prototype.writeDocument = async function (...args) { await new Promise(resolve => window.measureWrites.push(resolve)); return write.apply(this, args); };
+  });
+  await page.getByRole('button', {name: 'Salvar medidas', exact: true}).click();
+  await page.waitForFunction(() => window.measureWrites.length === 1);
+  await page.locator('[name="weight"]').fill('109');
+  await page.locator('.measurement-form').dispatchEvent('submit');
+  await page.evaluate(() => window.measureWrites[0]());
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  assert.equal((await readStoredDocument(page)).measurements.length, 1);
+  assert.equal((await readStoredDocument(page)).measurements[0].weight, '110');
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '109');
+  assert.equal(await page.locator('#measurement-draft-status').getAttribute('data-dirty'), 'true');
+  assert.equal(await page.evaluate(() => window.measureWrites.length), 1);
+  assert.deepEqual(errors, []);
+});
+
+test('funcional: atalho unilateral escolhe só o lado pendente e não altera registros', {timeout: 90000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  const document = await readStoredDocument(page);
+  const session = document.sessions.find(item => item.workoutId === 'pull_a');
+  session.exercises.forEach(log => {
+    log.completed = !(log.exerciseId === 'unilateral_row_machine' && log.side === 'left');
+    if (log.completed) log.sets.filter(set => set.type === 'work').forEach(set => Object.assign(set, {load: '20', reps: '12', status: 'completed', completedAt: '2026-08-10T11:00:00.000Z'}));
+  });
+  await writeStoredDocument(page, document);
+  await reloadApp(page);
+  await openTab(page, 'Puxar A');
+  const card = page.locator('#exercicio-unilateral_row_machine');
+  assert.equal(await card.locator('[data-action="side-pick"][data-side="right"]').getAttribute('aria-pressed'), 'true');
+  const before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Ir ao próximo pendente', exact: true}).click();
+  assert.equal(await card.locator('[data-action="side-pick"][data-side="left"]').getAttribute('aria-pressed'), 'true');
+  assert.equal(await card.locator('.set-field-load input').first().evaluate(node => node === document.activeElement), true);
+  const after = await readStoredDocument(page);
+  assert.deepEqual(after, before);
+  assert.deepEqual(errors, []);
+});
+
+test('funcional: atualização PWA não descarta rascunho nem o que foi digitado durante ativação', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA, serviceWorkers: 'allow'});
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await openTab(page, 'Medidas');
+  await page.locator('[name="weight"]').fill('110');
+  await page.evaluate(() => {
+    window.updateMessages = [];
+    window.__treinoHardWaitingRegistration = {waiting: {postMessage: message => window.updateMessages.push(message)}};
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.dataset.action = 'pwa-update';
+    trigger.textContent = 'Atualizar teste';
+    document.body.append(trigger);
+  });
+  await page.getByRole('button', {name: 'Atualizar teste', exact: true}).click();
+  assert.deepEqual(await page.evaluate(() => window.updateMessages), []);
+  assert.match(await page.locator('#app-notice').innerText(), /Salve ou descarte o rascunho/);
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '110');
+  await page.getByRole('button', {name: 'Limpar formulário', exact: true}).click();
+  await page.getByRole('button', {name: 'Descartar rascunho', exact: true}).click();
+  await page.getByRole('button', {name: 'Atualizar teste', exact: true}).click();
+  await page.waitForFunction(() => window.updateMessages.length === 1);
+  assert.deepEqual(await page.evaluate(() => window.updateMessages), [{type: 'SKIP_WAITING'}]);
+  await page.locator('[name="weight"]').fill('109');
+  await page.evaluate(() => navigator.serviceWorker.dispatchEvent(new Event('controllerchange')));
+  assert.match(await page.locator('#app-notice').innerText(), /seu rascunho de Medidas continua aberto/);
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '109');
+  assert.equal(await page.evaluate(() => window.updateMessages.length), 1, 'a página não foi recarregada');
+  await page.getByRole('button', {name: 'Limpar formulário', exact: true}).click();
+  await page.getByRole('button', {name: 'Descartar rascunho', exact: true}).click();
+  await openTab(page, 'Empurrar A');
+  await page.evaluate(() => {
+    window.updateWrites = [];
+    const write = THFStorage.AppStorage.prototype.writeDocument;
+    let holdFirst = true;
+    THFStorage.AppStorage.prototype.writeDocument = async function (...args) {
+      // O blur também enfileira uma gravação: só a primeira precisa ficar
+      // suspensa para provar a janela de atualização, sem bloquear a fila toda.
+      if (holdFirst) { holdFirst = false; await new Promise(resolve => window.updateWrites.push(resolve)); }
+      return write.apply(this, args);
+    };
+  });
+  await page.locator('#exercicio-chest_press_machine .set-field-load input').first().fill('25');
+  await page.waitForFunction(() => window.updateWrites.length === 1);
+  await page.getByRole('button', {name: 'Atualizar teste', exact: true}).click();
+  await openTab(page, 'Medidas');
+  await page.locator('[name="weight"]').fill('108');
+  await page.evaluate(() => window.updateWrites[0]());
+  await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+  assert.equal(await page.locator('[name="weight"]').inputValue(), '108', 'o rascunho surgido durante flush também bloqueia reload');
+  assert.match(await page.locator('#app-notice').innerText(), /Salve ou descarte o rascunho/);
+  assert.deepEqual(errors, []);
+});
+
+test('descanso: desfazer na barra exige a mesma série e o cartão não para outro intervalo', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  const firstCard = () => page.locator('#exercicio-chest_press_machine');
+  const firstRow = () => firstCard().locator('.set-row:not(.is-warmup)').first();
+  const otherCard = () => page.locator('#exercicio-incline_press_machine');
+  await firstRow().locator('.set-field-reps input').fill('12');
+  let before = await readStoredDocument(page);
+  await firstRow().getByRole('button', {name: 'Concluir série 1', exact: true}).click();
+  await waitForStoredRevision(page, before.revision);
+  await openSetMore(firstRow());
+  await firstRow().getByRole('button', {name: 'Iniciar descanso desta série', exact: true}).click();
+  const timerUndo = page.locator('#timer-bar [data-action="timer-undo"]');
+  assert.equal(await timerUndo.isEnabled(), true, 'a série que iniciou o descanso pode ser desfeita pela barra');
+
+  await otherCard().locator('[data-action="timer-start-rest"]').click();
+  assert.equal(await timerUndo.isDisabled(), true, 'um descanso manual de outro exercício não pode desfazer a série anterior');
+  before = await readStoredDocument(page);
+  // Mesmo um evento sintético não pode ultrapassar a guarda de contexto.
+  await timerUndo.dispatchEvent('click');
+  assert.deepEqual(await readStoredDocument(page), before, 'não alterar outra série ao acionar a barra fora de contexto');
+  assert.match(await page.locator('#timer-label').innerText(), /Supino inclinado/);
+
+  await firstCard().locator('.quickrow [data-action="timer-undo"]').click();
+  const undone = await waitForStoredRevision(page, before.revision);
+  const set = undone.sessions.find(session => session.workoutId === 'push_a').exercises
+    .find(log => log.exerciseId === 'chest_press_machine').sets.find(item => item.type === 'work');
+  assert.equal(set.completedAt, '', 'Desfazer no cartão ainda restaura a última série confirmada');
+  assert.equal(await page.locator('#timer-bar').isVisible(), true, 'desfazer outro registro não pode parar o intervalo atual');
+  assert.match(await page.locator('#timer-label').innerText(), /Supino inclinado/);
+  assert.deepEqual(errors, []);
+});
+
+test('descanso: cancelar, pular e remarcar só param o próprio intervalo após salvar', {timeout: 180000}, async t => {
+  const cases = [
+    {name: 'cancelar', action: 'session-cancel', confirm: 'session-cancel-confirm', status: 'cancelled'},
+    {name: 'pular', action: 'session-skip', confirm: 'session-skip-confirm', status: 'skipped'},
+    {name: 'remarcar', action: 'session-reschedule', confirm: 'session-reschedule-confirm', status: 'rescheduled'}
+  ];
+  for (const item of cases) await t.test(item.name, async subtest => {
+    const {page, errors} = await openApp(subtest, {fixedTime: SEGUNDA_FIXA});
+    await openTab(page, 'Empurrar A');
+    await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+    await waitStatus(page, 'Iniciado');
+    await page.locator('#exercicio-chest_press_machine [data-action="timer-start-rest"]').click();
+    const before = await readStoredDocument(page);
+    const tracked = before.sessions.find(session => session.workoutId === 'push_a').id;
+    await page.evaluate(() => {
+      window.rejectTimerTransition = true;
+      const original = THFStorage.AppStorage.prototype.writeDocument;
+      THFStorage.AppStorage.prototype.writeDocument = function (...args) {
+        if (window.rejectTimerTransition) return Promise.reject(new Error('Falha dirigida ao encerrar sessão com intervalo.'));
+        return original.apply(this, args);
+      };
+    });
+    await page.locator(`#panels [data-action="${item.action}"]`).click();
+    if (item.status === 'rescheduled') await page.locator('#reschedule-date').fill('2026-08-11');
+    await page.locator(`#app-modal [data-action="${item.confirm}"]`).click();
+    await page.waitForFunction(() => document.getElementById('save-state')?.textContent === 'Falha ao salvar');
+    assert.equal((await readStoredDocument(page)).sessions.find(session => session.id === tracked).status, 'started');
+    assert.equal(await page.locator('#timer-bar').isVisible(), true, 'falha de gravação deve conservar o intervalo');
+    await page.evaluate(() => { window.rejectTimerTransition = false; });
+    await page.locator(`#app-modal [data-action="${item.confirm}"]`).click();
+    const saved = await waitForStoredRevision(page, before.revision);
+    await page.locator('#app-modal').waitFor({state: 'hidden'});
+    assert.equal(saved.sessions.find(session => session.id === tracked).status, item.status);
+    assert.equal(await page.locator('#timer-bar').isHidden(), true, 'sucesso deve parar o intervalo da sessão encerrada');
+    assert.deepEqual(errors, []);
+  });
+});
+
+test('descanso: encerrar outra sessão preserva o cronômetro atual', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await openTab(page, 'Empurrar A');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  await page.locator('#exercicio-chest_press_machine [data-action="timer-start-rest"]').click();
+  await openTab(page, 'Puxar A');
+  await page.locator('article.section-card [data-action="timer-start-rest"]').first().click();
+  const label = await page.locator('#timer-label').innerText();
+  await openTab(page, 'Empurrar A');
+  const before = await readStoredDocument(page);
+  await page.getByRole('button', {name: 'Cancelar', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Cancelar sessão', exact: true}).click();
+  await waitForStoredRevision(page, before.revision);
+  await waitStatus(page, 'Cancelado');
+  assert.equal(await page.locator('#timer-bar').isVisible(), true, 'cancelar Empurrar A não pode parar o intervalo de Puxar A');
+  assert.equal(await page.locator('#timer-label').innerText(), label);
+  await openTab(page, 'Empurrar B');
+  await page.getByRole('button', {name: 'Iniciar treino', exact: true}).click();
+  await waitStatus(page, 'Iniciado');
+  await page.getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.locator('#app-modal').getByRole('button', {name: 'Encerrar como parcial', exact: true}).click();
+  await page.waitForFunction(() => document.querySelector('#modal-title').textContent === 'Treino encerrado como parcial');
+  assert.equal(await page.locator('#timer-bar').isVisible(), true, 'finalizar Empurrar B não pode parar o intervalo de Puxar A');
+  assert.equal(await page.locator('#timer-label').innerText(), label);
+  assert.deepEqual(errors, []);
+});
+
+test('descanso: novo intervalo limpa anúncio anterior e cada término avisa uma vez', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await page.evaluate(() => {
+    window.timerVibrations = [];
+    Object.defineProperty(navigator, 'vibrate', {configurable: true, value: pattern => {
+      window.timerVibrations.push(pattern);
+      return true;
+    }});
+  });
+  await openTab(page, 'Empurrar A');
+  const row = () => page.locator('#exercicio-chest_press_machine .set-row:not(.is-warmup)').first();
+  await openSetMore(row());
+  const before = await readStoredDocument(page);
+  await row().locator('input[data-field="nextRestSeconds"]').fill('1');
+  await row().locator('input[data-field="nextRestSeconds"]').blur();
+  await waitForStoredRevision(page, before.revision);
+  await openSetMore(row());
+  await row().getByRole('button', {name: 'Iniciar descanso desta série', exact: true}).click();
+  await page.clock.setFixedTime(new Date(SEGUNDA_FIXA.getTime() + 2000));
+  await page.waitForFunction(() => document.getElementById('timer-announcement')?.textContent === 'Intervalo concluído.');
+  assert.equal(await page.evaluate(() => window.timerVibrations.filter(Array.isArray).length), 1);
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('pageshow'));
+  });
+  await page.waitForTimeout(600);
+  assert.equal(await page.evaluate(() => window.timerVibrations.filter(Array.isArray).length), 1, 'voltar à página não deve repetir o aviso');
+  await row().getByRole('button', {name: 'Iniciar descanso desta série', exact: true}).click();
+  assert.equal(await page.locator('#timer-announcement').textContent(), '', 'o intervalo novo não pode continuar anunciado como concluído');
+  await page.clock.setFixedTime(new Date(SEGUNDA_FIXA.getTime() + 4000));
+  await page.waitForFunction(() => document.getElementById('timer-announcement')?.textContent === 'Intervalo concluído.');
+  assert.equal(await page.evaluate(() => window.timerVibrations.filter(Array.isArray).length), 2, 'cada intervalo deve ter seu próprio aviso');
+  assert.deepEqual(errors, []);
+});

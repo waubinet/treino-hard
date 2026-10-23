@@ -1,5 +1,16 @@
 # Plano e evidências de teste
 
+## Rodada 3.7.2 / esquema 13 — 2026-10-23
+
+Gate local aprovado: **156/156** testes de lógica/dados/cache e **83/83** em Chrome (80 cenários principais e três subtestes), zero falhas, cancelamentos ou ignorados na execução final (**481.429 ms**). Publicação ainda não confirmada.
+
+- Sintaxe de JavaScript/testes/scripts e `git diff --check` aprovados. **156/156** testes de lógica/dados/cache passaram; log `output/playwright/unit-3.7.2.tap.log`.
+- Novos cenários dirigidos: estados Hoje sem reabertura/retomada implícita; próximo pendente e mobilidade; foco de navegação; rascunho de Medidas, falha e descarte; edição durante gravação lenta/submissão duplicada; seleção do lado pendente; guarda PWA antes/depois do flush e após ativação; desfazer contextual; encerramentos com falha/retry e preservação do intervalo de outra sessão; anúncio do novo descanso.
+- Suíte final sobre o código corrigido: `output/playwright/browser-3.7.2.tap.log`. Smoke local `node tests/visual-review.cjs` aprovado, com app/cache 3.7.2 e esquema 13; tema/hashes dos assets, migração de quatro sessões fictícias, autosave sem blur, alternativas e vínculos de vídeo, atalho de pendência, descanso contextual, rascunho/descarte, larguras 320/390/1280 e recarga offline. Zero erros de página/console. Quinze capturas salvas e inspecionadas em `output/playwright/3.7.2-local/`; log `output/playwright/visual-3.7.2-local.log`. Capturas de elementos longos podem registrar a navegação fixa sobre o elemento; não equivalem à composição de um único viewport.
+- A regressão PWA lenta inicialmente bloqueou todas as gravações do teste (inclusive o blur) e expirou esperando a fila. O controle foi corrigido para suspender só a primeira gravação; a janela continua demonstrada e o caso final passou (`functional-pwa-final-3.7.2.tap.log`). Nenhum erro de console foi filtrado. Execuções completas preliminares interrompidas foram preservadas e não contam como gate aprovado.
+- Ficha/catalogo/modelo (`workouts.js`, `legacy-v12.js`, `measurements.js`) sem alterações contra `main`; apenas APP_VERSION e nome do cache evoluem. Periodização, esquema 13, progressão e identidade por variação/máquina/lado continuam nos testes canônicos.
+- Limites: contextos descartáveis e dados fictícios em Chrome. Não substituem iPhone físico, leitor de tela real ou instalação nativa. O rascunho de Medidas é apenas em memória e não promete sobreviver ao fechamento do app.
+
 ## Rodada 3.7.1 / esquema 13 — 2026-10-23
 
 Gate local aprovado: **156/156** testes de lógica/dados/cache e **69/69** em Chrome, zero falhas, cancelamentos ou ignorados na execução final (**435.232 ms**). Publicação e smoke público aprovados.

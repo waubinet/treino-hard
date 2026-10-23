@@ -78,6 +78,12 @@
   let wakeLock = null;
   let lastBackupState = 'Verificando…';
   let pwaUpdateConfirmed = false;
+  let pwaReloadReady = false;
+  // Rascunho de formulário, não um registro corporal nem parte do esquema.
+  // Sobrevive às trocas de aba/redesenhos, mas não ao fechamento do aplicativo.
+  let measurementDraft = null;
+  let measurementDraftVersion = 0;
+  let measurementSaving = false;
 
   const dom = {};
 
@@ -350,7 +356,7 @@
   }
 
   function guardUnsavedExit(event) {
-    if (!inputSavePending && !pendingSaveCount && !inputSaveFailed) return;
+    if (!inputSavePending && !pendingSaveCount && !inputSaveFailed && !measurementDraft) return;
     if (inputSavePending) void flushInputSave();
     event.preventDefault();
     event.returnValue = '';
@@ -449,6 +455,9 @@
     if (focusPanel) {
       const panel = document.getElementById(`panel-${tabId}`);
       if (panel) panel.focus();
+    } else {
+      const tab = document.getElementById(`tab-${tabId}`);
+      if (tab) tab.focus({preventScroll: true});
     }
   }
 
@@ -583,6 +592,8 @@
     dom.timerNumber = document.getElementById('timer-number');
     dom.timerLabel = document.getElementById('timer-label');
     dom.timerAnnouncement = document.getElementById('timer-announcement');
+    dom.timerUndo = dom.timerBar.querySelector('[data-action="timer-undo"]');
+    updateTimerUndoState();
     dom.weekSelector = document.getElementById('week-selector');
     dom.weekSummary = document.getElementById('week-summary');
     dom.footerVersion = document.getElementById('footer-version');
@@ -738,7 +749,10 @@
       const prescription = sessionPrimaryPrescription(session);
       const snapshot = prescription ? prescription.prescriptionSnapshot : null;
       const progress = exerciseProgress(session);
-      const iniciado = session.status !== 'planned';
+      const encerrado = TERMINAL_STATUSES.has(session.status);
+      const actionLabel = encerrado ? 'Consultar treino encerrado'
+        : session.status === 'paused' ? 'Abrir treino pausado'
+          : session.status === 'started' ? 'Continuar treino' : 'Iniciar treino';
       const anterior = lastFinishedSession(session.workoutId, session.id);
       const diaSemana = new Intl.DateTimeFormat('pt-BR', {weekday: 'long'}).format(new Date(`${session.plannedDate}T12:00:00`));
       children.push(element('article', {className: `card today-card k-per${session.status === 'completed' ? ' done' : ''}`}, [
@@ -760,8 +774,10 @@
         element('p', {className: 'todayprog', text: `${progress.done} de ${progress.total} exercícios concluídos`}),
         progressBar(progress, 'exercícios'),
         element('div', {className: 'button-row'}, [
-          button(iniciado ? 'Continuar treino' : 'Iniciar treino', 'open-workout', 'primary-button', {workoutId: session.workoutId, sessionId: session.id})
+          button(actionLabel, 'open-workout', 'primary-button', {workoutId: session.workoutId, sessionId: session.id, pending: session.status === 'started' ? 'true' : null})
         ]),
+        encerrado ? element('p', {className: 'fine-print', text: 'Consulta somente leitura. Para alterar registros, reabra a sessão explicitamente.'}) : null,
+        session.status === 'paused' ? element('p', {className: 'fine-print', text: 'O treino permanece pausado até você tocar em Retomar na ficha.'}) : null,
         anterior ? element('p', {className: 'fine-print', text: `Último ${workout.label}: ${formatDate(anterior.actualDate || anterior.plannedDate)} · ${SESSION_LABELS[anterior.status].toLowerCase()}.`}) : null,
         discomfortWarning(session)
       ]));
@@ -1072,7 +1088,7 @@
         element('span', {text: label})
       ]))
     ]));
-    return element('article', {className: `section-card card k-mob${exerciseLog.completed ? ' done' : ''}`}, [
+    return element('article', {className: `section-card card k-mob${exerciseLog.completed ? ' done' : ''}`, attrs: {id: `exercicio-${workoutExercise.id}`}}, [
       element('div', {className: 'card-header chead'}, [
         element('div', {className: 'card-title'}, [
           element('h3', {className: 'cname', text: `${order}. ${workoutExercise.name}`}),
@@ -1172,6 +1188,32 @@
       if (exercise.type === 'mobility') return !logs[0].completed && !logs[0].skipped;
       return !logs.every(log => log.completed);
     }) || null;
+  }
+
+  function focusExercise(session, exerciseId) {
+    if (!session) return;
+    const logs = session.exercises.filter(log => log.exerciseId === exerciseId);
+    if (logs.length > 1) {
+      const pending = orderedLogs(logs).find(log => !log.completed);
+      const active = activeSideLog(session, logs);
+      if (pending && active.completed) {
+        sideSelection[`${session.id}:${exerciseId}`] = pending.side;
+        renderActivePanel();
+      }
+    }
+    const card = document.getElementById(`exercicio-${exerciseId}`);
+    if (!card) return;
+    card.scrollIntoView({behavior: 'auto', block: 'start'});
+    const row = isSessionEditable(session) && card.querySelector('.set-row:not(.is-warmup):not(.is-complete)');
+    const load = row && row.querySelector('.set-field-load input');
+    const reps = row && row.querySelector('.set-field-reps input');
+    const target = row
+      ? (!load.value ? load : !reps.value ? reps : row.querySelector('[data-action="set-complete"]'))
+      : (isSessionEditable(session) && card.querySelector('[data-action="mobility-complete"]')) || card.querySelector('.cname');
+    if (target) {
+      if (!target.matches('input, select, button')) target.setAttribute('tabindex', '-1');
+      target.focus({preventScroll: true});
+    }
   }
 
   // Linha de referência da execução anterior. Quando não há histórico
@@ -1376,7 +1418,7 @@
       exercicioConcluido ? element('div', {className: 'donebox'}, [
         element('strong', {text: '✓ Exercício concluído'}),
         proximo ? element('p', {text: `Próximo: ${proximo.name}`}) : element('p', {text: 'Este era o último exercício pendente do treino.'}),
-        proximo ? button('Ir para o próximo', 'goto-exercise', 'secondary-button', {exerciseId: proximo.id}) : null
+        proximo ? button('Ir para o próximo', 'goto-exercise', 'secondary-button', {sessionId: session.id, exerciseId: proximo.id}) : null
       ]) : null,
       button(`⏱ Descanso ${formatDuration(snapshot.restSeconds)}`, 'timer-start-rest', 'restbtn',
         {sessionId: session.id, exerciseId: exerciseLog.id, seconds: String(snapshot.restSeconds)})
@@ -1394,6 +1436,7 @@
     }
     const progress = sessionProgress(session);
     const readOnly = !isSessionEditable(session);
+    const nextPending = readOnly ? null : proximoExercicioPendente(session, '');
     const children = [
       element('article', {className: 'card session-card'}, [
         element('div', {className: 'card-header'}, [
@@ -1401,6 +1444,10 @@
           element('span', {className: `status-pill${session.status === 'completed' ? ' is-complete' : ''}`, text: SESSION_LABELS[session.status]})
         ]),
         progressBar(progress, 'itens'),
+        nextPending ? element('div', {className: 'session-next-action'}, [
+          element('p', {className: 'fine-print', text: `Próximo item pendente: ${nextPending.name}. O atalho não marca séries nem altera a ordem da ficha.`}),
+          button('Ir ao próximo pendente', 'goto-exercise', 'secondary-button', {sessionId: session.id, exerciseId: nextPending.id})
+        ]) : null,
         element('p', {className: 'fine-print', text: `Início: ${formatDateTime(session.startedAt)}. Duração registrada: ${session.durationSeconds ? formatDuration(session.durationSeconds) : 'em aberto'}.`}),
         ['started', 'paused'].includes(session.status)
           ? button('Finalizar treino do dia', 'session-complete', `workoutfinish${progress.total && progress.done === progress.total ? ' on' : ''}`, {sessionId: session.id})
@@ -1836,21 +1883,54 @@
     ]);
   }
 
+  function captureMeasurementDraft(form) {
+    const values = Object.fromEntries(new FormData(form));
+    const hasValues = Object.entries(values).some(([key, value]) =>
+      key === 'date' ? String(value) !== Core.localDateKey() : String(value).trim());
+    measurementDraft = hasValues ? values : null;
+    measurementDraftVersion += 1;
+    updateMeasurementDraftStatus();
+  }
+
+  function updateMeasurementDraftStatus() {
+    const status = document.getElementById('measurement-draft-status');
+    if (status) {
+      const message = measurementDraft
+        ? 'Rascunho não salvo. Mantido ao trocar de aba enquanto o app estiver aberto. Toque em Salvar medidas para registrar.'
+        : 'As medidas só entram no histórico ao tocar em Salvar medidas.';
+      if (status.textContent !== message) status.textContent = message;
+      status.dataset.dirty = measurementDraft ? 'true' : 'false';
+    }
+    const clear = document.querySelector('[data-action="measurement-clear-request"]');
+    if (clear) clear.disabled = !measurementDraft || measurementSaving || storage.writeBlocked;
+  }
+
   function measurementForm() {
     const groups = {base: 'Dados de base', torso: 'Tronco', limbs: 'Membros — registre cada lado'};
-    return element('form', {className: 'section-card measurement-form', dataset: {form: 'measurement'}}, [
+    const draft = measurementDraft || {};
+    const form = element('form', {className: 'section-card measurement-form', dataset: {form: 'measurement'}}, [
       element('h3', {text: 'Nova medição'}),
+      element('p', {className: 'fine-print measurement-draft-status', attrs: {id: 'measurement-draft-status', role: 'status'}}),
       element('div', {className: 'field-grid'}, [
-        field('Data', element('input', {className: 'input', attrs: {type: 'date', name: 'date', required: true}, props: {value: Core.localDateKey()}})),
-        field('Horário opcional', element('input', {className: 'input', attrs: {type: 'datetime-local', name: 'measuredAt'}}))
+        field('Data', element('input', {className: 'input', attrs: {type: 'date', name: 'date', required: true}, props: {value: draft.date == null ? Core.localDateKey() : draft.date}})),
+        field('Horário opcional', element('input', {className: 'input', attrs: {type: 'datetime-local', name: 'measuredAt'}, props: {value: draft.measuredAt || ''}}))
       ]),
       ...Object.entries(groups).map(([group, legend]) => element('fieldset', {className: 'measurement-group'}, [
         element('legend', {text: legend}),
-        element('div', {className: 'field-grid is-three'}, Object.entries(Measurements.METRICS).filter(([, metric]) => metric.group === group).map(([key, metric]) => field(`${metric.label} (${metric.unit})`, element('input', {className: 'input', attrs: {type: 'text', name: key, inputmode: 'decimal', placeholder: metric.example}}))))
+        element('div', {className: 'field-grid is-three'}, Object.entries(Measurements.METRICS).filter(([, metric]) => metric.group === group).map(([key, metric]) => field(`${metric.label} (${metric.unit})`, element('input', {className: 'input', attrs: {type: 'text', name: key, inputmode: 'decimal', placeholder: metric.example}, props: {value: draft[key] || ''}}))))
       ])),
-      field('Observação', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '300'}}), 'field full'),
-      element('div', {className: 'button-row'}, [element('button', {className: 'primary-button', text: 'Salvar medidas', attrs: {type: 'submit'}})])
+      field('Observação', element('textarea', {className: 'textarea', attrs: {name: 'note', rows: '2', maxlength: '300'}, props: {value: draft.note || ''}}), 'field full'),
+      element('div', {className: 'button-row'}, [
+        element('button', {className: 'primary-button', text: 'Salvar medidas', attrs: {type: 'submit', disabled: measurementSaving}}),
+        button('Limpar formulário', 'measurement-clear-request', 'secondary-button', {}, {disabled: !measurementDraft || measurementSaving})
+      ])
     ]);
+    const status = form.querySelector('#measurement-draft-status');
+    status.textContent = measurementDraft
+      ? 'Rascunho não salvo. Mantido ao trocar de aba enquanto o app estiver aberto. Toque em Salvar medidas para registrar.'
+      : 'As medidas só entram no histórico ao tocar em Salvar medidas.';
+    status.dataset.dirty = measurementDraft ? 'true' : 'false';
+    return form;
   }
 
   function measurementComparison(latest, previous) {
@@ -2350,7 +2430,7 @@
     recordProgressionDecisions(session);
     const saved = await persist(status === 'completed' ? 'Treino do dia concluído.' : 'Treino encerrado como parcial.', true);
     if (!saved) return false;
-    stopTimer();
+    stopTimerForSession(session.id);
     await releaseWakeLock();
     try {
       await storage.automaticBackup(state, true);
@@ -2429,14 +2509,34 @@
     const saved = await persist('Série confirmada.', true);
     if (!saved) {
       lastSetUndo = previousUndo;
+      updateTimerUndoState();
       return false;
     }
     await requestWakeLock();
     if (state.settings.autoStartRest && set.nextRestSeconds) startTimer(set.nextRestSeconds, exerciseWithSide(session, log), {sessionId: session.id, exerciseId: log.id, setId: set.id});
+    updateTimerUndoState();
     return true;
   }
 
-  async function undoLastSet() {
+  function timerMatchesSet(undo) {
+    return Boolean(undo && timerContext && timerContext.setId
+      && timerContext.sessionId === undo.sessionId
+      && timerContext.exerciseId === undo.exerciseId
+      && timerContext.setId === undo.setId);
+  }
+
+  function updateTimerUndoState() {
+    if (!dom.timerUndo) return;
+    dom.timerUndo.disabled = !timerMatchesSet(lastSetUndo)
+      || !isSessionEditable(findSession(lastSetUndo.sessionId));
+  }
+
+  async function undoLastSet(timerOnly) {
+    if (timerOnly && !timerMatchesSet(lastSetUndo)) {
+      updateTimerUndoState();
+      announce('Este descanso não corresponde à última série confirmada. Use Desfazer no cartão da série.');
+      return;
+    }
     if (!lastSetUndo) {
       announce('Não há série recente para desfazer.');
       return;
@@ -2454,10 +2554,13 @@
     const saved = await persist('Última alteração desfeita.', true);
     if (!saved) {
       lastSetUndo = undo;
+      updateTimerUndoState();
       return;
     }
+    const timerBelongsToUndoneSet = timerMatchesSet(undo);
     lastSetUndo = null;
-    stopTimer();
+    if (timerBelongsToUndoneSet) stopTimer();
+    else updateTimerUndoState();
   }
 
   function startTimer(seconds, label, context) {
@@ -2465,6 +2568,7 @@
     if (!duration) return;
     timerDeadline = Date.now() + duration * 1000;
     timerContext = context || null;
+    dom.timerAnnouncement.textContent = '';
     dom.timerLabel.textContent = `Intervalo · ${label}`;
     dom.timerBar.hidden = false;
     updateTimer();
@@ -2485,6 +2589,7 @@
   }
 
   function updateTimer() {
+    updateTimerUndoState();
     const seconds = Math.max(0, Math.ceil((timerDeadline - Date.now()) / 1000));
     dom.timerNumber.textContent = formatDuration(seconds);
     dom.timerNumber.setAttribute('aria-label', `${seconds} segundos restantes`);
@@ -2522,6 +2627,12 @@
     timerContext = null;
     dom.timerBar.hidden = true;
     dom.timerAnnouncement.textContent = '';
+    updateTimerUndoState();
+  }
+
+  function stopTimerForSession(sessionId) {
+    if (timerContext && timerContext.sessionId === sessionId) stopTimer();
+    else updateTimerUndoState();
   }
 
   async function requestWakeLock() {
@@ -2715,9 +2826,16 @@
     const action = target.dataset.action;
     if (target.tagName === 'A' && action !== 'open-video') return;
     if (blockReadOnlyMutation(action, false)) return;
-    if (action === 'activate-tab') { selectedSessionId = ''; activateTab(target.dataset.tab, false); return; }
+    if (action === 'activate-tab') { selectedSessionId = ''; activateTab(target.dataset.tab, target.getAttribute('role') !== 'tab'); return; }
     if (action === 'cycle-week-set') { await changeCycleWeek(Number(target.dataset.week)); return; }
-    if (action === 'open-workout') { selectedSessionId = target.dataset.sessionId || ''; activateTab(target.dataset.workoutId, true); return; }
+    if (action === 'open-workout') {
+      selectedSessionId = target.dataset.sessionId || '';
+      activateTab(target.dataset.workoutId, true);
+      const opened = findSession(selectedSessionId);
+      const pending = opened && target.dataset.pending === 'true' && isSessionEditable(opened) && proximoExercicioPendente(opened, '');
+      if (pending) focusExercise(opened, pending.id);
+      return;
+    }
     if (action === 'close-modal') { closeModal(); return; }
     if (action === 'close-video') { closeVideo(); return; }
     if (action === 'open-video') { openVideo(target.dataset.videoKey); return; }
@@ -2725,7 +2843,7 @@
     if (action === 'video-open-inline') { openVideoInline(target.dataset.videoKey); return; }
     if (action === 'timer-stop') { stopTimer(); return; }
     if (action === 'timer-add') { addTimerSeconds(30); return; }
-    if (action === 'timer-undo') { await undoLastSet(); return; }
+    if (action === 'timer-undo') { await undoLastSet(dom.timerBar.contains(target)); return; }
     if (action === 'install-app') { await installApp(); return; }
     if (action === 'pwa-update') { await applyPwaUpdate(); return; }
     if (action === 'retry-input-save') { await persist('', false, {preserveInputOnFailure: true}); return; }
@@ -2763,6 +2881,24 @@
     }
     if (action === 'snapshot-restore-confirm') { await restoreSnapshot(); return; }
     if (action === 'plan-workout-today') { await planWorkoutToday(target.dataset.workoutId); return; }
+    if (action === 'measurement-clear-request') {
+      if (!measurementDraft || measurementSaving) return;
+      confirmationModal('Limpar formulário de medidas', 'Descartar apenas o rascunho ainda não salvo? Nenhuma medição do histórico será apagada.', 'measurement-clear-confirm', {}, 'Descartar rascunho');
+      return;
+    }
+    if (action === 'measurement-clear-confirm') {
+      if (measurementSaving) return;
+      measurementDraft = null;
+      measurementDraftVersion += 1;
+      closeModal();
+      if (currentTab === 'measurements') {
+        renderActivePanel();
+        const first = document.querySelector('.measurement-form [name="weight"]');
+        if (first) first.focus();
+      }
+      announce('Rascunho descartado. O histórico não foi alterado.');
+      return;
+    }
     if (action === 'post-leg-check-open') {
       const checkedSession = findSession(target.dataset.sessionId);
       if (canRecordPostLegCheck(checkedSession)) openModal('Check após pernas', postLegCheckForm(checkedSession));
@@ -2817,12 +2953,7 @@
     if (action === 'mobility-complete') { await toggleMobility(session, target.dataset.exerciseId, 'completed'); return; }
     if (action === 'mobility-skip') { await toggleMobility(session, target.dataset.exerciseId, 'skipped'); return; }
     if (action === 'goto-exercise') {
-      const alvo = document.getElementById(`exercicio-${target.dataset.exerciseId}`);
-      if (alvo) {
-        alvo.scrollIntoView({behavior: 'smooth', block: 'start'});
-        const primeiro = alvo.querySelector('input, select, button');
-        if (primeiro) primeiro.focus({preventScroll: true});
-      }
+      focusExercise(session, target.dataset.exerciseId);
       return;
     }
     if (action === 'summary-evolution') { closeModal(); activateTab('evolution', true); return; }
@@ -2854,6 +2985,8 @@
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement || target instanceof HTMLTextAreaElement)) return;
     if (target === dom.importFile) { await previewImportFile(target.files && target.files[0]); return; }
+    const measurementForm = target.closest('form[data-form="measurement"]');
+    if (measurementForm && !storage.writeBlocked) { captureMeasurementDraft(measurementForm); return; }
     const action = target.dataset.action;
     if (!action) return;
     if (action === 'evolution-key') { evolutionSelection.key = target.value; renderActivePanel(); return; }
@@ -3010,6 +3143,8 @@
   function handleInput(event) {
     const target = event.target;
     if (!(target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)) return;
+    const measurementForm = target.closest('form[data-form="measurement"]');
+    if (measurementForm && !storage.writeBlocked) { captureMeasurementDraft(measurementForm); return; }
     const action = target.dataset.action;
     if (!['set-field', 'exercise-field', 'mobility-note', 'execution-note'].includes(action)) return;
     if (blockReadOnlyMutation(action, true)) return;
@@ -3097,6 +3232,7 @@
     session.updatedAt = session.completedAt;
     const saved = await persist(`Sessão registrada como ${SESSION_LABELS[status].toLowerCase()}.`, true);
     if (!saved) return false;
+    stopTimerForSession(session.id);
     await releaseWakeLock();
     return true;
   }
@@ -3122,7 +3258,10 @@
     session.completedAt = completedAt;
     session.updatedAt = session.completedAt;
     state.sessions.push(replacement);
-    if (await persist(`Sessão remarcada para ${formatDate(newDate)}.`, true)) closeModal();
+    if (await persist(`Sessão remarcada para ${formatDate(newDate)}.`, true)) {
+      stopTimerForSession(session.id);
+      closeModal();
+    }
   }
 
   async function reopenSession(session) {
@@ -3334,6 +3473,7 @@
   }
 
   async function saveMeasurement(formData, form) {
+    if (measurementSaving) return;
     const measuredInput = String(formData.get('measuredAt') || '');
     let measuredAt = '';
     if (measuredInput) {
@@ -3376,8 +3516,24 @@
       if (firstMetric && typeof firstMetric.focus === 'function') firstMetric.focus();
       return;
     }
+    const draftAtRequest = measurementDraftVersion;
+    measurementSaving = true;
+    const submit = form.querySelector('[type="submit"]');
+    if (submit) submit.disabled = true;
+    updateMeasurementDraftStatus();
     state.measurements.push(normalized);
-    if (await persist('Medidas corporais registradas.', true, {keepDomOnFailure: true})) form.reset();
+    try {
+      const saved = await persist('Medidas corporais registradas.', false, {keepDomOnFailure: true});
+      if (!saved) return;
+      // Não apagar texto digitado enquanto o IndexedDB terminava a gravação.
+      if (draftAtRequest === measurementDraftVersion) measurementDraft = null;
+      if (currentTab === 'measurements') renderActivePanel();
+    } finally {
+      measurementSaving = false;
+      const liveSubmit = document.querySelector('.measurement-form [type="submit"]');
+      if (liveSubmit) liveSubmit.disabled = storage.writeBlocked;
+      updateMeasurementDraftStatus();
+    }
   }
 
   function replacePlannedSessionPrescription(session, week) {
@@ -3695,14 +3851,28 @@
   }
 
   function showPwaUpdate(registration) {
-    showNotice('Uma nova versão do aplicativo está pronta. Atualize somente quando não estiver preenchendo uma série.', 'warning', [button('Atualizar agora', 'pwa-update', 'secondary-button')]);
+    showNotice('Uma nova versão do aplicativo está pronta. Salve séries e formulários em preenchimento antes de atualizar.', 'warning', [button('Atualizar agora', 'pwa-update', 'secondary-button')]);
     dom.notice.dataset.source = 'pwa-update';
     dom.notice.dataset.registration = 'waiting';
     global.__treinoHardWaitingRegistration = registration;
   }
 
   async function applyPwaUpdate() {
+    if (measurementDraft || measurementSaving) {
+      showNotice('Salve ou descarte o rascunho de Medidas antes de atualizar. A página não será recarregada agora.', 'warning', [
+        button('Voltar às medidas', 'activate-tab', 'secondary-button', {tab: 'measurements'}),
+        button('Atualizar agora', 'pwa-update', 'secondary-button')
+      ]);
+      return;
+    }
     if (!(await flushInputSave())) return;
+    // Enquanto a fila de gravação aguardava, outro formulário pode ter sido
+    // preenchido. Revalidar antes de ativar o worker ou recarregar a página.
+    if (measurementDraft || measurementSaving) {
+      showNotice('Salve ou descarte o rascunho de Medidas antes de atualizar. A página não será recarregada agora.', 'warning', [button('Atualizar agora', 'pwa-update', 'secondary-button')]);
+      return;
+    }
+    if (pwaReloadReady) { global.location.reload(); return; }
     const registration = global.__treinoHardWaitingRegistration;
     if (registration && registration.waiting) {
       pwaUpdateConfirmed = true;
@@ -3751,6 +3921,11 @@
         // descartaria campos preenchidos e ainda não confirmados.
         if (!pwaUpdateConfirmed) {
           announce('Pacote offline ativado. Nada foi interrompido.');
+          return;
+        }
+        if (measurementDraft || measurementSaving) {
+          pwaReloadReady = true;
+          showNotice('A nova versão foi ativada, mas seu rascunho de Medidas continua aberto. Salve ou descarte antes de recarregar.', 'warning', [button('Atualizar agora', 'pwa-update', 'secondary-button')]);
           return;
         }
         if (reloading) return;
