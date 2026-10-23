@@ -1,5 +1,11 @@
 # Curadoria de vídeos
 
+## Lote 3.6.8 — 2026-10-23
+
+Leg press 45° unilateral e vacuum em pé/quatro apoios receberam demonstrações específicas brasileiras, com recortes separados. A incorporação real foi confirmada também para os dois vídeos unilaterais adicionados nas rodadas 3.6.6/3.6.7. Fontes e revisão em `REVISAO-VIDEOS-2026-10-23.md`.
+
+Inventário atual: **46 associações para 36 vídeos únicos, 38 correspondências exatas e 8 guias-base**. A inspeção aprova os trechos indicados; não valida automaticamente todas as prescrições ou afirmações presentes nos vídeos completos. As seções seguintes registram o histórico.
+
 ## Rodada 3.6.7 — 2026-10-23
 
 Extensora unilateral passa a usar `7HcK7fmYJP0`, Foco30Dias, após inspeção visual individual. Origem e limitações em `REVISAO-VIDEOS-2026-10-23.md`. Reprodução externa disponível; incorporação ainda não confirmada. Inventário atual: **46 associações, 34 vídeos únicos, 35 correspondências exatas e 11 guias-base**.

@@ -1,5 +1,13 @@
 # Changelog
 
+## [3.6.8] — lote de vídeos específicos e reprodução interna — 2026-10-23
+
+- Leg press 45° unilateral passa a ter demonstração unilateral específica de Fernando Maradona, com trecho de apoio delimitado.
+- Vacuum em pé e quatro apoios usam trechos distintos do Treino Mestre, correspondentes à posição escolhida.
+- Confirmada a reprodução incorporada de extensora unilateral e panturrilha unilateral em pé, que agora respeitam a preferência de assistir dentro do app.
+- Inventário: 46 associações para 36 vídeos únicos, 38 correspondências exatas e 8 guias-base. Origem, inspeção e limites em `REVISAO-VIDEOS-2026-10-23.md`.
+- Versão/cache 3.6.8; esquema 13 e prescrição preservados.
+
 ## [3.6.7] — extensora unilateral — 2026-10-23
 
 - Extensora unilateral recebeu demonstração específica brasileira do Foco30Dias, substituindo o guia bilateral. Abre no YouTube até confirmar incorporação.

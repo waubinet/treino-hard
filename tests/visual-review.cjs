@@ -67,11 +67,18 @@ async function main() {
       storage.close();
       return data;
     });
-    assert.equal(migration.version, '3.6.7');
+    assert.equal(migration.version, '3.6.8');
     assert.equal(migration.schema, 13);
     assert.equal(migration.history, 4);
     assert.deepEqual(migration.curl, ['bilateral']);
     assert.ok(migration.backups > 0);
+    const reviewedVideos = await page.evaluate(() => Object.fromEntries(
+      ['leg_press_45_unilateral', 'leg_extension_unilateral', 'calf_standing_unilateral', 'vacuum_standing', 'vacuum_all_fours']
+        .map(key => {const v = THFData.VIDEOS[key]; return [key, {id: v.youtubeId, scope: v.coverageScope, available: v.availability, embed: v.embedCompatible, start: v.startSeconds, end: v.endSeconds}];})
+    ));
+    assert.deepEqual(Object.values(reviewedVideos).map(v => v.id), ['ausscKK91R8', '7HcK7fmYJP0', 'fSQ5LGWfnYU', 'TU9XSn6TYxs', 'TU9XSn6TYxs']);
+    assert.ok(Object.values(reviewedVideos).every(v => v.scope === 'exact' && v.available === 'available' && v.embed === true));
+    assert.deepEqual([reviewedVideos.vacuum_standing.start, reviewedVideos.vacuum_standing.end, reviewedVideos.vacuum_all_fours.start, reviewedVideos.vacuum_all_fours.end], [138, 153, 154, 167]);
     await page.reload({waitUntil: 'networkidle'});
     await ready();
     await page.getByRole('tab', {name: 'Empurrar A', exact: true}).click();
@@ -100,14 +107,14 @@ async function main() {
     await page.evaluate(() => navigator.serviceWorker.ready);
     await page.reload({waitUntil: 'networkidle'});
     const caches = await page.evaluate(() => globalThis.caches.keys());
-    assert.ok(caches.includes('treino-hard-v3.6.7'));
+    assert.ok(caches.includes('treino-hard-v3.6.8'));
     await context.setOffline(true);
     await page.reload({waitUntil: 'domcontentloaded'});
     await ready();
     await page.getByRole('tab', {name: 'Medidas', exact: true}).click();
     assert.equal(await page.locator('.measurement-side-history').isVisible(), true);
     assert.deepEqual(errors, []);
-    console.log(JSON.stringify({url: baseUrl, migration, autosaveWithoutBlur: true, caches, offline: true, errors, screenshots: fs.readdirSync(OUTPUT).map(file => path.join(OUTPUT, file))}, null, 2));
+    console.log(JSON.stringify({url: baseUrl, migration, reviewedVideos, autosaveWithoutBlur: true, caches, offline: true, errors, screenshots: fs.readdirSync(OUTPUT).map(file => path.join(OUTPUT, file))}, null, 2));
   } finally {
     await browser.close();
     if (server) await new Promise(resolve => server.close(resolve));

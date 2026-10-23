@@ -1848,7 +1848,7 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   const bloqueados = Object.entries(videos).filter(([, video]) => video.blockedByBrazilPolicy === true);
 
   assert.ok(aprovados.length > 0, 'o catálogo precisa manter exemplos brasileiros aprovados');
-  assert.equal(Object.keys(provenance).length, 35, 'a autorização usa uma lista fechada e auditável');
+  assert.equal(Object.keys(provenance).length, 37, 'a autorização usa uma lista fechada e auditável');
   aprovados.forEach(([chave, video]) => {
     const proof = provenance[video.youtubeId];
     assert.ok(proof, `${chave}: ID ausente da lista fechada de proveniência`);
@@ -1873,7 +1873,10 @@ test('inventário de vídeos: política brasileira rebaixa candidatos incompatí
   assert.equal(videos.cable_crossover.blockedByBrazilPolicy, false);
   assert.equal(videos.cable_crossover.status, 'accepted');
   assert.equal(videos.vacuum_standing.blockedByBrazilPolicy, false);
-  assert.equal(videos.vacuum_standing.coverageScope, 'foundation');
+  assert.equal(videos.vacuum_standing.coverageScope, 'exact');
+  assert.equal(videos.vacuum_all_fours.coverageScope, 'exact');
+  assert.equal(videos.vacuum_seated.coverageScope, 'foundation', 'ajoelhado sobre os calcanhares não equivale a sentado em cadeira');
+  assert.ok(videos.vacuum_standing.endSeconds <= videos.vacuum_all_fours.startSeconds, 'cada posição deve abrir seu próprio trecho');
 
   const exemplo = aprovados[0][1];
   assert.equal(app.Data.verifiedBrazilianProvenance(Object.assign({}, exemplo, {channel: 'Canal forjado'})), null, 'autodeclarar BR e uma URL não substitui a correspondência exata do canal');

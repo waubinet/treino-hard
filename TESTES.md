@@ -1,5 +1,17 @@
 # Plano e evidências de teste
 
+## Rodada 3.6.8 / esquema 13 — 2026-10-23
+
+Gate local final aprovado: **154/154** testes de lógica/dados/cache e **65/65** cenários em Chrome, zero falhas, cancelamentos ou ignorados. Suíte completa de navegador em 530.759 ms. Dois cenários dirigidos de variantes/integração também passaram antes da execução completa.
+
+- Novos conteúdos: leg press 45° unilateral (1:55–2:45), vacuum em pé (2:18–2:33) e quatro apoios (2:34–2:47). Origem e inspeção individual registradas em `REVISAO-VIDEOS-2026-10-23.md`.
+- Reprodução real, independente dos testes simulados: `ausscKK91R8`, `TU9XSn6TYxs`, `fSQ5LGWfnYU` e `7HcK7fmYJP0` chegaram ao estado 1, sem erro, no IFrame Player API em localhost, host `youtube-nocookie.com`.
+- Novo cenário de integração: três variantes unilaterais e duas posições de vacuum abrem o ID e recorte corretos dentro do app; preferência interna respeitada. O YouTube é interceptado nesse teste, portanto ele não é prova de reprodução real.
+- Inventário conferido no código: 46 associações, 36 vídeos únicos, 38 correspondências exatas e 8 guias-base. Vacuum sentado continua aproximação: ajoelhado sobre os calcanhares não equivale a cadeira.
+- Revisão visual: quatro capturas desktop/móvel inspecionadas; larguras 320/390/1280 sem overflow global. Migração preservou quatro sessões fictícias e backup; autosave sem blur, cache `treino-hard-v3.6.8` e recarga offline passaram, com zero erros de página/console. Smoke também confere os cinco registros de vídeo alterados.
+- Sintaxe dos scripts/testes e `git diff --check`: aprovados. Nenhuma mudança de prescrição, esquema ou identidades de histórico. Continuam pendentes testes em iPhone físico, leitor de tela real e instalação nativa.
+- Publicação: aguardando confirmação do Pages e smoke público.
+
 ## Rodada 3.6.7 / esquema 13 — 2026-10-23
 
 - 154/154 testes de lógica/dados/cache aprovados; sintaxe e diff check aprovados.

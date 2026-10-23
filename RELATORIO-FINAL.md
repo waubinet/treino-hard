@@ -1,5 +1,13 @@
 # Relatório de entrega — Treino Hard (Fofo)
 
+## Rodada 3.6.8 — lote de curadoria, 2026-10-23
+
+Leg press 45° unilateral, vacuum em pé e quatro apoios receberam demonstrações específicas brasileiras e recortes separados. Extensora unilateral e panturrilha unilateral em pé tiveram reprodução incorporada confirmada e agora respeitam a preferência de assistir dentro do app. Catálogo: 46 associações para 36 vídeos, 38 correspondências exatas e 8 guias-base.
+
+Gate local: 154/154 testes de lógica/dados/cache e 65/65 cenários em Chrome, revisão visual, migração, backup, autosave e offline aprovados sem erros de página/console. A reprodução real dos quatro IDs foi confirmada pelo player oficial; o teste de integração simula o YouTube e verifica apenas a ligação correta de variante/posição/recorte.
+
+Fontes, limitações e inspeção estão em `REVISAO-VIDEOS-2026-10-23.md`; publicação e evidências em `TESTES.md`. A posição sentada em cadeira e os demais oito guias-base ainda não têm demonstração exata. Prescrição e esquema 13 preservados.
+
 ## Rodada 3.6.7 — 2026-10-23
 
 Extensora unilateral recebeu demonstração específica do canal brasileiro Foco30Dias, substituindo o guia bilateral. Inventário: 46 associações, 34 vídeos únicos, 35 correspondências exatas e 11 guias-base. Leg press unilateral permanece com guia-base; incorporação do novo vídeo ainda não confirmada, com abertura externa.

@@ -1,10 +1,19 @@
 # Revisão de vídeos — 2026-10-23
 
-## Continuação — candidatos de panturrilha unilateral no leg press
+## Lote 3.6.8 — revisão concluída, publicação em validação
+
+- Leg press 45° unilateral: `ausscKK91R8`, Fernando Maradona, 5:53, recorte 1:55–2:45. Inspeção individual confirmou trilhos inclinados, banco com apoio, perna única na plataforma e orientação de alinhamento de joelho/tornozelo. Quadros conferidos em 0:35, 1:20, 2:20, 3:20 e 4:20. O vídeo também contém contagens e estratégias próprias de treino; elas não alteram a ficha do app. Origem: evento do CREF22/ES lista Prof. Fernando Maradona, CREF006152-G/MG: https://www.sympla.com.br/evento/conferencia-da-educacao-fisica-capixaba/2633822 .
+- Vacuum em pé: `TU9XSn6TYxs`, Treino Mestre, 4:13, recorte 2:18–2:33. Mostra a retração abdominal em pé com vista lateral. Origem brasileira já documentada pelo site oficial https://treinomestre.com.br/sobre/ .
+- Vacuum quatro apoios: mesmo vídeo, recorte independente 2:34–2:47, mostrando mãos e joelhos apoiados e retração abdominal. Conferidos quadros em 2:34, 2:39 e 2:45. A posição ajoelhada sobre os calcanhares que aparece antes NÃO equivale a sentado em cadeira: `vacuum_seated` continua guia-base. A aprovação é dos recortes, não uma revisão integral de todas as afirmações do vídeo.
+- Incorporação real confirmada pelo IFrame Player API em origem localhost, host youtube-nocookie.com, estado 1 e sem erro para `ausscKK91R8`, `TU9XSn6TYxs`, `fSQ5LGWfnYU` e `7HcK7fmYJP0`. Os dois últimos deixam de ser apenas externos. A duração do vídeo de panturrilha em pé foi reconferida como 0:18 pelo player.
+- Registro de revisão: 2026-10-23. Quadros de apoio locais em `output/playwright/`, fora do pacote publicado. Testes que simulam YouTube verificam somente a integração, não foram usados como prova de reprodução.
+- Inventário do lote: 46 associações para 36 vídeos únicos, 38 correspondências exatas e 8 guias-base. Permanecem guias-base: panturrilha unilateral no leg press, panturrilha sentada unilateral, remada unilateral com geometria diferente, remada genérica/sem apoio, mobilidade de quadril, vacuum genérico e vacuum sentado.
+
+## Pesquisa anterior ao lote — candidatos de panturrilha unilateral no leg press
 
 - `qSiie2WYykc`, Gustavo Sá personal trainer, 1:53, https://www.youtube.com/watch?v=qSiie2WYykc . Página e introdução em português conferidas; o aparelho mostrado é inclinado. Ao avançar para conferir a execução, o player exibiu “Algo deu errado. Atualize ou tente de novo depois”. Não aprovado: inspeção da execução não concluída. A falha desta sessão não comprova remoção nem bloqueio de incorporação.
 - `-71eOdpGbwc`, Rubens Munhoz Personal, 0:20, https://www.youtube.com/watch?v=-71eOdpGbwc . Reprodução e quadro em 5 s conferidos: demonstração unilateral em leg press, tronco apoiado e instrução textual em português. Não aprovado para substituir automaticamente a variante `leg_press_45_unilateral`: a geometria do equipamento não foi confirmada como correspondente ao leg press 45° do catálogo; origem brasileira do canal também precisa de confirmação individual. O registro profissional encontrado por nome semelhante não foi usado como prova de identidade.
-- Nenhum vídeo do app foi substituído nesta continuação. Os 11 guias-base permanecem corretamente identificados. Branch de trabalho: `feat/curadoria-lote-3.6.8`; não há versão 3.6.8 implementada/publicada.
+- Naquela pesquisa inicial, nenhum vídeo do app havia sido substituído e ainda havia 11 guias-base. Esse retrato foi superado pelo lote descrito no topo; não representa o inventário atual.
 
 ## Extensora unilateral — rodada 3.6.7
 

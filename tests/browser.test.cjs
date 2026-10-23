@@ -2897,8 +2897,8 @@ test('leg press e extensora trocam cardinalidade somente antes de qualquer regis
     assert.equal(logs.every(item => item.sideModeSnapshot === 'unilateral'), true);
     const videoText = await card.innerText();
     if (exerciseId === 'leg_press_45') {
-      assert.match(videoText, /GUIA DO MOVIMENTO-BASE/i, 'o vídeo bilateral do leg press continua identificado como guia-base');
-      assert.match(videoText, /Atenção:.*bilateral/is, 'a diferença da demonstração bilateral precisa ficar explícita');
+      assert.match(videoText, /Fernando Maradona/, 'o leg press unilateral deve oferecer sua demonstração específica');
+      assert.doesNotMatch(videoText, /GUIA DO MOVIMENTO-BASE/i);
     } else {
       assert.match(videoText, /Foco30Dias/, 'a extensora unilateral deve oferecer sua demonstração específica');
       assert.doesNotMatch(videoText, /GUIA DO MOVIMENTO-BASE/i);
@@ -3280,6 +3280,39 @@ test('vídeos revisados mostram o recorte e limitam o player à variante correta
     assert.ok((await page.locator('#video-modal').innerText()).includes(label));
     const external = new URL(await page.locator('#video-external').getAttribute('href'));
     assert.equal(external.searchParams.get('t'), start ? `${start}s` : null);
+    await page.keyboard.press('Escape');
+  }
+  assert.deepEqual(errors, []);
+});
+
+test('demonstrações unilaterais e posições de vacuum abrem internamente no trecho correto', {timeout: 120000}, async t => {
+  const {page, errors} = await openApp(t, {fixedTime: SEGUNDA_FIXA});
+  await page.route('https://www.youtube-nocookie.com/**', route => route.fulfill({status: 200, contentType: 'text/html', body: '<html><body>Player isolado de integração</body></html>'}));
+  await openTab(page, 'Ajustes');
+  await page.locator('select[data-action="setting-video-mode"]').selectOption('inline');
+  const cases = [
+    ['Pernas A', 'leg_press_45', 'machine_unilateral', 'leg_press_45_unilateral', 'ausscKK91R8', 115, 165],
+    ['Pernas A', 'leg_extension', 'machine_unilateral', 'leg_extension_unilateral', '7HcK7fmYJP0', 0, 0],
+    ['Pernas A', 'calf_standing_or_leg_press', 'standing_machine_unilateral', 'calf_standing_unilateral', 'fSQ5LGWfnYU', 0, 0],
+    ['Rotina em casa', '', '', 'vacuum_standing', 'TU9XSn6TYxs', 138, 153],
+    ['Rotina em casa', '', '', 'vacuum_all_fours', 'TU9XSn6TYxs', 154, 167]
+  ];
+  for (const [tab, exerciseId, variant, key, id, start, end] of cases) {
+    await openTab(page, tab);
+    if (exerciseId) {
+      await page.locator(`#exercicio-${exerciseId} [data-action="variation-pick"][data-variation-id="${variant}"]`).click();
+      await page.waitForFunction(() => document.querySelector('#save-state').textContent === 'Salvo neste aparelho');
+    }
+    const trigger = page.locator(`#panels [data-action="open-video"][data-video-key="${key}"]`);
+    assert.doesNotMatch(await trigger.innerText(), /GUIA DO MOVIMENTO-BASE/);
+    await trigger.click();
+    const frame = page.locator('#video-modal iframe');
+    await frame.waitFor({state: 'attached'});
+    const src = new URL(await frame.getAttribute('src'));
+    assert.equal(src.hostname, 'www.youtube-nocookie.com');
+    assert.equal(src.pathname, `/embed/${id}`);
+    assert.equal(Number(src.searchParams.get('start') || 0), start);
+    assert.equal(Number(src.searchParams.get('end') || 0), end);
     await page.keyboard.press('Escape');
   }
   assert.deepEqual(errors, []);

@@ -1,5 +1,12 @@
 # Pendências reais
 
+## Rodada 3.6.8 — 2026-10-23
+
+- Leg press 45° unilateral, vacuum em pé e quatro apoios receberam demonstrações específicas; extensora unilateral e panturrilha unilateral em pé tiveram incorporação confirmada.
+- Inventário: 46 associações, 36 vídeos únicos, 38 correspondências exatas e 8 guias-base. A posição sentada em cadeira continua sem demonstração exata; a execução ajoelhada do candidato não foi usada como equivalente.
+- Permanecem guias-base para panturrilhas unilateral no leg press/sentada, remadas genérica/sem apoio e com geometria diferente, mobilidade de quadril, vacuum genérico/sentado.
+- Gate completo e publicação: consultar `TESTES.md`. Testes em iPhone físico, leitor de tela real e instalação nativa continuam pendentes.
+
 ## Rodada 3.6.7 — 2026-10-23
 
 - Extensora unilateral recebeu demonstração específica, com abertura externa. Leg press unilateral permanece com guia-base.
