@@ -8,7 +8,7 @@
 - Inventário executável: 46 associações, 33 vídeos únicos, 34 correspondências exatas e 12 guias de movimento-base.
 - Sintaxe dos scripts e testes e `git diff --check`: aprovados. Revisão visual: quatro capturas desktop/móvel inspecionadas; larguras 320/390/1280 sem overflow global; migração preservou quatro sessões fictícias e backup; autosave sem blur e reload offline passaram, cache `treino-hard-v3.6.6`, zero erros de página/console.
 - Não foi reproduzido novo defeito funcional nos cenários auditados. Isso não substitui testes em iPhone físico, leitor de tela ou instalação nativa, que seguem pendentes.
-- Publicação: aguardando confirmação do Pages e smoke público.
+- Publicação confirmada: commit funcional `f76ee385297d07dd162d9d54c3eb9ff8f06cac9c` com status `built` no Pages. Smoke em `https://waubinet.github.io/treino-hard/?v=f76ee38` passou: versão 3.6.6, esquema 13, cache correto, quatro sessões fictícias preservadas pela migração, backup, autosave sem blur, reload offline e zero erros de página/console.
 
 ## Rodada 3.6.5 / esquema 13 — 2026-09-21
 

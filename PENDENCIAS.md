@@ -4,7 +4,7 @@
 
 - Demonstração específica de panturrilha unilateral em pé integrada; incorporação ainda não confirmada, com abertura externa disponível.
 - Permanecem 12 guias de movimento-base: leg press unilateral, extensora unilateral, panturrilha no leg press unilateral, panturrilha sentada unilateral, remada unilateral em máquina de geometria diferente, remada genérica/sem apoio, mobilidade de quadril e posturas de vacuum.
-- 154 testes de lógica/dados/cache aprovados; gate completo de navegador e publicação serão registrados em `TESTES.md`.
+- Gate concluído: 154/154 testes de lógica/dados/cache, 64/64 cenários em Chrome, revisão visual e smoke público aprovados. Pages publicou o commit funcional `f76ee38`; evidências em `TESTES.md`.
 - Testes em iPhone físico, leitor de tela real e instalação nativa seguem pendentes.
 
 ## Estado da rodada 3.6.5 — 2026-09-21
