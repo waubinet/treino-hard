@@ -4,7 +4,7 @@
 
 Supino reto oferece máquina/convencional com barra e inclinado oferece máquina/halteres nos dois treinos de peito. Nomes neutros dos cartões, instruções de unidade de carga e vídeos específicos por opção. Séries, aquecimento, ordem e periodização mantidos. A máquina continua padrão.
 
-Esquema 13 preservado; ficha, versão e cache 3.6.10. Catálogo com 49 associações para 42 vídeos, 44 correspondências de execução e 5 guias-base. Gate local aprovado: 156/156 testes de lógica/dados/cache, 67/67 em Chrome e sete capturas revisadas; migração, backup, autosave e offline sem erros de página/console. Publicação ainda pendente; evidências no topo de `TESTES.md`.
+Esquema 13 preservado; ficha, versão e cache 3.6.10. Catálogo com 49 associações para 42 vídeos, 44 correspondências de execução e 5 guias-base. Gate aprovado: 156/156 testes de lógica/dados/cache, 67/67 em Chrome e sete capturas revisadas; migração, backup, autosave e offline sem erros de página/console. Pages publicou o commit funcional `a0ccc7ec6982da5d874a6d144c565cb0ebe8cf80`; smoke público confirmou as alternativas, vídeos e versão. Evidências no topo de `TESTES.md`.
 
 ## Rodada 3.6.9 — curadoria e compatibilidade, 2026-10-23
 

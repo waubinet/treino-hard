@@ -1,6 +1,6 @@
 # Revisão de vídeos — 2026-10-23
 
-## Lote 3.6.10 — supinos opcionais, validação local
+## Lote 3.6.10 — supinos opcionais, publicado e verificado
 
 Pedido explícito do usuário: supino reto com máquina/convencional com barra e supino inclinado com máquina/halteres, nas duas exposições. Nenhuma prescrição de séries, ordem, aquecimento, descanso ou periodização foi alterada.
 

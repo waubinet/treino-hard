@@ -3,7 +3,7 @@
 ## Rodada 3.6.10 — 2026-10-23
 
 - Implementadas opções máquina/barra no supino reto e máquina/halteres no inclinado, em Empurrar A e B, com vídeos brasileiros específicos. Notas distinguem carga total da barra e carga por halter.
-- Gate local aprovado: 156/156 testes de lógica/dados/cache, 67/67 em Chrome e revisão visual/offline, zero erros de página/console. Publicação ainda pendente. Inventário: 49 associações, 42 vídeos únicos, 44 correspondências de execução e 5 guias-base.
+- Gate aprovado: 156/156 testes de lógica/dados/cache, 67/67 em Chrome e revisão visual/offline, zero erros de página/console. Pages confirmou o commit funcional `a0ccc7e`; smoke público passou, incluindo as opções dos supinos. Inventário: 49 associações, 42 vídeos únicos, 44 correspondências de execução e 5 guias-base.
 - Não há migração nova para histórico de teste. O refresh existente atualiza planejados; iniciados/encerrados conservam seu snapshot, podendo exigir novo ciclo de teste para exibir as alternativas.
 - Permanecem os cinco guias-base e limites de QA físico registrados na rodada anterior.
 
