@@ -31,4 +31,6 @@ Teste novo cobre abertura sem gravação, manutenção do disclosure durante red
 
 Gate local: 156/156 de lógica/dados/cache e 69/69 em Chrome; smoke local aprovado com zero erros e doze capturas inspecionadas em `output/playwright/3.7.1-local/`. Incluem ações da sessão, guia expandido, formulário completo, supinos, remada, leg press, medidas, silhueta e mobilidade. Capturas de elementos longos podem incluir a navegação fixa sobreposta; para a composição em viewport, usar também as capturas IAB desta rodada.
 
+Publicação confirmada para `d18c095`. Smoke público e conferência IAB aprovados; app/cache 3.7.1, esquema 13. Capturas públicas `10-public-session.jpg` e `11-public-version.jpg` salvas e inspecionadas. A atualização foi confirmada pelo botão existente, sem limpar dados nem reinstalar o app.
+
 Resultado final e publicação: topo de `TESTES.md`. Nenhuma captura ou teste emulado prova acessibilidade integral ou comportamento em iPhone físico, que segue pendente.

@@ -4,7 +4,7 @@
 
 Refinamento da identidade grafite existente: ações da sessão organizadas, descrição com largura disponível, orientação de faixa/RIR expansível, grupos de Medidas espaçados, títulos de apoio normalizados, metadados de vídeo separados e sinal de seletor no RIR. Nenhuma mudança de prescrição, conteúdo de orientação, vídeo, esquema ou armazenamento.
 
-Gate local aprovado: 156/156 testes de lógica/dados/cache, 69/69 em Chrome e doze capturas finais inspecionadas; smoke local com migração, backup, autosave e offline sem erros de página/console. Publicação em confirmação no topo de `TESTES.md`; critérios e capturas em `UI-REFINO-3.7.1.md`.
+Gate aprovado: 156/156 testes de lógica/dados/cache, 69/69 em Chrome e doze capturas finais inspecionadas; smoke local e público com migração, backup, autosave e offline sem erros de página/console. Pages confirmou `d18c0951c2feeda4071f4d5d7aa4e68564b2b264`; IAB confirmou aparência e atualização do cache para 3.7.1 sem limpeza. Prova no topo de `TESTES.md`; critérios e capturas em `UI-REFINO-3.7.1.md`.
 
 ## Rodada 3.7.0 — aparência grafite, 2026-10-23
 

@@ -2,7 +2,7 @@
 
 ## Rodada 3.7.1 / esquema 13 — 2026-10-23
 
-Gate local aprovado: **156/156** testes de lógica/dados/cache e **69/69** em Chrome, zero falhas, cancelamentos ou ignorados na execução final (**435.232 ms**). Publicação em confirmação.
+Gate local aprovado: **156/156** testes de lógica/dados/cache e **69/69** em Chrome, zero falhas, cancelamentos ou ignorados na execução final (**435.232 ms**). Publicação e smoke público aprovados.
 
 - Sintaxe dos scripts/testes e `git diff --check` aprovados. 156/156 testes de lógica/dados/cache passaram; log `output/playwright/unit-3.7.1.tap.log`.
 - Cenários dirigidos: refino visual, contraste, responsividade/texto ampliado e cartão canônico aprovados (4/4). Após o ajuste final do resumo e do seletor, refino/responsividade passaram (2/2), e o refino foi repetido com medição do texto da faixa de trabalho (1/1).
@@ -11,6 +11,8 @@ Gate local aprovado: **156/156** testes de lógica/dados/cache e **69/69** em Ch
 - Revisão visual atual, com antes/depois e foco/RIR: `output/playwright/ui-polish-3.7.1/`; detalhes em `UI-REFINO-3.7.1.md`. Suíte completa final aprovada em `output/playwright/browser-3.7.1.tap.log`: **69/69**.
 - Primeira suíte completa: 68/69 em 447.886 ms. A única falha foi um carregamento de `styles.css` com `net::ERR_NO_BUFFER_SPACE` no cenário de troca de semana; as asserções de dados do cenário passaram. Sua repetição isolada passou sem alteração no app (1/1, 10.647 ms). Registro preservado em `browser-3.7.1-first.tap.log`; repetição completa exigida, sem silenciar o erro nem alterar configurações do sistema.
 - Repetição completa aprovada, inclusive o cenário anterior, sem mudança no app ou filtros de erro. Smoke local `node tests/visual-review.cjs` passou: app/cache 3.7.1, esquema 13, orientação recolhida/expansível, grade de ações, metadados em blocos, gap de Medidas, tema e hashes das imagens. Migração de quatro sessões fictícias, backup, autosave sem blur, variantes/vídeos, larguras 320/390/1280 e reload offline conferidos; zero erros de página/console. Doze capturas finais inspecionadas em `output/playwright/3.7.1-local/`; log `output/playwright/visual-3.7.1-local.log`.
+- Pages confirmou `built` para o commit funcional **`d18c0951c2feeda4071f4d5d7aa4e68564b2b264`**. Smoke público em `https://waubinet.github.io/treino-hard/?v=d18c095` repetiu os gates de componentes, tema, hashes, app/cache 3.7.1, esquema 13, migração, backup, autosave, variantes/vídeos e offline; zero erros de página/console. Log `output/playwright/visual-3.7.1-public.log`.
+- IAB público: confirmada a atualização explícita por “Atualizar agora”, sem limpeza de dados; Ajustes mostra app/cache 3.7.1 e esquema 13. Novas ações e orientação recolhida inspecionadas em `ui-polish-3.7.1/10-public-session.jpg`; versão/cache em `11-public-version.jpg`. Zero erros de console no fluxo.
 - Esquema 13, ficha 3.6.10, logo/ícones e catálogo de vídeos inalterados. Alterações em `app.js` são de composição/estilo, sem mudar eventos, regras, gravação ou conteúdos de orientação.
 - Limites: contextos descartáveis e dados fictícios em Chrome; não substituem iPhone físico, leitor de tela real ou instalação nativa.
 
