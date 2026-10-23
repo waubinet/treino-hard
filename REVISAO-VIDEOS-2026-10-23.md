@@ -1,5 +1,11 @@
 # Revisão de vídeos — 2026-10-23
 
+## Continuação — candidatos de panturrilha unilateral no leg press
+
+- `qSiie2WYykc`, Gustavo Sá personal trainer, 1:53, https://www.youtube.com/watch?v=qSiie2WYykc . Página e introdução em português conferidas; o aparelho mostrado é inclinado. Ao avançar para conferir a execução, o player exibiu “Algo deu errado. Atualize ou tente de novo depois”. Não aprovado: inspeção da execução não concluída. A falha desta sessão não comprova remoção nem bloqueio de incorporação.
+- `-71eOdpGbwc`, Rubens Munhoz Personal, 0:20, https://www.youtube.com/watch?v=-71eOdpGbwc . Reprodução e quadro em 5 s conferidos: demonstração unilateral em leg press, tronco apoiado e instrução textual em português. Não aprovado para substituir automaticamente a variante `leg_press_45_unilateral`: a geometria do equipamento não foi confirmada como correspondente ao leg press 45° do catálogo; origem brasileira do canal também precisa de confirmação individual. O registro profissional encontrado por nome semelhante não foi usado como prova de identidade.
+- Nenhum vídeo do app foi substituído nesta continuação. Os 11 guias-base permanecem corretamente identificados. Branch de trabalho: `feat/curadoria-lote-3.6.8`; não há versão 3.6.8 implementada/publicada.
+
 ## Extensora unilateral — rodada 3.6.7
 
 - Vídeo: https://www.youtube.com/watch?v=7HcK7fmYJP0 , Cadeira extensora unilateral, Foco30Dias (`@Foco30Dias`), duração no player 31,621 s (exibida como 0:32).
