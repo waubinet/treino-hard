@@ -4,7 +4,7 @@
 
 - Extensora unilateral recebeu demonstração específica, com abertura externa. Leg press unilateral permanece com guia-base.
 - Inventário: 46 associações, 34 vídeos únicos, 35 correspondências exatas e 11 guias-base. A incorporação dos dois novos vídeos unilaterais ainda precisa ser confirmada.
-- Gate e publicação desta rodada: consultar `TESTES.md`.
+- Publicação confirmada pelo Pages para `9c23869`; smoke público de versão, migração, backup, autosave e offline aprovado sem erros. Gate detalhado em `TESTES.md`.
 
 ## Rodada 3.6.6 — 2026-10-23
 

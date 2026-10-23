@@ -6,7 +6,7 @@
 - Suíte completa do navegador: 63/64 passaram em 539.401 ms. A única falha era a expectativa antiga de guia bilateral na extensora unilateral, que passou a ter demonstração específica. Atualizada somente essa expectativa, mantendo a exigência de ressalva no leg press bilateral; repetição dirigida do cenário passou (1/1, 8.274 ms). Nenhuma falha funcional remanescente nos cenários verificados.
 - Demonstração de extensora unilateral do Foco30Dias inspecionada em 5, 15 e 22 segundos; origem e limitações em `REVISAO-VIDEOS-2026-10-23.md`. Abre externamente; incorporação ainda não confirmada.
 - Revisão visual local: quatro capturas inspecionadas, larguras 320/390/1280 sem overflow global; versão 3.6.7, esquema 13, quatro sessões fictícias migradas, backup, autosave sem blur, cache `treino-hard-v3.6.7`, recarga offline e zero erros de página/console.
-- Publicação: aguardando Pages e smoke público.
+- Publicação confirmada: Pages `built` para `9c23869b06e4ed93fe6ee74a49c304b21643ba66`. Smoke público em `https://waubinet.github.io/treino-hard/?v=9c23869` confirmou versão 3.6.7, esquema 13, cache correto, quatro sessões fictícias migradas, backup, autosave sem blur e reload offline, sem erros de página/console.
 
 ## Rodada 3.6.6 / esquema 13 — 2026-10-23
 
